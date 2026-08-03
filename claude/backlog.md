@@ -11,7 +11,7 @@ candidate — ask to add it (dedup runs first)._
 
 | ID | Item | Categories | Status | Priority | Stories | Updated | Notes |
 |---|---|---|---|---|---|---|---|
-| T-001 | Domain Events | DDD, EDA | ⬜ Not Started | High | — | 2026-07-28 | Distinguish domain vs integration events. |
+| T-001 | Domain Events | DDD, EDA | ⬜ Not Started | High | STORY-0001 (optional) | 2026-08-02 | Distinguish domain vs integration events. STORY-0001 touches event *modeling* only (recording, not dispatch). |
 | T-002 | Two-Phase Commit | DIST | ⬜ Not Started | — | — | 2026-07-27 | Learn it *and* why to prefer sagas/TCC. |
 | T-003 | Saga Pattern | EDA, DIST | ⬜ Not Started | — | — | 2026-07-27 | Orchestration vs choreography. |
 | T-004 | Outbox Pattern | EDA, DIST, DATA | ⬜ Not Started | — | — | 2026-07-27 | Pairs with inbox/consumer dedup. |
@@ -27,13 +27,13 @@ candidate — ask to add it (dedup runs first)._
 | T-014 | Architecture Decision Records (ADRs) | STAFF | ❌ Canceled | — | — | 2026-07-28 | Program-seeded; user already has ADR experience. Not a practice target. |
 | T-015 | Design Docs / RFCs w/ Trade-off Analysis | STAFF | ⬜ Not Started | — | — | 2026-07-27 | Staff artifact; defend decisions. |
 | T-016 | System-Design Whiteboard Practice | SYSD, STAFF | ⬜ Not Started | — | — | 2026-07-27 | Timed end-to-end logistics system design. |
-| T-017 | Aggregates & Aggregate Design | DDD | ⬜ Not Started | High | — | 2026-07-28 | Invariants + transactional boundaries; the consistency unit. |
-| T-018 | Value Objects vs Entities | DDD | ⬜ Not Started | High | — | 2026-07-28 | Identity vs value equality; immutability. |
+| T-017 | Aggregates & Aggregate Design | DDD | 🟡 In Progress | High | STORY-0001 | 2026-08-02 | Invariants + transactional boundaries; the consistency unit. |
+| T-018 | Value Objects vs Entities | DDD | 🟡 In Progress | High | STORY-0001 | 2026-08-02 | Identity vs value equality; immutability. |
 | T-019 | Ubiquitous Language | DDD | ⬜ Not Started | — | — | 2026-07-28 | Shared domain vocabulary across code + conversation. |
 | T-020 | Bounded Contexts & Context Mapping | DDD | ⬜ Not Started | — | — | 2026-07-28 | Context boundaries + relationships; the module seams. |
 | T-021 | Anti-Corruption Layer | DDD | ⬜ Not Started | — | — | 2026-07-28 | Isolate messy carrier/3PL models from your domain. |
 | T-022 | Repository & Unit of Work | DDD, DATA | ⬜ Not Started | High | — | 2026-07-28 | Persistence abstraction + atomic transaction boundary. |
-| T-023 | Domain Services vs Application Services | DDD, OOAD | ⬜ Not Started | — | — | 2026-07-28 | Where logic lives; orchestration vs domain rules. |
+| T-023 | Domain Services vs Application Services | DDD, OOAD | 🟡 In Progress | — | STORY-0001 | 2026-08-02 | Where logic lives; orchestration vs domain rules. |
 | T-024 | Specification pattern | DDD, OOAD | ⬜ Not Started | High | — | 2026-07-28 | Composable, reusable business rules/queries. |
 | T-025 | Factories for complex aggregate creation | DDD, OOAD | ⬜ Not Started | — | — | 2026-07-28 | Enforce invariants at construction time. |
 | T-026 | Consistency Boundary Identification | DIST, SYSD, DATA | ⬜ Not Started | — | — | 2026-08-02 | Place strong- vs eventual-consistency boundaries *explicitly*; reason about races there (pick decrement vs cycle count); relocate an invariant so the race stops existing rather than defending it at write time. |

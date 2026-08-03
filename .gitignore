@@ -1,0 +1,10 @@
+# .NET build output
+bin/
+obj/
+*.user
+
+# Claude Code local/machine settings — NOT the learning program (claude/ is versioned)
+.claude/settings.local.json
+
+# macOS
+.DS_Store
