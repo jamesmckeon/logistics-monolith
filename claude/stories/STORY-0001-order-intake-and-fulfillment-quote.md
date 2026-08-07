@@ -1,107 +1,112 @@
 # STORY-0001 — Order Intake & Fulfillment Quote
 
+> **Source of truth:** GitHub issue [#1](https://github.com/jamesmckeon/logistics-monolith/issues/1).
+> This file is Claude's working copy — the spec sections below mirror the issue verbatim;
+> the sections under "— Claude scaffolding —" are mentoring notes that don't belong in the issue.
+
 - **Status:** Ready
 - **Difficulty:** Core
 - **Est. time box:** ~3–4h
 - **Targets:** T-017 (Aggregates & Aggregate Design), T-018 (Value Objects vs Entities), T-023 (Domain Services vs Application Services); optional T-001 (Domain Events)
 - **Bounded context(s):** Ordering
 - **Created:** 2026-08-02
-
-## Business context
-Throughline ingests orders from thousands of merchants across their sales channels —
-millions of orders/day at seasonal peaks, arriving via a public intake API that clients
-**will** retry. Before any warehouse work is committed, Throughline acknowledges each order
-with an **estimated fulfillment quote** (per-item pick fee + weight-based handling + a
-destination-zone surcharge) so the merchant sees, at intake time, that the order is valid
-and roughly what it will cost. This story builds the **Ordering** domain model behind that
-intake acknowledgment.
+- **Updated:** 2026-08-06
 
 ## User story
-As a **merchant integration**, I want to **submit an order and get back an acknowledged order
-with an estimated fulfillment quote**, so that **I know the order is valid and what it will
-cost before fulfillment begins**.
 
-## Scope
-**In scope:** The Ordering domain model — the `Order` aggregate + its `OrderLine` entity, the
-supporting value objects, a **domain service** that computes the estimated quote, and an
-**application service** that orchestrates intake. Unit tests are required. A Minimal API
-endpoint to drive it is optional.
+As a **merchant integration**, I want to **submit an order and receive an acknowledgment that includes an estimated fulfillment quote**, so that **I know the order was accepted as valid and what it will cost before any fulfillment work begins**.
 
-**Out of scope:** persistence infrastructure beyond a trivial in-memory or simple EF repo;
-domain-event **dispatch**/outbox; real billing; inventory reservation; carrier rate-shopping;
-any cross-module wiring. Keep it inside the Ordering module.
+## Background
+
+Throughline ingests orders from thousands of merchants — millions per day at seasonal peaks — through a public intake API that clients will retry. Before committing any warehouse work, we acknowledge each order with an **estimated fulfillment quote**: per-item pick fee + weight-based handling + a destination-zone surcharge. This story covers the Ordering domain behind that acknowledgment.
+
+**Units:** order quantities are in individual sellable units (**eaches**) — a quantity of 1 means one unit of that SKU, not a carton or pallet.
 
 ## Acceptance criteria
-1. Submitting an order with **≥1 valid line**, a **destination address**, and a **service
-   level** returns a submitted order with a stable `OrderId` and a computed **estimated
-   quote** in a single currency.
-2. An order **cannot be submitted with zero lines** — rejected with a domain error.
-3. A line **quantity must be ≥ 1**; invalid quantities are rejected at construction, not later.
-4. Line management (adding the **same SKU twice**, etc.) is enforced **through the aggregate
-   root** — callers cannot reach in and mutate the line collection directly. You decide whether
-   a duplicate SKU **consolidates** (sum quantities) or is **rejected**, and justify it.
-5. **Money arithmetic never mixes currencies** — adding two `Money` values of different
-   currencies is a domain error. Money is exact (no floating-point money).
-6. **Value equality holds** where it should: two `Address` values with identical fields are
-   equal; the estimated quote is a **pure function** of (lines, weights, destination zone,
-   rate table) — same inputs always yield the same quote.
-7. Once submitted, the order's **lines and destination are immutable**; attempts to modify
-   throw a domain error. It must be **impossible to obtain an `Order` in an invalid state**.
-8. The estimated quote = `Σ(line pick fee + weight handling) + destination-zone surcharge`,
-   where the **zone is derived from the destination address** via a rate/zone table **supplied
-   to the calculator** (not embedded in the order).
-9. *(Optional / stretch — T-001)* On successful submission, the `Order` **records** an
-   `OrderSubmitted` domain event (OrderId, MerchantId, line count, quote) on the aggregate.
-   Recording only — no dispatch machinery.
 
-## Constraints & non-functional requirements
-_These are what make the target patterns the natural/forced solution — don't remove them._
-- The **zone→surcharge** and **per-SKU pick fees** come from a **rate table that is not part
-  of the Order** and changes over time. The `Order` must not embed, cache, or query it.
-  → *forces the pricing logic into a domain service, not an aggregate method.*
-- Intake is **write-heavy and retried**; constructing/submitting an `Order` must be
-  **deterministic and side-effect-free** — no hidden clock reads or rate lookups inside the
-  aggregate. → *forces orchestration (load rates, call calculator, persist, return ack) into an
-  application service, distinct from the pure domain.*
-- **All invariants hold inside the aggregate boundary** — encapsulated collections, controlled
-  construction. → *forces factory/constructor discipline; no invalid instance is reachable.*
-- **No primitive obsession** on domain-meaningful values (money, SKU, quantity, weight,
-  address). → *forces value objects.*
+- [ ] Given a submission with **at least one line**, a **destination address**, and **every line valid**, when it is submitted, then the response is an accepted order with a **stable order id** and an **estimated quote** in the **merchant's currency**.
+- [ ] Given a submission with **zero lines**, when submitted, then it is **rejected** as invalid.
+- [ ] Given a submission containing a line with **quantity < 1**, when it is submitted, then the **entire submission is rejected** and **no order is created** (every line's quantity must be ≥ 1) — invalid lines are not dropped or corrected.
+- [ ] Given the **same SKU submitted more than once**, when the order is built, then the outcome is well-defined and consistent (either consolidated into one line, or rejected — see Open questions).
+- [ ] Given a computed quote, then it is denominated in the **currency the merchant uses** and every amount is **exact** — pick fees, weight handling, and the destination surcharge total to the quote with **no rounding drift or penny errors**.
+- [ ] Given the **same order quoted more than once against the same rate table**, then the price is **identical every time**.
+- [ ] Given an order that has been **submitted**, when a caller attempts to change its lines or destination, then the change is **rejected** (contents are locked once submitted).
+- [ ] The estimated quote equals `Σ(line pick fee + weight handling) + destination-zone surcharge`, where the destination **zone is derived from the address** using the current rate/zone table.
+
+## Constraints / non-functional
+
+- Per-SKU pick fees and zone surcharges live in a **rate/zone table that changes over time and is external to the order**; the order must not embed, cache, or look it up itself. A quote reflects the rates in force when it was made.
+- Intake is **write-heavy and clients retry**. Submitting the same order must behave **predictably** — building/submitting an order must not depend on the clock or on data that can change underneath it.
+- The system must **never expose, store, or hand back an order that breaks these rules** — not even briefly.
+
+## Out of scope
+
+- Persistence beyond a trivial store; inventory reservation; carrier rate-shopping; real billing/invoicing; publishing events to other modules.
+- **Retry / duplicate-submission (idempotency) handling** — recognizing that the *same order* arrived twice is a later story. (This is distinct from the duplicate-*SKU*-within-one-order question below, which is in scope.)
+
+## Open questions
+
+- **Duplicate SKU** within a single submission — consolidate quantities, or reject?
+- **Order lifecycle** — a single submit step, or an explicit `draft → submitted` transition?
+
+---
+
+# — Claude scaffolding (not in the issue) —
 
 ## Why this exercises the target skills
-- **Aggregates (T-017):** `Order` is the consistency boundary. Every invariant — non-empty,
-  post-submit immutability, line management — is enforced through the root, and the internal
-  line collection never leaks. *Traps:* exposing `List<OrderLine>` directly; letting callers
-  build an invalid order then "validate later"; putting the rate lookup on the aggregate so it
-  reaches outside its own boundary.
+
+- **Aggregates (T-017):** the `Order` is the consistency boundary. The zero-lines,
+  quantity, duplicate-SKU, and post-submit-immutability rules — plus "never expose, store, or
+  hand back an order that breaks these rules, not even briefly" — force you to enforce every
+  invariant **through the aggregate root** and never leak the internal line collection.
+  *Traps:* exposing `List<OrderLine>` directly; letting callers build an invalid order then
+  "validate later"; putting the rate lookup on the aggregate so it reaches outside its own
+  boundary.
 - **Value Objects vs Entities (T-018):** `Address`, `Money`, `Sku`, `Quantity`, `Weight` are
-  immutable value objects with value equality and construction-time validation; `OrderLine` is
-  an **entity** with identity *inside* the aggregate. *Traps:* making `OrderLine` a value
-  object (or `Money` an entity); value-equality bugs from mutable/collection fields; reaching
-  for `decimal`/`string` where a value object belongs.
-- **Domain Services (T-023):** the quote calculation needs the rate/zone table — knowledge that
-  belongs to **no single aggregate** — so it lives in a **stateless domain service** operating
-  on domain types, while the **application service** orchestrates. *Traps:* the anemic-domain
-  failure (pricing math ends up in the application service); or the opposite, the aggregate
-  reaching out to fetch rates. Be able to articulate *why each piece of logic lives where it
-  does* — that articulation is the actual skill T-023 targets.
-- **Domain Events (T-001, optional):** practice *when* to raise and *what* to include, by having
-  the aggregate record `OrderSubmitted` at the moment of the invariant-protected transition —
-  without the distraction of dispatch/outbox (that's a later story).
+  immutable **value objects** with value equality and construction-time validation — that's
+  what the exact-money-in-a-single-currency criterion and "amounts are real concepts, not bare
+  numbers" are really describing (e.g. a `Weight` can't be accidentally added to a pick fee; a
+  destination is identified by its `Address`, so two orders to the same address go to the same
+  place). `OrderLine` is an **entity** with identity *inside* the aggregate. The **quote itself
+  is a value object** — which is why reproducibility is, underneath, a *pure function* of
+  (lines, weights, zone, rate table). *Traps:* making `OrderLine` a value object (or `Money` an
+  entity); value-equality bugs from mutable/collection fields; reaching for `decimal`/`string`
+  where a value object belongs; representing money as lossy floating-point.
+- **Domain Services vs Application Services (T-023):** the quote calculation needs the
+  rate/zone table — knowledge belonging to **no single aggregate** — and the "rate table is
+  external to the order" constraint keeps it off the aggregate. The **pricing rules are domain
+  logic** and must not live in the orchestration layer (the *anemic-domain trap*: pricing math
+  ends up in the handler); the "predictable, side-effect-free submission" constraint pushes
+  orchestration (load rates → price → return ack) into an **application service**, distinct from
+  the pure domain logic. Whether the pricing lives in a dedicated **domain service** or on
+  **rich domain types** is your call — be able to articulate *why each piece of logic lives
+  where it does.* That articulation is the actual skill T-023 targets.
+- **Domain Events (T-001, optional stretch — not a committed AC):** consider recording, on the
+  aggregate at the invariant-protected moment of submission, that the order was submitted
+  (order id, merchant, line count, quote) so downstream systems could consume it later. Practice
+  *when* to raise and *what* to include, without the distraction of dispatch/outbox (a later
+  story). If you want this as a real requirement, add it to the issue first.
 
 ## Hints (optional — ignore if you want the full challenge)
+
 - Consider a private constructor + a static factory (e.g., `Order.Submit(merchantId, lines,
-  destination, serviceLevel, quoteCalculator)`), or a `Draft → Submitted` two-step if you prefer
-  an explicit lifecycle. Either is defensible — **decide deliberately and be ready to justify it.**
-- Model the rate table behind a small **domain abstraction** (e.g., `IRateCard` /
-  `IZoneResolver`) that the domain service consumes; the application service supplies the
-  concrete data. Keep the domain service free of I/O.
+  destination, quoteCalculator)`), or a `Draft → Submitted` two-step if you prefer an explicit
+  lifecycle. Either is defensible — **decide deliberately and be ready to justify it.** Watch
+  the window in the immutability rule: building an empty order then adding lines can
+  *transiently* violate the non-empty rule; constructing with the lines in hand avoids it.
+- Model the rate table behind a small abstraction (e.g., `IRateCard` / `IZoneResolver`) that
+  the pricing logic consumes; the application service supplies the concrete data. Keep the
+  pricing logic free of I/O.
+- The quote is naturally a **value object** (a breakdown + total in one currency), most likely
+  **owned by the `Order`** — not a second entity.
 - C# `record` types help with value equality — but watch collection/mutable fields, which break
   structural equality quietly.
 - Put it in the Ordering module of the `Throughline` solution (`Throughline.Modules.Ordering.*`).
   Domain types in `.Domain`, the application service in `.Application`.
 
 ## Definition of done
-- Acceptance criteria met; unit tests cover **each invariant** and the **quote calculation**,
-  including the **currency-mismatch** and **duplicate-SKU** cases; deterministic (no wall-clock
-  dependence). Note which `src/` project(s) you placed things in. Then ask for a `review` pass.
+
+- Acceptance criteria met; unit tests cover **each business rule** and the **quote
+  calculation**, including the **exact-money (no rounding drift)** and **duplicate-SKU** cases;
+  results are **reproducible** (no dependence on wall-clock time). Note which `src/` project(s)
+  you placed things in. Then ask for a `review` pass.
