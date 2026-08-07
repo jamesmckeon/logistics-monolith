@@ -1,8 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Domain", "src\shared\Throughline.Common.Domain\Throughline.Common.Domain.csproj", "{012735BD-4461-4D69-A2C7-80D32F94814F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain", "src\modules\ordering\Throughline.Modules.Ordering.Domain\Throughline.Modules.Ordering.Domain.csproj", "{29B56357-B8FF-4D42-B159-F33832BAD800}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application", "Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{012735BD-4461-4D69-A2C7-80D32F94814F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{012735BD-4461-4D69-A2C7-80D32F94814F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{012735BD-4461-4D69-A2C7-80D32F94814F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{012735BD-4461-4D69-A2C7-80D32F94814F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29B56357-B8FF-4D42-B159-F33832BAD800}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29B56357-B8FF-4D42-B159-F33832BAD800}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29B56357-B8FF-4D42-B159-F33832BAD800}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29B56357-B8FF-4D42-B159-F33832BAD800}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
