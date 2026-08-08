@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application", "Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "Throughline.Common\Throughline.Common.csproj", "{B58B61DA-7541-4FA5-B02F-0CBC1735400B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B58B61DA-7541-4FA5-B02F-0CBC1735400B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B58B61DA-7541-4FA5-B02F-0CBC1735400B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B58B61DA-7541-4FA5-B02F-0CBC1735400B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B58B61DA-7541-4FA5-B02F-0CBC1735400B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

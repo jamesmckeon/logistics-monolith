@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh issue *)",
+      "Bash(gh project *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(i.get\\('content',{}\\).get\\('number'\\),'—',i.get\\('content',{}\\).get\\('title'\\)\\) for i in d.get\\('items',[]\\)]\")"
     ]
   }
 }
