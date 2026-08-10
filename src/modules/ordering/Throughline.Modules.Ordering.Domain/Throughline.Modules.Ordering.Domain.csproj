@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Folder Include="Orders\Models\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\..\Throughline.Common\Throughline.Common.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Domain\Throughline.Common.Domain.csproj"/>
+    </ItemGroup>
+
+</Project>
