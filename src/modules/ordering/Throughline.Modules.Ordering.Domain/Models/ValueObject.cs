@@ -1,4 +1,4 @@
-﻿namespace Throughline.SharedKernel;
+﻿namespace Throughline.Modules.Ordering.Domain.Models;
 
 public abstract class ValueObject : IEquatable<ValueObject>
 {

@@ -1,13 +1,14 @@
-namespace Throughline.SharedKernel;
+namespace Throughline.Modules.Ordering.Domain.Models;
 
 public sealed class Money : ValueObject
 {
-    public decimal Value { get; }
-
     public Money(decimal value)
     {
         Value = Math.Round(value, 2, MidpointRounding.ToEven);
     }
+
+    public decimal Value { get; }
+
     protected override IEnumerable<object> GetAtomicValues()
     {
         yield return Value;

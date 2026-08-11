@@ -17,4 +17,9 @@ public class Error
     {
         return new Error(ErrorType.Validation, description);
     }
+
+    public static Result Unexpected(string description)
+    {
+        return new Error(ErrorType.Unexpected, description);
+    }
 }

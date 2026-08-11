@@ -31,4 +31,9 @@ public record Result
     {
         return new Result(errors);
     }
+
+    public static Result Failed(Error error)
+    {
+        return new Result([error]);
+    }
 }
