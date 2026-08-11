@@ -1,4 +1,4 @@
-﻿namespace Throughline.Common.Domain;
+﻿namespace Throughline.SharedKernel;
 
 public abstract class ValueObject : IEquatable<ValueObject>
 {

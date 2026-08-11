@@ -2,29 +2,33 @@ namespace Throughline.Common.Results;
 
 public record Result
 {
-    protected Result(Error error)
+    protected Result(IEnumerable<Error> errors)
     {
-        ArgumentNullException.ThrowIfNull(error);
+        ArgumentNullException.ThrowIfNull(errors);
 
-        Error = error;
+        if (!errors.Any())
+            throw new ArgumentException("errors must contain at least one error", nameof(errors));
+
+        Errors = errors;
         Success = false;
     }
 
     protected Result()
     {
         Success = true;
+        Errors = Enumerable.Empty<Error>();
     }
 
     public bool Success { get; }
-    public Error? Error { get; }
+    public IEnumerable<Error> Errors { get; }
 
     public static Result Succeeded()
     {
         return new Result();
     }
 
-    public static Result Failed(Error error)
+    public static Result Failed(IEnumerable<Error> errors)
     {
-        return new Result(error);
+        return new Result(errors);
     }
 }

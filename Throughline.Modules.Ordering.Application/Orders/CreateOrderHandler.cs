@@ -4,7 +4,7 @@ namespace Throughline.Modules.Ordering.Application.Orders;
 
 public sealed class CreateOrderHandler
 {
-    private Result<CreateOrderResult> CreateOrderAsync(CreateOrderRequest request)
+    private Result<CreateOrderResult> CreateOrderAsync(CreateOrderCommand command)
     {
         throw new NotImplementedException();
     }

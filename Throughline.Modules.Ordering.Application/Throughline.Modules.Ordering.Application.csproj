@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\src\shared\Throughline.Common.Domain\Throughline.Common.Domain.csproj"/>
         <ProjectReference Include="..\Throughline.Common\Throughline.Common.csproj"/>
     </ItemGroup>
 

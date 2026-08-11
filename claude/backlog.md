@@ -30,7 +30,7 @@ candidate — ask to add it (dedup runs first)._
 | T-017 | Aggregates & Aggregate Design | DDD | 🟡 In Progress | High | STORY-0001 | 2026-08-02 | Invariants + transactional boundaries; the consistency unit. |
 | T-018 | Value Objects vs Entities | DDD | 🟡 In Progress | High | STORY-0001 | 2026-08-02 | Identity vs value equality; immutability. |
 | T-019 | Ubiquitous Language | DDD | ⬜ Not Started | — | — | 2026-07-28 | Shared domain vocabulary across code + conversation. |
-| T-020 | Bounded Contexts & Context Mapping | DDD | ⬜ Not Started | — | — | 2026-07-28 | Context boundaries + relationships; the module seams. |
+| T-020 | Bounded Contexts & Context Mapping | DDD | 🟡 In Progress | High | STORY-0001 | 2026-08-11 | Context boundaries + relationships; the module seams. SKU master ↔ Ordering = Customer/Supplier (not ACL); see ADR-0003. |
 | T-021 | Anti-Corruption Layer | DDD | ⬜ Not Started | — | — | 2026-07-28 | Isolate messy carrier/3PL models from your domain. |
 | T-022 | Repository & Unit of Work | DDD, DATA | ⬜ Not Started | High | — | 2026-07-28 | Persistence abstraction + atomic transaction boundary. |
 | T-023 | Domain Services vs Application Services | DDD, OOAD | 🟡 In Progress | — | STORY-0001 | 2026-08-02 | Where logic lives; orchestration vs domain rules. |

@@ -12,7 +12,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\..\..\Throughline.Common\Throughline.Common.csproj"/>
-        <ProjectReference Include="..\..\..\shared\Throughline.Common.Domain\Throughline.Common.Domain.csproj"/>
+        <ProjectReference Include="..\..\..\..\Throughline.SharedKernel\Throughline.SharedKernel.csproj"/>
     </ItemGroup>
 
 </Project>

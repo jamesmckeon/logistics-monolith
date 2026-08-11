@@ -2,12 +2,12 @@ namespace Throughline.Common.Results;
 
 public sealed record Result<T> : Result
 {
-    private Result(T value) : base()
+    private Result(T value)
     {
         Value = value;
     }
 
-    private Result(Error error) : base(error)
+    private Result(Error[] errors) : base(errors)
     {
     }
 
@@ -18,8 +18,8 @@ public sealed record Result<T> : Result
         return new Result<T>(value);
     }
 
-    public static implicit operator Result<T>(Error error)
+    public static implicit operator Result<T>(Error[] errors)
     {
-        return new Result<T>(error);
+        return new Result<T>(errors);
     }
 }

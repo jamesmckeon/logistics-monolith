@@ -1,4 +1,4 @@
-using Throughline.Modules.Ordering.Domain.Merchants;
+using Throughline.SharedKernel.Merchants;
 
 namespace Throughline.Modules.Ordering.Domain.Orders;
 
