@@ -4,20 +4,20 @@ namespace Throughline.Modules.Ordering.Domain.Skus;
 
 public sealed class MerchantSkuCode : ValueObject
 {
-    public MerchantSkuCode(int merchantId, string skuCode)
+    public MerchantSkuCode(int merchantId, CaseInsensitiveString skuCode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(skuCode);
+        ArgumentNullException.ThrowIfNull(skuCode);
 
         MerchantId = merchantId;
-        SkuCode = skuCode.Trim();
+        SkuCode = skuCode;
     }
 
     public int MerchantId { get; }
-    public string SkuCode { get; }
+    public CaseInsensitiveString SkuCode { get; }
 
     protected override IEnumerable<object> GetAtomicValues()
     {
         yield return MerchantId;
-        yield return SkuCode.ToUpperInvariant();
+        yield return SkuCode;
     }
 }

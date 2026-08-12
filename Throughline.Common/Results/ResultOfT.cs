@@ -22,4 +22,14 @@ public sealed record Result<T> : Result
     {
         return new Result<T>(errors);
     }
+
+    public static new Result<T> Failed(Error error)
+    {
+        return new Error[] { error };
+    }
+
+    public static new Result<T> Failed(IEnumerable<Error> errors)
+    {
+        return errors.ToArray();
+    }
 }

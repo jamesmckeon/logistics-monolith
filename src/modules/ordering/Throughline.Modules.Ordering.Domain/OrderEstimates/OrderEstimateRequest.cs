@@ -1,6 +1,6 @@
+using Throughline.Modules.Ordering.Domain.Common.Exceptions;
 using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.Pricing;
-using Throughline.Modules.Ordering.Domain.Skus;
 
 namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 
@@ -9,29 +9,31 @@ public sealed class OrderEstimateRequest
     public OrderEstimateRequest(
         PostalCode destinationCode,
         Rate handlingRate,
-        IEnumerable<(MerchantSkuCode MerchantSku, int Quantity)> items,
-        IEnumerable<ZoneSurcharge> zoneCharges)
+        IEnumerable<OrderEstimateRequestItem> items,
+        IEnumerable<ZoneSurcharge> zoneCharges,
+        IEnumerable<(CaseInsensitiveString Sku, Rate PickFee)> pickFees)
     {
-        ArgumentNullException.ThrowIfNull(items);
+        var itemsArr = items.ToArray();
+        EmptyCollectionException.ThrowIfNullOrEmpty(itemsArr, nameof(items));
 
-        if (!items.Any())
-            throw new ArgumentException("items must contain at least one member");
+        var chargesArray = zoneCharges.ToArray();
+        EmptyCollectionException.ThrowIfNullOrEmpty(chargesArray, nameof(zoneCharges));
 
-        ArgumentNullException.ThrowIfNull(zoneCharges);
-
-        if (!zoneCharges.Any())
-            throw new ArgumentException("zoneCharges must contain at least one member");
+        var feesArr = pickFees.ToArray();
+        EmptyCollectionException.ThrowIfNullOrEmpty(feesArr, nameof(pickFees));
 
         ArgumentNullException.ThrowIfNull(destinationCode);
         ArgumentNullException.ThrowIfNull(handlingRate);
 
-        Items = items;
+        Items = itemsArr;
         DestinationCode = destinationCode;
         HandlingRate = handlingRate;
-        ZoneCharges = zoneCharges;
+        ZoneCharges = chargesArray;
+        PickFees = feesArr;
     }
 
-    public IEnumerable<(MerchantSkuCode MerchantSku, int Quantity)> Items { get; }
+    public IEnumerable<OrderEstimateRequestItem> Items { get; }
+    public IEnumerable<(CaseInsensitiveString Sku, Rate PickFee)> PickFees { get; }
     public PostalCode DestinationCode { get; }
     public Rate HandlingRate { get; }
     public IEnumerable<ZoneSurcharge> ZoneCharges { get; }
