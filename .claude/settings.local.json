@@ -9,7 +9,8 @@
       "WebFetch(domain:blog.ploeh.dk)",
       "WebSearch",
       "WebFetch(domain:www.hellointerview.com)",
-      "WebFetch(domain:martinfowler.com)"
+      "WebFetch(domain:martinfowler.com)",
+      "WebFetch(domain:www.fedex.com)"
     ]
   }
 }
