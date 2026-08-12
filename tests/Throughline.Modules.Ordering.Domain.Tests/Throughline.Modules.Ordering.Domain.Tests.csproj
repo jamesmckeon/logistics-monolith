@@ -4,7 +4,6 @@
         <TargetFramework>net10.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
@@ -23,6 +22,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\modules\ordering\Throughline.Modules.Ordering.Domain\Throughline.Modules.Ordering.Domain.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="OrderEstimates\"/>
     </ItemGroup>
 
 </Project>
