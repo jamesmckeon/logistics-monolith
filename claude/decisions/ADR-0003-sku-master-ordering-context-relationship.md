@@ -1,6 +1,10 @@
 # ADR-0003 — SKU master ↔ Ordering: context relationship and attribute access
 
-- **Status:** Proposed — 2026-08-11 _(awaiting confirmation of the recommended option; move to Accepted on the engineer's nod)_
+- **Status:** Accepted — 2026-08-11.
+- **Amendment (2026-08-11):** Adopted **Option A (Grzybek-strict): no shared domain kernel.**
+  This supersedes the original wording that put `SkuCode` "in the shared kernel," which
+  contradicted this ADR's own reliance on Grzybek's rule that a module may depend only on
+  another module's integration-events assembly. See Decision §5 and the revised §1.
 - **Deciders:** Jamesey (engineer), Claude (mentor)
 - **Related items:** T-020 (Bounded Contexts & Context Mapping) — primary rep; supports STORY-0001 (#1). Touches deferred mechanism items T-004/T-006/T-008 (Phase 2) and T-007 (Phase 3).
 - **Builds on:** ADR-0001 (modular monolith; integration-event bus; module-owned tables), ADR-0002 (per-merchant, USD-only pricing).
@@ -33,10 +37,10 @@ Two things remain to decide at this seam:
 **1. Relationship = Customer/Supplier (not Anti-Corruption Layer).**
 Ordering is the customer (downstream); the SKU master is the supplier (upstream). We own and
 maintain both, so Vernon's criterion for an ACL — defend against an upstream model you do
-*not* control or cannot influence — does not hold. `SkuCode` is the shared identifier: a
-minimal Published-Language element that already lives in the shared kernel. Ordering
-translates the supplier's attributes into its own local model at the boundary — a *light*
-translation, not defensive isolation.
+*not* control or cannot influence — does not hold. `SkuCode` is the correlation identifier:
+Ordering declares **its own** `SkuCode` (see §5); the code **value** is what travels across
+the seam inside integration events. Ordering translates the supplier's attributes into its
+own local model at the boundary — a *light* translation, not defensive isolation.
 
 **2. Attribute access = async local read model (not a synchronous query contract).**
 The SKU master publishes SKU-attribute integration events; Ordering maintains its **own local
@@ -58,6 +62,19 @@ the local read model. **Do not** build the integration-event pipeline (Phase 2: 
 T-008) or the persisted read model (Phase 3: T-007) — both are explicitly out of scope per
 issue #1 and the roadmap. Shape the stub as "resolve already-owned attributes," faithful to
 the future local copy, so it does not lie about the seam.
+
+**5. Shared-code structure = no shared domain kernel (Option A, Grzybek-strict).**
+There is **no `SharedKernel` project of business types.** Grounding: Grzybek (✅ confirmed,
+verified against the repo) — a module may depend only on *another module's integration-events
+assembly*, and modules **re-declare their own identifiers** (`MemberId`, `PaymentId` in the
+reference; here Ordering owns its own `SkuCode` and `MerchantId`, and the SKU/merchant masters
+own theirs). Cross-context correlation is by the identifier **value** carried in integration
+events, not by a co-owned type. The only shared assembly is **`BuildingBlocks`**, and it holds
+**infrastructure base types only** (`Entity`, `AggregateRoot`, `ValueObject`, `IDomainEvent`,
+`TypedIdValueBase`, business-rule + event-bus plumbing) — never a logistics concept.
+Consequence: `SharedKernel.Skus` / `SharedKernel.Merchants` should not exist; the git move
+that pulled `Sku`/`SkuCode` into `Ordering.Domain` is the correct direction. `MerchantPurchaseOrder`
+is an Ordering concept and lives in Ordering, not in any shared assembly.
 
 ## Consequences
 
@@ -90,8 +107,12 @@ the future local copy, so it does not lie about the seam.
 - **Anti-Corruption Layer.** **Rejected** on Vernon's own criteria — an ACL defends against an
   upstream you do not control; we own the SKU master. Would add translation ceremony without
   the isolation need. (T-021 stays reserved for a genuine external/3PL model — e.g. carrier APIs.)
-- **Conformist, or a Shared Kernel of the full attribute set.** **Rejected:** would couple
-  Ordering's model and release cadence to the SKU master's. Keep the shared kernel to `SkuCode`.
+- **Shared Kernel** (a co-owned assembly of shared types — even one as small as `SkuCode`).
+  A legitimate Evans/Vernon context-mapping pattern, but the highest-commitment one, and it
+  **conflicts with Grzybek's confirmed rule** that a module depends only on another module's
+  integration-events assembly. **Rejected** per the §5 amendment (Option A). A **Conformist**
+  relationship or a shared kernel of the *full attribute set* is doubly rejected — it would
+  couple Ordering's model and release cadence to the SKU master's.
 - **Direct synchronous in-process method call** into the SKU master's domain. **Already
   excluded** by ADR-0001 (no cross-module references except via contracts / integration events).
 

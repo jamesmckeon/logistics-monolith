@@ -24,6 +24,7 @@ so `add` requests can be matched against existing concepts.
 | **DATA** | Data & Storage | Modeling, concurrency, sharding, read models, caching for high write/read volume. |
 | **API** | API & Contract Design | REST/gRPC design, versioning, idempotency, pagination, contracts. |
 | **OBS** | Observability & Operability | Tracing, metrics, logging, SLIs/SLOs, operability. |
+| **SEC** | Security & Identity | Authentication, authorization/RBAC, tenant isolation, secrets, and trust boundaries between shippers/carriers/3PLs. |
 | **STAFF** | Staff/Principal Craft | Design docs/RFCs/ADRs, trade-off analysis, system-design communication, mentoring. |
 
 An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + DATA).
@@ -124,6 +125,13 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Health checks & readiness/liveness
 - Alerting on SLOs
 
+### SEC — Security & Identity
+- Authentication (API & service-to-service): OAuth2 / OIDC, JWT validation, mTLS, client-credentials `[backlogged: T-031]`
+- Authorization models & RBAC (roles/permissions → ABAC / ReBAC / policy-based) `[backlogged: T-032]`
+- Multi-tenant isolation & resource-scoped authorization (row-level, IDOR/BOLA prevention) `[backlogged: T-033]`
+- Secrets management & key rotation
+- Rate limiting / abuse protection at the auth boundary (see also SYSD rate limiting)
+
 ### STAFF — Staff/Principal Craft
 - Architecture Decision Records (ADRs) `[backlogged: T-014]`
 - Design docs / RFCs with trade-off analysis `[backlogged: T-015]`
@@ -153,3 +161,6 @@ confirms that a new phrasing means an existing concept.
 | Covering index, index seek vs scan, key-order design | Index Design for Specific Queries (T-028) |
 | Schema as scale story, narrating the schema | Narrating Schema as Scale Reasoning (T-029) |
 | SSE vs WebSockets, server-sent events, live push, streaming to clients, real-time fan-out | Real-Time Push / Streaming to Clients at Scale (T-030) |
+| AuthN, login, OAuth, OIDC, JWT, bearer token, mTLS, service-to-service auth | Authentication (API & service-to-service) (T-031) |
+| AuthZ, RBAC, roles/permissions, ABAC, ReBAC, policy-based auth, claims/scopes | Authorization models & RBAC (T-032) |
+| Tenant isolation, row-level security, IDOR, BOLA, resource-scoped auth | Multi-tenant isolation & resource-scoped authorization (T-033) |

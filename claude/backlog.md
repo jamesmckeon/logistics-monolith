@@ -41,11 +41,14 @@ candidate — ask to add it (dedup runs first)._
 | T-028 | Index Design for Specific Queries | DATA | ⬜ Not Started | — | — | 2026-08-02 | Key order + covering columns for the queries that actually run; seek vs scan; be able to state the resulting plan, not assume an index on the column is fast. |
 | T-029 | Narrating Schema as Scale Reasoning | STAFF, DATA, SYSD | ⬜ Not Started | — | — | 2026-08-02 | Present a schema via access patterns + consistency boundaries, not a domain model rendered into tables. Declining to discuss the schema forfeits the vehicle for the scale conversation. |
 | T-030 | Real-Time Push / Streaming to Clients at Scale | API, SYSD, RESIL | ⬜ Not Started | — | — | 2026-08-02 | Fan-out live state to many clients (tracking maps, yard/wave boards). SSE vs WebSockets vs gRPC-streaming as the concrete pick, but the real skill is connection state (sticky vs pub/sub backplane), backpressure on slow consumers (drop/coalesce/conflate), and resume-on-reconnect (cursor replay vs snapshot+delta). Links T-007, T-008, backpressure. |
+| T-031 | Authentication (API & Service-to-Service) | SEC, API | ⬜ Not Started | High | — | 2026-08-12 | Who is calling. OAuth2 / OIDC flows, JWT validation done right (issuer/audience/expiry/signature, key rotation via JWKS), bearer tokens vs cookies. Service-to-service: mTLS and client-credentials for carrier/3PL/warehouse integrations. ASP.NET Core `JwtBearer` + authentication handlers. Foundation for T-032/T-033. |
+| T-032 | Authorization Models & RBAC | SEC, API, OOAD | ⬜ Not Started | High | — | 2026-08-12 | What they may do. RBAC (roles→permissions) as the entry point, then when it breaks and you reach for ABAC / ReBAC / policy-based. ASP.NET Core authorization policies, requirements + handlers, resource-based authorization. Key judgment: where authz lives (edge/gateway vs application vs domain invariant) and avoiding role explosion. |
+| T-033 | Multi-Tenant Isolation & Resource-Scoped Authorization | SEC, DATA, SYSD | ⬜ Not Started | — | — | 2026-08-12 | Each shipper/carrier/3PL sees only its own orders/shipments. Tenant claim propagation, row-level filtering enforced at the query layer (EF global query filters), and preventing IDOR / BOLA (object-level auth on every read *and* write). Distinct from general Multi-tenancy (SYSD candidate: the isolation *architecture*) — this is the per-request enforcement. Builds on T-031/T-032. |
 
 <!--
 ADD-ITEM CHECKLIST (see CLAUDE.md §5A):
 1. Dedup against this table + categories.md alias table. If a possible match, STOP and confirm.
 2. Assign next T-### (never reuse). Confirm Categories if ambiguous.
 3. Status ⬜ Not Started, Added=today, append row, keep sorted by ID.
-Next free ID: T-031
+Next free ID: T-034
 -->
