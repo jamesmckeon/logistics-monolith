@@ -19,7 +19,7 @@ public sealed class OrderEstimateRequest
         var chargesArray = zoneCharges.ToArray();
         EmptyCollectionException.ThrowIfNullOrEmpty(chargesArray, nameof(zoneCharges));
 
-        var feesArr = pickFees.ToArray();
+        (CaseInsensitiveString SkuCode, Rate PickFee)[]? feesArr = pickFees.ToArray();
         EmptyCollectionException.ThrowIfNullOrEmpty(feesArr, nameof(pickFees));
 
         ArgumentNullException.ThrowIfNull(destinationCode);
@@ -33,7 +33,7 @@ public sealed class OrderEstimateRequest
     }
 
     public IEnumerable<OrderEstimateRequestItem> Items { get; }
-    public IEnumerable<(CaseInsensitiveString Sku, Rate PickFee)> PickFees { get; }
+    public IEnumerable<(CaseInsensitiveString SkuCode, Rate PickFee)> PickFees { get; }
     public PostalCode DestinationCode { get; }
     public Rate HandlingRate { get; }
     public IEnumerable<ZoneSurcharge> ZoneCharges { get; }

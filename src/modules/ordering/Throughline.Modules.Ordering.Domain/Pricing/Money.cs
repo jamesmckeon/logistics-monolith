@@ -15,4 +15,19 @@ public sealed class Money : ValueObject
     {
         yield return Value;
     }
+
+    public static Money FromRate(int multiplier, Rate rate)
+    {
+        return new Money(multiplier * rate.Value);
+    }
+
+    public static Money FromRate(decimal multiplier, Rate rate)
+    {
+        return new Money(multiplier * rate.Value);
+    }
+
+    public static Money operator +(Money left, Money right)
+    {
+        return new Money(left.Value + right.Value);
+    }
 }

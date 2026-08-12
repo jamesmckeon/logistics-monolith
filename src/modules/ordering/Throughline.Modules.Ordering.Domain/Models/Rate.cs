@@ -4,7 +4,7 @@ public sealed class Rate : ValueObject
 {
     public Rate(decimal value)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(0, value, nameof(value));
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 0);
         Value = value;
     }
 

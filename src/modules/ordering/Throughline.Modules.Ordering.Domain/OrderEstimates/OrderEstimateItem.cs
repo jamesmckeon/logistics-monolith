@@ -1,13 +1,12 @@
 using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.Pricing;
-using Throughline.Modules.Ordering.Domain.Skus;
 
 namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 
 public sealed record OrderEstimateItem
 {
     internal OrderEstimateItem(
-        MerchantSkuCode skuCode,
+        CaseInsensitiveString skuCode,
         int quantity,
         Rate pickFeeRate,
         Money totalPickFee,
@@ -23,7 +22,7 @@ public sealed record OrderEstimateItem
         TotalHandling = totalHandling;
     }
 
-    public MerchantSkuCode SkuCode { get; }
+    public CaseInsensitiveString SkuCode { get; }
     public int Quantity { get; }
     public Rate PickFeeRate { get; }
     public Money TotalPickFee { get; }
