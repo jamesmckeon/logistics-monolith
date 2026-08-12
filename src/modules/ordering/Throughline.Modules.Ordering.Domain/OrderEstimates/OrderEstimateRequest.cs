@@ -1,4 +1,4 @@
-using Throughline.Modules.Ordering.Domain.Common.Exceptions;
+using Throughline.Common.Collections;
 using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.Pricing;
 
@@ -13,23 +13,14 @@ public sealed class OrderEstimateRequest
         IEnumerable<ZoneSurcharge> zoneCharges,
         IEnumerable<(CaseInsensitiveString Sku, Rate PickFee)> pickFees)
     {
-        var itemsArr = items.ToArray();
-        EmptyCollectionException.ThrowIfNullOrEmpty(itemsArr, nameof(items));
-
-        var chargesArray = zoneCharges.ToArray();
-        EmptyCollectionException.ThrowIfNullOrEmpty(chargesArray, nameof(zoneCharges));
-
-        (CaseInsensitiveString SkuCode, Rate PickFee)[]? feesArr = pickFees.ToArray();
-        EmptyCollectionException.ThrowIfNullOrEmpty(feesArr, nameof(pickFees));
-
         ArgumentNullException.ThrowIfNull(destinationCode);
         ArgumentNullException.ThrowIfNull(handlingRate);
 
-        Items = itemsArr;
         DestinationCode = destinationCode;
         HandlingRate = handlingRate;
-        ZoneCharges = chargesArray;
-        PickFees = feesArr;
+        Items = items.ToNonEmptyArray();
+        ZoneCharges = zoneCharges.ToNonEmptyArray();
+        PickFees = pickFees.ToNonEmptyArray();
     }
 
     public IEnumerable<OrderEstimateRequestItem> Items { get; }

@@ -10,7 +10,7 @@ public sealed class OrderEstimateRequestItem
         decimal weight)
     {
         ArgumentNullException.ThrowIfNull(skuCode);
-        ArgumentOutOfRangeException.ThrowIfLessThan(quantity, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(quantity, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(weight, 0);
 
         SkuCode = skuCode;

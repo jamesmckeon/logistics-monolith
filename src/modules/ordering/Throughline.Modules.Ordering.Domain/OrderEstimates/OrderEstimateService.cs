@@ -28,7 +28,10 @@ public class OrderEstimateService : IOrderEstimateService
         var items = new List<OrderEstimateItem>();
         var totalCharge = new Money(0);
 
-        foreach (var item in request.Items)
+        var groupedItems = request.Items.GroupBy(grp => grp.SkuCode).Select(grp =>
+            new OrderEstimateRequestItem(grp.Key, grp.Sum(s => s.Quantity), grp.First().Weight));
+
+        foreach (var item in groupedItems)
         {
             var pickFee = request.PickFees.Single(s => s.SkuCode == item.SkuCode).PickFee;
             var totalWeight = item.Quantity * item.Weight;
@@ -42,11 +45,13 @@ public class OrderEstimateService : IOrderEstimateService
                 Money.FromRate(totalWeight, request.HandlingRate));
 
             items.Add(estimateItem);
-            totalCharge += estimateItem.TotalHandling + estimateItem.TotalHandling;
+            totalCharge += estimateItem.TotalPickFee + estimateItem.TotalHandling;
         }
 
         var surcharge = request.ZoneCharges.Single(s =>
             s.PostalZone.Includes(request.DestinationCode)).Surcharge;
+
+        totalCharge += surcharge;
 
         return Result<OrderEstimate>.Success(
             new OrderEstimate(surcharge, totalCharge, request.HandlingRate, items));
