@@ -10,10 +10,12 @@ public class OrderEstimateService : IOrderEstimateService
 
         var zoneCharge = request.ZoneCharges.SingleOrDefault(s => s.Includes(request.DestinationCode));
 
+        /*
         if (zoneCharge == null)
             return Result<OrderEstimate>.Failed(Error.Unexpected(
                 $"Unable to locate a surcharge for postal code {request.DestinationCode}"));
+*/
 
-        var items = request.Items.Select(i => )
+        throw new NotImplementedException();
     }
 }

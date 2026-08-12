@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "Throu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application.Tests", "tests\Throughline.Modules.Ordering.Application.Tests\Throughline.Modules.Ordering.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain.Tests", "tests\Throughline.Modules.Ordering.Domain.Tests\Throughline.Modules.Ordering.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{AB00182B-62D2-4C98-B3DA-81429DB70807}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB00182B-62D2-4C98-B3DA-81429DB70807}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB00182B-62D2-4C98-B3DA-81429DB70807}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7E3F48C-A389-447C-A1ED-CC28B904B15A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7E3F48C-A389-447C-A1ED-CC28B904B15A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7E3F48C-A389-447C-A1ED-CC28B904B15A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7E3F48C-A389-447C-A1ED-CC28B904B15A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
