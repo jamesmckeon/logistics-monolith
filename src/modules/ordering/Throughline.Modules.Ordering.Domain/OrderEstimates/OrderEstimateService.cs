@@ -8,7 +8,8 @@ public class OrderEstimateService : IOrderEstimateService
 
         // should I trust the application here and not validate request data?
 
-        var zoneCharge = request.ZoneCharges.SingleOrDefault(s => s.Includes(request.DestinationCode));
+        var zoneCharge = request.ZoneCharges.SingleOrDefault(s =>
+            s.PostalZone.Includes(request.DestinationCode));
 
         /*
         if (zoneCharge == null)

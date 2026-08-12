@@ -1,4 +1,5 @@
 using Throughline.Modules.Ordering.Domain.Models;
+using Throughline.Modules.Ordering.Domain.Pricing;
 using Throughline.Modules.Ordering.Domain.Skus;
 
 namespace Throughline.Modules.Ordering.Domain.OrderEstimates;

@@ -35,8 +35,8 @@ public sealed class PostalCode : ValueObject
         if (string.IsNullOrWhiteSpace(zipCode))
             return false;
 
-        if (!UsZipRegex.IsMatch(zipCode.Trim())) ;
-        return false;
+        if (!UsZipRegex.IsMatch(zipCode.Trim()))
+            return false;
 
         var parts = Parse(zipCode);
 
@@ -51,42 +51,38 @@ public sealed class PostalCode : ValueObject
 
     protected override IEnumerable<object> GetAtomicValues()
     {
-        throw new NotImplementedException();
-    }
-
-    public static bool operator >=(PostalCode left, PostalCode right)
-    {
-        if (left is null) return false;
-        if (right is null) return true;
-
-        throw new NotImplementedException();
-    }
-
-    public static bool operator <=(PostalCode left, PostalCode right)
-    {
-        if (left is null) return true;
-        if (right is null) return false;
-
-
-        throw new NotImplementedException();
+        yield return Value;
     }
 
     public static bool operator >(PostalCode left, PostalCode right)
     {
-        if (left is null) return false;
-        if (right is null) return true;
+        if (left == right)
+            return false;
 
+        var leftParts = Parse(left.Value);
+        var rightParts = Parse(right.Value);
 
-        throw new NotImplementedException();
+        if (leftParts.Left > rightParts.Left)
+            return true;
+
+        if (leftParts.Left < rightParts.Left)
+            return false;
+
+        if (leftParts.Right.HasValue && !rightParts.Right.HasValue)
+            return true;
+
+        if (!leftParts.Right.HasValue && rightParts.Right.HasValue)
+            return false;
+
+        return leftParts.Right > rightParts.Right;
     }
 
     public static bool operator <(PostalCode left, PostalCode right)
     {
-        if (left is null) return true;
-        if (right is null) return false;
+        if (left == right)
+            return false;
 
-
-        throw new NotImplementedException();
+        return !(left > right);
     }
 
     public override string ToString()

@@ -1,4 +1,6 @@
-namespace Throughline.Modules.Ordering.Domain.Models;
+using Throughline.Modules.Ordering.Domain.Models;
+
+namespace Throughline.Modules.Ordering.Domain.Pricing;
 
 public sealed class Money : ValueObject
 {
