@@ -3,6 +3,9 @@
 This file tells Claude how to run the learning program in this repository. Read it at the
 start of every session that touches the backlog, user stories, or solution reviews.
 
+Test conventions live in @testing.md — follow them when writing, editing, or reviewing
+C# unit and integration tests.
+
 ---
 
 ## 1. Mission & context
