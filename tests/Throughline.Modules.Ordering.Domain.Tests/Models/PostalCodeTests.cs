@@ -19,61 +19,23 @@ public class PostalCodeTests
     public void Constructor_WithWhitespaces_TrimsWhitespace()
     {
         var sut = new PostalCode(" 05001 ");
-        Assert.That(sut.Value, Is.EqualTo("05001"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sut.Value, Is.EqualTo("05001"));
+            Assert.That(sut.BaseCode, Is.EqualTo("05001"));
+        });
     }
 
-    #region Comparison Operators
-
-    [TestCase("05001", "05002")]
-    [TestCase("05001", "05001")]
-    [TestCase("05001", "05001-0001")]
-    [TestCase("05001-0001", "05001-0001")]
-    [TestCase("05001-0001", "05001-0002")]
-    public void GreaterThan_NotGreater_ReturnsFalse(string left, string right)
+    [Test]
+    public void Constructor_Plus4WithWhitespaces_TrimsWhitespace()
     {
-        var leftCode = new PostalCode(left);
-        var rightCode = new PostalCode(right);
-
-        Assert.That(leftCode > rightCode, Is.False);
+        var sut = new PostalCode(" 05001-0001 ");
+        Assert.Multiple(() =>
+        {
+            Assert.That(sut.Value, Is.EqualTo("05001-0001"));
+            Assert.That(sut.BaseCode, Is.EqualTo("05001"));
+        });
     }
-
-    [TestCase("05002", "05001")]
-    [TestCase("05001-0001", "05001")]
-    [TestCase("05001-0002", "05001-0001")]
-    public void GreaterThan_IsGreater_ReturnsTrue(string left, string right)
-    {
-        var leftCode = new PostalCode(left);
-        var rightCode = new PostalCode(right);
-
-        Assert.That(leftCode > rightCode, Is.True);
-    }
-
-    [TestCase("05001", "05002")]
-    [TestCase("05001", "05001-0001")]
-    [TestCase("05001-0001", "05001-0002")]
-    public void LesserThan_IsLesser_ReturnsTrue(string left, string right)
-    {
-        var leftCode = new PostalCode(left);
-        var rightCode = new PostalCode(right);
-
-        Assert.That(leftCode < rightCode, Is.True);
-    }
-
-    [TestCase("05002", "05001")]
-    [TestCase("05001", "05001")]
-    [TestCase("05001-0001", "05001")]
-    [TestCase("05001-0002", "05001-0001")]
-    [TestCase("05001-0001", "05001-0001")]
-    public void LesserThan_NotLesser_ReturnsFalse(string left, string right)
-    {
-        var leftCode = new PostalCode(left);
-        var rightCode = new PostalCode(right);
-
-        Assert.That(leftCode < rightCode, Is.False);
-    }
-
-    #endregion
-
 
     #region IsValid
 

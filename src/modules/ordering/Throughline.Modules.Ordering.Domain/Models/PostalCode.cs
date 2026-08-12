@@ -14,14 +14,15 @@ public sealed class PostalCode : ValueObject
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-
         if (!IsValid(value))
             throw new FormatException($"'{value}' is not a valid postal code format");
 
         Value = value.Trim();
+        BaseCode = value.Split("-", StringSplitOptions.TrimEntries)[0];
     }
 
     public string Value { get; }
+    public string BaseCode { get; }
 
     private static (int Left, int? Right) Parse(string postalCode)
     {
@@ -54,36 +55,6 @@ public sealed class PostalCode : ValueObject
         yield return Value;
     }
 
-    public static bool operator >(PostalCode left, PostalCode right)
-    {
-        if (left == right)
-            return false;
-
-        var leftParts = Parse(left.Value);
-        var rightParts = Parse(right.Value);
-
-        if (leftParts.Left > rightParts.Left)
-            return true;
-
-        if (leftParts.Left < rightParts.Left)
-            return false;
-
-        if (leftParts.Right.HasValue && !rightParts.Right.HasValue)
-            return true;
-
-        if (!leftParts.Right.HasValue && rightParts.Right.HasValue)
-            return false;
-
-        return leftParts.Right > rightParts.Right;
-    }
-
-    public static bool operator <(PostalCode left, PostalCode right)
-    {
-        if (left == right)
-            return false;
-
-        return !(left > right);
-    }
 
     public override string ToString()
     {
