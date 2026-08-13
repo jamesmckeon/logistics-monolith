@@ -4,21 +4,17 @@ namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 
 public sealed class OrderEstimateRequestItem
 {
-    public OrderEstimateRequestItem(
-        CaseInsensitiveString skuCode,
-        int quantity,
-        decimal weight)
+    internal OrderEstimateRequestItem(
+        SkuCode skuCode, int totalQuantity, decimal unitWeight, Rate unitPickFee)
     {
-        ArgumentNullException.ThrowIfNull(skuCode);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(quantity, 0);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(weight, 0);
-
         SkuCode = skuCode;
-        Quantity = quantity;
-        Weight = weight;
+        TotalQuantity = totalQuantity;
+        UnitWeight = unitWeight;
+        UnitPickFee = unitPickFee;
     }
 
-    public CaseInsensitiveString SkuCode { get; }
-    public int Quantity { get; }
-    public decimal Weight { get; }
+    public SkuCode SkuCode { get; }
+    public int TotalQuantity { get; }
+    public decimal UnitWeight { get; }
+    public Rate UnitPickFee { get; }
 }

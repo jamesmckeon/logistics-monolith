@@ -1,8 +1,8 @@
 namespace Throughline.Modules.Ordering.Domain.Models;
 
-public class CaseInsensitiveString : ValueObject
+public class SkuCode : ValueObject
 {
-    public CaseInsensitiveString(string value)
+    public SkuCode(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         Value = value.Trim().ToUpperInvariant();

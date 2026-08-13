@@ -8,39 +8,18 @@ public class OrderEstimateService : IOrderEstimateService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var errors = new List<Error>();
-
-        var zoneCharge = request.ZoneCharges.SingleOrDefault(s =>
-            s.PostalZone.Includes(request.DestinationCode));
-
-        if (zoneCharge == null)
-            errors.Add(Error.Unexpected(
-                $"Unable to locate a surcharge for postal code {request.DestinationCode}"));
-
-        foreach (var skuCode in request.Items.Select(i => i.SkuCode).Distinct())
-            if (request.PickFees.All(pf => pf.SkuCode != skuCode))
-                errors.Add(Error.Unexpected(
-                    $"Unable to locate a pick fee for sku {skuCode}"));
-
-        if (errors.Any())
-            return Result<OrderEstimate>.Failure(errors);
-
         var items = new List<OrderEstimateItem>();
         var totalCharge = new Money(0);
 
-        var groupedItems = request.Items.GroupBy(grp => grp.SkuCode).Select(grp =>
-            new OrderEstimateRequestItem(grp.Key, grp.Sum(s => s.Quantity), grp.First().Weight));
-
-        foreach (var item in groupedItems)
+        foreach (var item in request.Items)
         {
-            var pickFee = request.PickFees.Single(s => s.SkuCode == item.SkuCode).PickFee;
-            var totalWeight = item.Quantity * item.Weight;
+            var totalWeight = item.TotalQuantity * item.UnitWeight;
 
             var estimateItem = new OrderEstimateItem(
                 item.SkuCode,
-                item.Quantity,
-                pickFee,
-                Money.FromRate(item.Quantity, pickFee),
+                item.TotalQuantity,
+                item.UnitPickFee,
+                Money.FromRate(item.TotalQuantity, item.UnitPickFee),
                 totalWeight,
                 Money.FromRate(totalWeight, request.HandlingRate));
 
@@ -48,12 +27,9 @@ public class OrderEstimateService : IOrderEstimateService
             totalCharge += estimateItem.TotalPickFee + estimateItem.TotalHandling;
         }
 
-        var surcharge = request.ZoneCharges.Single(s =>
-            s.PostalZone.Includes(request.DestinationCode)).Surcharge;
-
-        totalCharge += surcharge;
+        totalCharge += request.ZoneCharge.Surcharge;
 
         return Result<OrderEstimate>.Success(
-            new OrderEstimate(surcharge, totalCharge, request.HandlingRate, items));
+            new OrderEstimate(request.ZoneCharge.Surcharge, totalCharge, request.HandlingRate, items));
     }
 }

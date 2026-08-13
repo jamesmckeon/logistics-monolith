@@ -6,7 +6,7 @@ namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 public sealed record OrderEstimateItem
 {
     internal OrderEstimateItem(
-        CaseInsensitiveString skuCode,
+        SkuCode skuCode,
         int quantity,
         Rate pickFeeRate,
         Money totalPickFee,
@@ -22,7 +22,7 @@ public sealed record OrderEstimateItem
         TotalHandling = totalHandling;
     }
 
-    public CaseInsensitiveString SkuCode { get; }
+    public SkuCode SkuCode { get; }
     public int Quantity { get; }
     public Rate PickFeeRate { get; }
     public Money TotalPickFee { get; }

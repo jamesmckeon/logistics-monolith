@@ -4,7 +4,7 @@ namespace Throughline.Modules.Ordering.Domain.Skus;
 
 public sealed class MerchantSkuCode : ValueObject
 {
-    public MerchantSkuCode(int merchantId, CaseInsensitiveString skuCode)
+    public MerchantSkuCode(int merchantId, SkuCode skuCode)
     {
         ArgumentNullException.ThrowIfNull(skuCode);
 
@@ -13,7 +13,7 @@ public sealed class MerchantSkuCode : ValueObject
     }
 
     public int MerchantId { get; }
-    public CaseInsensitiveString SkuCode { get; }
+    public SkuCode SkuCode { get; }
 
     protected override IEnumerable<object> GetAtomicValues()
     {
