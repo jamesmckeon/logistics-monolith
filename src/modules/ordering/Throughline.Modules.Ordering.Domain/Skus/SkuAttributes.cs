@@ -2,25 +2,17 @@ using Throughline.Modules.Ordering.Domain.Models;
 
 namespace Throughline.Modules.Ordering.Domain.Skus;
 
-public sealed class SkuAttributes : ValueObject
+public sealed class SkuAttributes
 {
-    public SkuAttributes(MerchantSkuCode merchantSkuCode, Rate pickFee, Rate weight)
+    public SkuAttributes(SkuCode skuCode, decimal weight)
     {
-        ArgumentNullException.ThrowIfNull(merchantSkuCode);
-        ArgumentNullException.ThrowIfNull(pickFee);
-        ArgumentNullException.ThrowIfNull(weight);
+        ArgumentNullException.ThrowIfNull(skuCode);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(weight, 0);
 
-        MerchantSkuCode = merchantSkuCode;
-        PickFee = pickFee;
+        SkuCode = skuCode;
         Weight = weight;
     }
 
-    public MerchantSkuCode MerchantSkuCode { get; }
-    public Rate PickFee { get; }
-    public Rate Weight { get; }
-
-    protected override IEnumerable<object> GetAtomicValues()
-    {
-        yield return MerchantSkuCode;
-    }
+    public SkuCode SkuCode { get; }
+    public decimal Weight { get; }
 }

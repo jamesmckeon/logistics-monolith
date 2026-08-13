@@ -10,7 +10,8 @@
       "WebSearch",
       "WebFetch(domain:www.hellointerview.com)",
       "WebFetch(domain:martinfowler.com)",
-      "WebFetch(domain:www.fedex.com)"
+      "WebFetch(domain:www.fedex.com)",
+      "Bash(xargs cat)"
     ]
   }
 }
