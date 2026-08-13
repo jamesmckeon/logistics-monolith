@@ -4,9 +4,15 @@ namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 
 public sealed class OrderEstimateRequestItem
 {
-    internal OrderEstimateRequestItem(
+    public OrderEstimateRequestItem(
         SkuCode skuCode, int totalQuantity, decimal unitWeight, Rate unitPickFee)
     {
+        ArgumentNullException.ThrowIfNull(skuCode);
+        ArgumentNullException.ThrowIfNull(unitPickFee);
+
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(unitWeight, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(totalQuantity, 0);
+
         SkuCode = skuCode;
         TotalQuantity = totalQuantity;
         UnitWeight = unitWeight;
