@@ -4,6 +4,6 @@ namespace Throughline.Modules.Ordering.Domain.Skus;
 
 public interface ISkuRepository
 {
-    Task<IEnumerable<SkuAttributes>> GetAttributesByMerchantCodesAsync(
+    Task<IEnumerable<SkuAttributes>> GetAttributesAsync(
         int merchantId, IEnumerable<SkuCode> skuCodes);
 }
