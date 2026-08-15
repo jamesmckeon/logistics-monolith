@@ -1,3 +1,5 @@
+using Throughline.Modules.Ordering.Domain.Models;
+
 namespace Throughline.Modules.Ordering.Application.Orders.Models;
 
 /// <summary>
@@ -29,7 +31,8 @@ public sealed class CreateOrderCommand
     /// <summary>
     ///     Parses raw submission input into a valid command, accumulating all structural
     ///     violations. Fails (no instance created) unless there is at least one item, every item
-    ///     has a SKU and quantity > 0, and the required address/reference fields are present.
+    ///     has a SKU and quantity > 0, the required address/reference fields are present, and the
+    ///     postal code is a valid format.
     /// </summary>
     /// <returns>The command, or the collected <see cref="Error" />s on invalid input.</returns>
     public static Result<CreateOrderCommand> Create(
@@ -60,6 +63,8 @@ public sealed class CreateOrderCommand
 
         if (string.IsNullOrWhiteSpace(postalCode))
             AddError("postalCode is required", errors);
+        else if (!PostalCode.IsValid(postalCode))
+            AddError("postalCode is not a valid postal code", errors);
 
         if (string.IsNullOrWhiteSpace(countryCode))
             AddError("countryCode is required", errors);

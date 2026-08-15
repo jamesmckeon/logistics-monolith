@@ -81,6 +81,16 @@ public sealed class CreateOrderCommandTests
         AssertSingleValidationError(result, "postalCode is required");
     }
 
+    [TestCase("not-a-zip")]
+    [TestCase("123")]
+    [TestCase("00100")]
+    public void Create_InvalidPostalCodeFormat_FailsValidation(string postalCode)
+    {
+        var result = Create(postalCode: postalCode);
+
+        AssertSingleValidationError(result, "postalCode is not a valid postal code");
+    }
+
     [TestCase(null)]
     [TestCase("")]
     [TestCase("   ")]
