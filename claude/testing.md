@@ -111,6 +111,28 @@ _rateProvider.Verify(p => p.GetRate(It.IsAny<Lane>()), Times.Once);
 
 ---
 
+## Arrangement — no overridden defaults
+
+- **`[SetUp]` constructs the mocks and the `_sut` — nothing else.** Do **not** put a
+  default mock setup (or a shared default input, e.g. default command items) in `[SetUp]`
+  that some tests then override.
+- **If any test needs a different setup for a given mock than another test does, every
+  test sets that mock up explicitly.** A default that some tests silently override hides
+  what is actually in effect for a given test — the reader can't see the real arrangement
+  without cross-referencing `[SetUp]`. Each test should be self-contained.
+- Keep reusable **data** as `static readonly` fields (valid building blocks), but **wire
+  it per test** — small `GivenX(...)` helpers each test calls, and inputs passed per test.
+
+```csharp
+// Good — each test declares its own world; SetUp only builds mocks + _sut
+GivenPickFees(Sku1PickFee, Sku2PickFee);
+GivenZones(Zone);
+
+// Avoid — a SetUp default that half the tests override; the effective state is non-local
+```
+
+---
+
 ## Assertions
 
 - Use **`Assert.That` (constraint syntax)** — not the classic `Assert.AreEqual` family.
@@ -133,5 +155,6 @@ Assert.Multiple(() =>
 - [ ] Class is `sealed` with `[Category("Unit")]` or `[Category("Integration")]`
 - [ ] Method name is `MethodUnderTest_Condition_ExpectedResult`, ≤ 100 chars
 - [ ] SUT is a private `_sut` (unless construction forbids it)
+- [ ] `[SetUp]` builds only mocks + `_sut`; no default setup that tests override
 - [ ] Moq used; `It.IsAny` only where argument identity genuinely doesn't matter
 - [ ] `Assert.That` throughout; grouped assertions inside `Assert.Multiple`
