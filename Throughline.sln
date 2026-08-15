@@ -6,9 +6,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "src\shared\Throughline.Common\Throughline.Common.csproj", "{B58B61DA-7541-4FA5-B02F-0CBC1735400B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application.Tests", "tests\Throughline.Modules.Ordering.Application.Tests\Throughline.Modules.Ordering.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application.Tests", "src\modules\ordering\tests\Throughline.Modules.Ordering.Application.Tests\Throughline.Modules.Ordering.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain.Tests", "tests\Throughline.Modules.Ordering.Domain.Tests\Throughline.Modules.Ordering.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain.Tests", "src\modules\ordering\tests\Throughline.Modules.Ordering.Domain.Tests\Throughline.Modules.Ordering.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
