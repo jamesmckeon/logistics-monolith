@@ -20,4 +20,8 @@
         <Using Include="NUnit.Framework"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\..\Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj"/>
+    </ItemGroup>
+
 </Project>

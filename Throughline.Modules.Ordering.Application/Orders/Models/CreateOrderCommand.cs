@@ -1,7 +1,9 @@
-using Throughline.Common.Collections;
-
 namespace Throughline.Modules.Ordering.Application.Orders.Models;
 
+/// <summary>
+///     A merchant's request to intake an order and receive an accepted acknowledgment with an
+///     estimated fulfillment quote.
+/// </summary>
 public sealed class CreateOrderCommand
 {
     private CreateOrderCommand(
@@ -24,6 +26,12 @@ public sealed class CreateOrderCommand
     public IEnumerable<CreateOrderCommandItem> OrderItems { get; }
     public string ReferenceNumber { get; }
 
+    /// <summary>
+    ///     Parses raw submission input into a valid command, accumulating all structural
+    ///     violations. Fails (no instance created) unless there is at least one item, every item
+    ///     has a SKU and quantity > 0, and the required address/reference fields are present.
+    /// </summary>
+    /// <returns>The command, or the collected <see cref="Error" />s on invalid input.</returns>
     public static Result<CreateOrderCommand> Create(
         int merchantId,
         string purchaseOrderNumber,
@@ -56,7 +64,13 @@ public sealed class CreateOrderCommand
         if (string.IsNullOrWhiteSpace(countryCode))
             AddError("countryCode is required", errors);
 
-        var itemsArray = items.ToNonEmptyArray();
+        if (items is null)
+        {
+            AddError("items is required", errors);
+            return errors.ToArray();
+        }
+
+        var itemsArray = items.ToArray();
 
         if (!itemsArray.Any())
         {
