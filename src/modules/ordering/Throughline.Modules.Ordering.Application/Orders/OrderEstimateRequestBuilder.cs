@@ -7,19 +7,21 @@ namespace Throughline.Modules.Ordering.Application.Orders;
 
 public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
 {
+    private readonly IMerchantRateQuery _merchantRateQuery;
     private readonly IPickFeeQuery _pickFeeQuery;
     private readonly ISkuAttributesQuery _skuAttributesQuery;
-
     private readonly IZoneChargeQuery _zoneChargeQuery;
 
     public OrderEstimateRequestBuilder(
         ISkuAttributesQuery skuAttributesQuery,
         IZoneChargeQuery zoneChargeQuery,
-        IPickFeeQuery pickFeeQuery)
+        IPickFeeQuery pickFeeQuery,
+        IMerchantRateQuery merchantRateQuery)
     {
         _skuAttributesQuery = skuAttributesQuery;
         _zoneChargeQuery = zoneChargeQuery;
         _pickFeeQuery = pickFeeQuery;
+        _merchantRateQuery = merchantRateQuery;
     }
 
     public Task<Result<OrderEstimateRequest>> CreateRequestAsync(CreateOrderCommand command)

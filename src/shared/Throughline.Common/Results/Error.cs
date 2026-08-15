@@ -22,4 +22,9 @@ public class Error
     {
         return new Error(ErrorType.Unexpected, description);
     }
+
+    public static Error Unavailable(string description)
+    {
+        return new Error(ErrorType.Unavailable, description);
+    }
 }
