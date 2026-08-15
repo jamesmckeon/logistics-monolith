@@ -1,3 +1,5 @@
+using Throughline.Common.Collections;
+
 namespace Throughline.Modules.Ordering.Application.Orders.Models;
 
 public sealed class CreateOrderCommand
@@ -5,6 +7,7 @@ public sealed class CreateOrderCommand
     private CreateOrderCommand(
         int merchantId,
         string purchaseOrderNumber,
+        string referenceNumber,
         DestinationRequest destination,
         IEnumerable<CreateOrderCommandItem> orderItems)
     {
@@ -12,6 +15,7 @@ public sealed class CreateOrderCommand
         PurchaseOrderNumber = purchaseOrderNumber;
         Destination = destination;
         OrderItems = orderItems;
+        ReferenceNumber = referenceNumber;
     }
 
     public int MerchantId { get; }
@@ -52,17 +56,19 @@ public sealed class CreateOrderCommand
         if (string.IsNullOrWhiteSpace(countryCode))
             AddError("countryCode is required", errors);
 
-        if (items is null || !items.Any())
-            AddError("items is required", errors);
+        var itemsArray = items.ToNonEmptyArray();
 
-        if (items != null)
+        if (!itemsArray.Any())
         {
-            if (items.Any(x => string.IsNullOrWhiteSpace(x.Sku)))
-                AddError("each item must have a sku", errors);
-
-            if (items.Any(x => x.Quantity <= 0))
-                AddError("each item must have a quantity greater than 0", errors);
+            AddError("items must contain at least one item", errors);
+            return errors.ToArray();
         }
+
+        if (itemsArray.Any(x => string.IsNullOrWhiteSpace(x.Sku)))
+            AddError("each item must have a sku", errors);
+
+        if (itemsArray.Any(x => x.Quantity <= 0))
+            AddError("each item must have a quantity greater than 0", errors);
 
         if (errors.Any())
             return errors.ToArray();
@@ -70,10 +76,10 @@ public sealed class CreateOrderCommand
         return new CreateOrderCommand(
             merchantId,
             purchaseOrderNumber,
+            referenceNumber,
             new DestinationRequest(
                 streetAddressOne, streetAddressTwo, locality, region, postalCode, countryCode),
-            items.Select(i => new CreateOrderCommandItem(i.Sku, i.Quantity))
-        );
+            itemsArray.Select(i => new CreateOrderCommandItem(i.Sku, i.Quantity)));
     }
 
     private static void AddError(string error, List<Error> errors)
