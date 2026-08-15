@@ -2,9 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain", "src\modules\ordering\Throughline.Modules.Ordering.Domain\Throughline.Modules.Ordering.Domain.csproj", "{29B56357-B8FF-4D42-B159-F33832BAD800}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application", "Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application", "src\modules\ordering\Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "Throughline.Common\Throughline.Common.csproj", "{B58B61DA-7541-4FA5-B02F-0CBC1735400B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "src\shared\Throughline.Common\Throughline.Common.csproj", "{B58B61DA-7541-4FA5-B02F-0CBC1735400B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application.Tests", "tests\Throughline.Modules.Ordering.Application.Tests\Throughline.Modules.Ordering.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
 EndProject

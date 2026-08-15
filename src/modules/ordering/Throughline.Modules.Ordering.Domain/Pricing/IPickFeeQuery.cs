@@ -1,6 +1,6 @@
 namespace Throughline.Modules.Ordering.Domain.Pricing;
 
-public interface IPickFeeRepository
+public interface IPickFeeQuery
 {
     Task<IEnumerable<SkuPickFee>> GetPickFeesAsync(int merchantId);
 }

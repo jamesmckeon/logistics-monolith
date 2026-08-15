@@ -1,6 +1,6 @@
 namespace Throughline.Modules.Ordering.Domain.Pricing;
 
-public interface IZoneChargeRepository
+public interface IZoneChargeQuery
 {
     Task<IEnumerable<ZoneSurcharge>> GetChargesAsync(int merchantId);
 }

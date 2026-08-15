@@ -32,13 +32,12 @@ public sealed class Order
     public Money TotalCharges { get; }
     public IEnumerable<OrderLine> OrderLines { get; }
 
+
     public static Order FromOrderEstimate(OrderEstimate orderEstimate,
         int merchantId,
         string purchaseOrderNumber,
         string referenceNumber,
-        StreetAddress destination,
-        Money destinationSurcharge,
-        Money totalCharges)
+        StreetAddress destination)
     {
         ArgumentNullException.ThrowIfNull(orderEstimate);
         ArgumentNullException.ThrowIfNull(destination);
