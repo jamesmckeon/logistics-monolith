@@ -74,6 +74,46 @@ monolith grants each module its own internal structure (modules integrate only v
 | Onboarding / navigation | Learn the layer map once | Learn per-slice; less indirection |
 | Cross-cutting concerns | Domain/App services | Pipeline behaviors / endpoint filters |
 
+### Read-side ports & the hexagon within a slice
+
+Both module styles are built **hexagonally** (Cockburn, canon #3 ✅): the core owns *ports* and
+infrastructure plugs in via *adapters*. VSA and hexagonal are orthogonal — feature-first decomposition
+does not require dropping ports — so the VSA (Inventory) module keeps driven ports on the **write** side
+(persistence, event publish, carrier/3PL gateways), preferring **feature-scoped, role-based ports**
+(e.g. `IReserveStock`) over a broad shared `IInventoryRepository` — more hexagonal in spirit *and* more
+VSA than a single shared repository.
+
+The only genuinely contested question is **whether reads sit behind a port**. Rule for this project:
+
+> **Reads bypass the write aggregate** (read from a projection/read model, don't rehydrate the aggregate
+> to render a view). **Port a read when (a)** its handler has logic worth isolating, **or (b)** there is a
+> **concrete, nameable expectation of re-platforming that read store** (CQRS read models, `HybridCache`,
+> search index, sharding — all on the [roadmap](../roadmap.md)). **A pure passthrough read with no
+> re-platform on the horizon is covered by the integration tier, not a mockable query port.**
+
+This reconciles the three forces that were weighed (2026-08-16):
+
+- **Testability.** The mandated integration tier (per-module, real DB via Testcontainers — MOD-11) owns a
+  read's actual correctness: the SQL/projection, joins, filtering. A unit test that mocks a *passthrough*
+  query is tautological and falls foul of [testing.md](../testing.md)'s rule against tests that "prove
+  almost nothing about the collaboration." So testability argues for a read port **only** where the
+  handler has logic a mock can meaningfully stand in for.
+- **Purity / uniformity.** Keeping the core free of `DbContext`/`IQueryable` types is a legitimate values
+  choice; a module may port *all* reads for consistency, accepting thin unit tests plus integration
+  coverage of the adapters. Permitted, not required — and it is the *only* remaining argument for porting a
+  passthrough read once the integration tier exists.
+- **Provider-change / swappability.** Real on the read side (high-volume systems go polyglot on reads:
+  cache, replica, denormalized view, search), but it pays only for a **named** swap. EF Core's provider
+  model already covers relational→relational; a port *localizes* a swap but does not *shrink* it; a
+  wholesale migration rewrites every adapter regardless. So this justifies porting the reads we can point
+  at a likely re-platform for — not every read "if needed" (that is the speculative-generality trap VSA
+  exists to resist).
+
+**Anti-pattern to avoid:** manufacturing a query port solely to satisfy a "each module has unit tests"
+requirement. That is test-induced design damage — the unit tier is satisfied by code that *has* behavior
+(the aggregate, write handlers, validation, a pure row→DTO mapper tested directly), not by inventing seams
+for logic-free reads.
+
 ## Consequences
 
 **Positive**
