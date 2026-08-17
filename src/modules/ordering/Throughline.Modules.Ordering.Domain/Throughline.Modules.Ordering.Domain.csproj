@@ -9,4 +9,7 @@
         <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Modules.Ordering.Application.Tests"/>
+    </ItemGroup>
 </Project>

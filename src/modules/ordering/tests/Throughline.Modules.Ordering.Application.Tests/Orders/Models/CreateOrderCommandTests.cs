@@ -6,6 +6,40 @@ namespace Throughline.Modules.Ordering.Application.Tests.Orders.Models;
 [Category("Unit")]
 public sealed class CreateOrderCommandTests
 {
+    private static Result<CreateOrderCommand> Create(
+        int merchantId = 42,
+        string purchaseOrderNumber = " PO-1 ",
+        string streetAddressOne = " 1 Main St ",
+        string streetAddressTwo = " Apt 2",
+        string city = " Springfield ",
+        string state = " IL ",
+        string postalCode = " 10000 ",
+        IEnumerable<(string Sku, int Quantity)>? items = null,
+        string referenceNumber = " REF-1 ")
+    {
+        return CreateOrderCommand.Create(
+            merchantId,
+            purchaseOrderNumber,
+            streetAddressOne,
+            streetAddressTwo,
+            city,
+            state,
+            postalCode,
+            items ?? [("SKU-1", 2)],
+            referenceNumber);
+    }
+
+    private static void AssertSingleValidationError(Result<CreateOrderCommand> result, string expectedDescription)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Errors.Single().Description, Is.EqualTo(expectedDescription));
+            Assert.That(result.Errors.Single().ErrorType, Is.EqualTo(ErrorType.Validation));
+        });
+    }
+
     #region Create
 
     [Test]
@@ -20,14 +54,13 @@ public sealed class CreateOrderCommandTests
             Assert.That(command.MerchantId, Is.EqualTo(42));
             Assert.That(command.PurchaseOrderNumber, Is.EqualTo("PO-1"));
             Assert.That(command.ReferenceNumber, Is.EqualTo("REF-1"));
-            Assert.That(command.Destination.StreetAddressOne, Is.EqualTo("1 Main St"));
-            Assert.That(command.Destination.StreetAddressTwo, Is.EqualTo("Apt 2"));
-            Assert.That(command.Destination.Locality, Is.EqualTo("Springfield"));
-            Assert.That(command.Destination.Region, Is.EqualTo("IL"));
-            Assert.That(command.Destination.PostalCode, Is.EqualTo("10000"));
-            Assert.That(command.Destination.CountryCode, Is.EqualTo("US"));
-            Assert.That(command.OrderItems.Single().Sku, Is.EqualTo("SKU-1"));
-            Assert.That(command.OrderItems.Single().Quantity, Is.EqualTo(2));
+            Assert.That(command.StreetAddressOne, Is.EqualTo("1 Main St"));
+            Assert.That(command.StreetAddressTwo, Is.EqualTo("Apt 2"));
+            Assert.That(command.City, Is.EqualTo("Springfield"));
+            Assert.That(command.State, Is.EqualTo("IL"));
+            Assert.That(command.PostalCode, Is.EqualTo("10000"));
+            Assert.That(command.Items.Single().Sku, Is.EqualTo("SKU-1"));
+            Assert.That(command.Items.Single().Quantity, Is.EqualTo(2));
         });
     }
 
@@ -54,21 +87,21 @@ public sealed class CreateOrderCommandTests
     [TestCase(null)]
     [TestCase("")]
     [TestCase("   ")]
-    public void Create_MissingLocality_FailsValidation(string? locality)
+    public void Create_MissingCity_FailsValidation(string? city)
     {
-        var result = Create(locality: locality!);
+        var result = Create(city: city!);
 
-        AssertSingleValidationError(result, "locality is required");
+        AssertSingleValidationError(result, "city is required");
     }
 
     [TestCase(null)]
     [TestCase("")]
     [TestCase("   ")]
-    public void Create_MissingRegion_FailsValidation(string? region)
+    public void Create_MissingState_FailsValidation(string? state)
     {
-        var result = Create(region: region!);
+        var result = Create(state: state!);
 
-        AssertSingleValidationError(result, "region is required");
+        AssertSingleValidationError(result, "state is required");
     }
 
     [TestCase(null)]
@@ -81,25 +114,6 @@ public sealed class CreateOrderCommandTests
         AssertSingleValidationError(result, "postalCode is required");
     }
 
-    [TestCase("not-a-zip")]
-    [TestCase("123")]
-    [TestCase("00100")]
-    public void Create_InvalidPostalCodeFormat_FailsValidation(string postalCode)
-    {
-        var result = Create(postalCode: postalCode);
-
-        AssertSingleValidationError(result, "postalCode is not a valid postal code");
-    }
-
-    [TestCase(null)]
-    [TestCase("")]
-    [TestCase("   ")]
-    public void Create_MissingCountryCode_FailsValidation(string? countryCode)
-    {
-        var result = Create(countryCode: countryCode!);
-
-        AssertSingleValidationError(result, "countryCode is required");
-    }
 
     [TestCase(null)]
     [TestCase("")]
@@ -123,7 +137,7 @@ public sealed class CreateOrderCommandTests
     [Test]
     public void Create_MultipleInvalidFields_AccumulatesAllErrors()
     {
-        var result = Create(purchaseOrderNumber: "", region: "", items: [("SKU-1", 0)]);
+        var result = Create(purchaseOrderNumber: "", state: "", items: [("SKU-1", 0)]);
 
         Assert.Multiple(() =>
         {
@@ -132,10 +146,10 @@ public sealed class CreateOrderCommandTests
             Assert.That(result.Errors.Select(e => e.Description), Is.EquivalentTo(new[]
             {
                 "purchaseOrderNumber is required",
-                "region is required",
+                "state is required",
                 "each item must have a quantity greater than 0"
             }));
-            Assert.That(result.Errors.Select(e => e.ErorType), Is.All.EqualTo(ErrorType.Validation));
+            Assert.That(result.Errors.Select(e => e.ErrorType), Is.All.EqualTo(ErrorType.Validation));
         });
     }
 
@@ -151,46 +165,10 @@ public sealed class CreateOrderCommandTests
     public void Create_NullItems_FailsValidation()
     {
         var result = CreateOrderCommand.Create(
-            42, "PO-1", "1 Main St", "Apt 2", "Springfield", "IL", "10000", "US", null!, "REF-1");
+            42, "PO-1", "1 Main St", "Apt 2", "Springfield", "IL", "10000", null!, "REF-1");
 
         AssertSingleValidationError(result, "items is required");
     }
 
     #endregion
-
-    private static Result<CreateOrderCommand> Create(
-        int merchantId = 42,
-        string purchaseOrderNumber = "PO-1",
-        string streetAddressOne = "1 Main St",
-        string streetAddressTwo = "Apt 2",
-        string locality = "Springfield",
-        string region = "IL",
-        string postalCode = "10000",
-        string countryCode = "US",
-        IEnumerable<(string Sku, int Quantity)>? items = null,
-        string referenceNumber = "REF-1")
-    {
-        return CreateOrderCommand.Create(
-            merchantId,
-            purchaseOrderNumber,
-            streetAddressOne,
-            streetAddressTwo,
-            locality,
-            region,
-            postalCode,
-            countryCode,
-            items ?? [("SKU-1", 2)],
-            referenceNumber);
-    }
-
-    private static void AssertSingleValidationError(Result<CreateOrderCommand> result, string expectedDescription)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Succeeded, Is.False);
-            Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Single().Description, Is.EqualTo(expectedDescription));
-            Assert.That(result.Errors.Single().ErorType, Is.EqualTo(ErrorType.Validation));
-        });
-    }
 }

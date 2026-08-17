@@ -20,7 +20,7 @@ public sealed class CreateOrderHandler
         _ordersRepository = ordersRepository;
     }
 
-    private Result<CreateOrderResult> CreateOrderAsync(CreateOrderCommand command)
+    public Result<OrderModel> CreateOrderAsync(CreateOrderCommand command)
     {
         throw new NotImplementedException();
     }

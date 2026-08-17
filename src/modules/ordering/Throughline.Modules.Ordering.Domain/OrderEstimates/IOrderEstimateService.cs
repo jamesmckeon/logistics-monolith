@@ -16,5 +16,5 @@ public interface IOrderEstimateService
     ///     Pricing is exact (no rounding drift) and deterministic.  Quantities for the same sku code are summed.
     ///     The destination zone is derived from the request's address via the current rate/zone table.
     /// </remarks>
-    Result<OrderEstimate> GetEstimate(OrderEstimateRequest request);
+    OrderEstimate GetEstimate(OrderEstimateRequest request);
 }

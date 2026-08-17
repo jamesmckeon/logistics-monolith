@@ -4,7 +4,7 @@ namespace Throughline.Modules.Ordering.Domain.OrderEstimates;
 
 public class OrderEstimateService : IOrderEstimateService
 {
-    public Result<OrderEstimate> GetEstimate(OrderEstimateRequest request)
+    public OrderEstimate GetEstimate(OrderEstimateRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -29,7 +29,7 @@ public class OrderEstimateService : IOrderEstimateService
 
         totalCharge += request.ZoneCharge.Surcharge;
 
-        return Result<OrderEstimate>.Success(
-            new OrderEstimate(request.ZoneCharge.Surcharge, totalCharge, request.HandlingRate, items));
+        return new OrderEstimate(
+            request.ZoneCharge.Surcharge, totalCharge, request.HandlingRate, items);
     }
 }

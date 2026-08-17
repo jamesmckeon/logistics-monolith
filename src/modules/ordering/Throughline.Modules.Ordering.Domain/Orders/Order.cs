@@ -33,7 +33,8 @@ public sealed class Order
     public IEnumerable<OrderLine> OrderLines { get; }
 
 
-    public static Order FromOrderEstimate(OrderEstimate orderEstimate,
+    public static Order FromOrderEstimate(
+        OrderEstimate orderEstimate,
         int merchantId,
         string purchaseOrderNumber,
         string referenceNumber,
@@ -42,8 +43,8 @@ public sealed class Order
         ArgumentNullException.ThrowIfNull(orderEstimate);
         ArgumentNullException.ThrowIfNull(destination);
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(purchaseOrderNumber);
-        ArgumentException.ThrowIfNullOrWhiteSpace(referenceNumber);
+        ArgumentNullException.ThrowIfNull(purchaseOrderNumber);
+        ArgumentNullException.ThrowIfNull(referenceNumber);
 
         var orderLines = orderEstimate.Items.Select(i => new OrderLine(
             i.Quantity, i.SkuCode, i.PickFeeRate, i.TotalPickFee, i.Weight, i.TotalHandling));

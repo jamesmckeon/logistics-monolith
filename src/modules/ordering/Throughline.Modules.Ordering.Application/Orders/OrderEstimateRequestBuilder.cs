@@ -29,7 +29,7 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var quantityBySku = ConsolidateBySku(command.OrderItems);
+        var quantityBySku = ConsolidateBySku(command.Items);
 
         var pickFeeBySku = (await _pickFeeQuery.GetPickFeesAsync(command.MerchantId))
             .ToDictionary(f => f.SkuCode, f => f.PickFee);
@@ -49,11 +49,12 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
             items.Add(new OrderEstimateRequestItem(skuCode, totalQuantity, unitWeight, pickFee));
         }
 
-        var destination = new PostalCode(command.Destination.PostalCode);
+        var destination = new PostalCode(command.PostalCode);
         var zoneCharge = (await _zoneChargeQuery.GetChargesAsync(command.MerchantId))
             .FirstOrDefault(z => z.PostalZone.Includes(destination));
         if (zoneCharge is null)
-            return Unavailable($"No zone surcharge covers postal code '{destination}' (merchant {command.MerchantId}).");
+            return Unavailable(
+                $"No zone surcharge covers postal code '{destination}' (merchant {command.MerchantId}).");
 
         var handlingRate = await _merchantRateQuery.GetHandlingAsync(command.MerchantId);
         if (handlingRate is null)
@@ -62,7 +63,8 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
         return new OrderEstimateRequest(handlingRate, items, zoneCharge);
     }
 
-    private static Dictionary<SkuCode, int> ConsolidateBySku(IEnumerable<CreateOrderCommandItem> orderItems)
+    private static Dictionary<SkuCode, int> ConsolidateBySku(
+        IEnumerable<(string Sku, int Quantity)> orderItems)
     {
         var quantityBySku = new Dictionary<SkuCode, int>();
         foreach (var item in orderItems)

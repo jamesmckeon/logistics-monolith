@@ -1,5 +1,3 @@
-using Throughline.Modules.Ordering.Domain.Models;
-
 namespace Throughline.Modules.Ordering.Application.Orders.Models;
 
 /// <summary>
@@ -12,21 +10,35 @@ public sealed class CreateOrderCommand
         int merchantId,
         string purchaseOrderNumber,
         string referenceNumber,
-        DestinationRequest destination,
-        IEnumerable<CreateOrderCommandItem> orderItems)
+        string streetAddressOne,
+        string? streetAddressTwo,
+        string city,
+        string state,
+        string postalCode,
+        IEnumerable<(string Sku, int Quantity)> items)
     {
         MerchantId = merchantId;
-        PurchaseOrderNumber = purchaseOrderNumber;
-        Destination = destination;
-        OrderItems = orderItems;
-        ReferenceNumber = referenceNumber;
+        PurchaseOrderNumber = purchaseOrderNumber.Trim();
+        ReferenceNumber = referenceNumber.Trim();
+        StreetAddressOne = streetAddressOne.Trim();
+        StreetAddressTwo = streetAddressTwo?.Trim();
+        City = city.Trim();
+        Items = items;
+        ReferenceNumber = referenceNumber.Trim();
+        State = state.Trim();
+        PostalCode = postalCode.Trim();
     }
 
     public int MerchantId { get; }
     public string PurchaseOrderNumber { get; }
-    public DestinationRequest Destination { get; }
-    public IEnumerable<CreateOrderCommandItem> OrderItems { get; }
+    public IEnumerable<(string Sku, int Quantity)> Items { get; }
     public string ReferenceNumber { get; }
+    public string StreetAddressOne { get; }
+    public string? StreetAddressTwo { get; }
+    public string State { get; }
+    public string City { get; }
+    public string PostalCode { get; }
+
 
     /// <summary>
     ///     Parses raw submission input into a valid command, accumulating all structural
@@ -39,11 +51,10 @@ public sealed class CreateOrderCommand
         int merchantId,
         string purchaseOrderNumber,
         string streetAddressOne,
-        string streetAddressTwo,
-        string locality,
-        string region,
+        string? streetAddressTwo,
+        string city,
+        string state,
         string postalCode,
-        string countryCode,
         IEnumerable<(string Sku, int Quantity)> items,
         string referenceNumber)
     {
@@ -55,19 +66,14 @@ public sealed class CreateOrderCommand
         if (string.IsNullOrWhiteSpace(referenceNumber))
             AddError("referenceNumber is required", errors);
 
-        if (string.IsNullOrWhiteSpace(locality))
-            AddError("locality is required", errors);
+        if (string.IsNullOrWhiteSpace(city))
+            AddError("city is required", errors);
 
-        if (string.IsNullOrWhiteSpace(region))
-            AddError("region is required", errors);
+        if (string.IsNullOrWhiteSpace(state))
+            AddError("state is required", errors);
 
         if (string.IsNullOrWhiteSpace(postalCode))
             AddError("postalCode is required", errors);
-        else if (!PostalCode.IsValid(postalCode))
-            AddError("postalCode is not a valid postal code", errors);
-
-        if (string.IsNullOrWhiteSpace(countryCode))
-            AddError("countryCode is required", errors);
 
         if (items is null)
         {
@@ -96,9 +102,12 @@ public sealed class CreateOrderCommand
             merchantId,
             purchaseOrderNumber,
             referenceNumber,
-            new DestinationRequest(
-                streetAddressOne, streetAddressTwo, locality, region, postalCode, countryCode),
-            itemsArray.Select(i => new CreateOrderCommandItem(i.Sku, i.Quantity)));
+            streetAddressOne,
+            streetAddressTwo,
+            city,
+            state,
+            postalCode,
+            itemsArray);
     }
 
     private static void AddError(string error, List<Error> errors)

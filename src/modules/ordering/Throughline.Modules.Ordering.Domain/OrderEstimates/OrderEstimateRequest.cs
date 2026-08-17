@@ -14,7 +14,6 @@ public sealed class OrderEstimateRequest
         ArgumentNullException.ThrowIfNull(zoneCharge);
         ArgumentNullException.ThrowIfNull(handlingRate);
 
-
         Items = items.ToNonEmptyArray();
         HandlingRate = handlingRate;
         ZoneCharge = zoneCharge;

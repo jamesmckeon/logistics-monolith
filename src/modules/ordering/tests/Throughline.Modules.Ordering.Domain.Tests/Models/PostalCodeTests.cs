@@ -1,9 +1,10 @@
-﻿using Throughline.Modules.Ordering.Domain.Models;
+﻿using Throughline.Common.Results;
+using Throughline.Modules.Ordering.Domain.Models;
 
 namespace Throughline.Modules.Ordering.Domain.Tests.Models;
 
 [Category("Unit")]
-public class PostalCodeTests
+public sealed class PostalCodeTests
 {
     [TestCase(" 05001 ")]
     [TestCase(" 05001-0001 ")]
@@ -37,32 +38,92 @@ public class PostalCodeTests
         });
     }
 
-    #region IsValid
+    #region Create
 
-    [TestCase(null)]
-    [TestCase("")]
-    [TestCase(" ")]
-    [TestCase("05000")]
-    [TestCase("05001-0000")]
-    [TestCase("99501")]
-    [TestCase("99500-0000")]
-    [TestCase("995000001")]
-    public void IsValid_Invalid_ReturnsFalse(string? value)
+    [TestCase("05001", "05001")]
+    [TestCase("10000", "10000")]
+    [TestCase("00501", "00501")]
+    [TestCase("99500", "99500")]
+    [TestCase("05001-0001", "05001-0001")]
+    [TestCase(" 05001 ", "05001")]
+    public void Create_ValidPostalCode_SucceedsWithTrimmedValue(string value, string expected)
     {
-        Assert.That(PostalCode.IsValid(value!), Is.False);
+        var result = PostalCode.Create(value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(result.Value!.Value, Is.EqualTo(expected));
+        });
     }
 
-
-    [TestCase("05001")]
-    [TestCase("05001-0001")]
-    [TestCase("99500")]
-    [TestCase("99500-9999")]
-    public void IsValid_Valid_ReturnsTrue(string value)
+    [Test]
+    public void Create_Plus4_SetsBaseCodeToFiveDigitPrefix()
     {
-        Assert.That(PostalCode.IsValid(value), Is.True);
+        var result = PostalCode.Create("05001-0001");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(result.Value!.BaseCode, Is.EqualTo("05001"));
+        });
+    }
+
+    [TestCase("00500")]
+    [TestCase("00100")]
+    [TestCase("99501")]
+    public void Create_StartOutsideServiceableRange_FailsValidation(string value)
+    {
+        var result = PostalCode.Create(value);
+
+        AssertValidationError(result, "The start of a postal code must be between 00501 and 99500");
+    }
+
+    [Test]
+    public void Create_PlusFourIsZero_FailsValidation()
+    {
+        var result = PostalCode.Create("05001-0000");
+
+        AssertValidationError(result, "The last four of a postal code must be greater than 0000");
+    }
+
+    [TestCase("123")]
+    [TestCase("1234567")]
+    [TestCase("00501-1")]
+    [TestCase("not-a-zip")]
+    [TestCase("abcde")]
+    public void Create_MalformedFormat_FailsValidation(string value)
+    {
+        var result = PostalCode.Create(value);
+
+        AssertValidationError(result, "Invalid postal code format");
+    }
+
+    [Test]
+    public void Create_Null_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => PostalCode.Create(null!));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    public void Create_EmptyOrWhitespace_ThrowsArgumentException(string value)
+    {
+        Assert.Throws<ArgumentException>(() => PostalCode.Create(value));
     }
 
     #endregion
+
+    private static void AssertValidationError(Result<PostalCode> result, string expectedDescription)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Errors.Select(e => e.Description), Has.Member(expectedDescription));
+            Assert.That(result.Errors.Select(e => e.ErrorType), Is.All.EqualTo(ErrorType.Validation));
+        });
+    }
 
     #region Equals
 

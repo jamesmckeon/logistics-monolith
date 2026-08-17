@@ -1,4 +1,3 @@
-using Moq;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.Orders;
 using Throughline.Modules.Ordering.Application.Orders.Models;
@@ -28,11 +27,12 @@ public sealed class OrderEstimateRequestBuilderTests
     private static readonly ZoneSurcharge OtherZone = new(
         MerchantId, new PostalZone(new PostalCode("20000"), new PostalCode("29999")), new Money(9m));
 
-    private Mock<ISkuAttributesQuery> _skuAttributesQuery = null!;
-    private Mock<IZoneChargeQuery> _zoneChargeQuery = null!;
-    private Mock<IPickFeeQuery> _pickFeeQuery = null!;
     private Mock<IMerchantRateQuery> _merchantRateQuery = null!;
+    private Mock<IPickFeeQuery> _pickFeeQuery = null!;
+
+    private Mock<ISkuAttributesQuery> _skuAttributesQuery = null!;
     private OrderEstimateRequestBuilder _sut = null!;
+    private Mock<IZoneChargeQuery> _zoneChargeQuery = null!;
 
     [SetUp]
     public void SetUp()
@@ -47,6 +47,45 @@ public sealed class OrderEstimateRequestBuilderTests
             _zoneChargeQuery.Object,
             _pickFeeQuery.Object,
             _merchantRateQuery.Object);
+    }
+
+    private void GivenPickFees(params SkuPickFee[] pickFees)
+    {
+        _pickFeeQuery.Setup(q => q.GetPickFeesAsync(MerchantId)).ReturnsAsync(pickFees);
+    }
+
+    private void GivenSkuAttributes(params SkuAttributes[] attributes)
+    {
+        _skuAttributesQuery
+            .Setup(q => q.GetAttributesAsync(MerchantId, It.IsAny<IEnumerable<SkuCode>>()))
+            .ReturnsAsync(attributes);
+    }
+
+    private void GivenZones(params ZoneSurcharge[] zones)
+    {
+        _zoneChargeQuery.Setup(q => q.GetChargesAsync(MerchantId)).ReturnsAsync(zones);
+    }
+
+    private void GivenHandlingRate(Rate? handlingRate)
+    {
+        _merchantRateQuery.Setup(q => q.GetHandlingAsync(MerchantId)).ReturnsAsync(handlingRate);
+    }
+
+    private static CreateOrderCommand Command(params (string Sku, int Quantity)[] items)
+    {
+        return CreateOrderCommand.Create(
+            MerchantId, "PO-1", "1 Main St", "Apt 2", "Springfield", "IL", "10000",
+            items, "REF-1").Value!;
+    }
+
+    private static void AssertUnavailable(Result<OrderEstimateRequest> result)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Errors.Single().ErrorType, Is.EqualTo(ErrorType.Unavailable));
+        });
     }
 
     #region CreateRequestAsync
@@ -168,43 +207,4 @@ public sealed class OrderEstimateRequestBuilderTests
     }
 
     #endregion
-
-    private void GivenPickFees(params SkuPickFee[] pickFees)
-    {
-        _pickFeeQuery.Setup(q => q.GetPickFeesAsync(MerchantId)).ReturnsAsync(pickFees);
-    }
-
-    private void GivenSkuAttributes(params SkuAttributes[] attributes)
-    {
-        _skuAttributesQuery
-            .Setup(q => q.GetAttributesAsync(MerchantId, It.IsAny<IEnumerable<SkuCode>>()))
-            .ReturnsAsync(attributes);
-    }
-
-    private void GivenZones(params ZoneSurcharge[] zones)
-    {
-        _zoneChargeQuery.Setup(q => q.GetChargesAsync(MerchantId)).ReturnsAsync(zones);
-    }
-
-    private void GivenHandlingRate(Rate? handlingRate)
-    {
-        _merchantRateQuery.Setup(q => q.GetHandlingAsync(MerchantId)).ReturnsAsync(handlingRate);
-    }
-
-    private static CreateOrderCommand Command(params (string Sku, int Quantity)[] items)
-    {
-        return CreateOrderCommand.Create(
-            MerchantId, "PO-1", "1 Main St", "Apt 2", "Springfield", "IL", "10000", "US",
-            items, "REF-1").Value!;
-    }
-
-    private static void AssertUnavailable(Result<OrderEstimateRequest> result)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Succeeded, Is.False);
-            Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Single().ErorType, Is.EqualTo(ErrorType.Unavailable));
-        });
-    }
 }
