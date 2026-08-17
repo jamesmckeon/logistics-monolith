@@ -134,7 +134,7 @@ by an ADR** — so "do both, deliberately" *is* the canonical resolution, not a 
 **Interacts with:** MOD-02 — VSA leans on a mediator/pipeline for cross-cutting behaviors, so the VSA
 module is a natural place to feel out the Wolverine-vs-not question in context.
 **Status:** 🔷 Open — plan recorded; ratify (→ ✅, write the Decision) when the VSA module is actually built.
-**Lands in:** [ADR-0006](ADR-0006-module-internal-structure-layered-vs-vertical-slice.md) (Proposed).
+**Lands in:** [ADR-0006](../../docs/decisions/ADR-0006-module-internal-structure-layered-vs-vertical-slice.md) (Proposed).
 
 ### MOD-05 — Value-object persistence · 🧭 Leaning
 **Question:** Map value objects (`Money`, `PostalCode`, `StreetAddress`, `AddressState`) as EF Core
@@ -182,7 +182,7 @@ much of MOD-09/MOD-14 for free. Cost: an Aspire dependency + AppHost project to 
 
 ### MOD-11 — Integration tests on Testcontainers · 🧭 Leaning
 **Lean:** Adopt — real Postgres/RabbitMQ per test run, killing shared-DB flakiness. Complements the
-existing NUnit 4 + Moq unit conventions (see [testing.md](../testing.md)); this is the integration tier.
+existing NUnit 4 + Moq unit conventions (see [testing.md](../../docs/testing.md)); this is the integration tier.
 **Becomes live when:** first integration test that needs real infra.
 **Lands in:** extend testing.md + a short ADR.
 
@@ -221,7 +221,7 @@ outbox processor, instead of Quartz/Hangfire — unless durable *scheduling* is 
 
 ### MOD-17 — Result pattern over exceptions · ✅ Decided
 Domain/application failures flow through `Result<T>` + `Error`/`ErrorType`, not exceptions. Already in
-force. **See [ADR-0005](ADR-0005-error-taxonomy-order-estimation.md)** (and the error-taxonomy ADR
+force. **See [ADR-0005](../../docs/decisions/ADR-0005-error-taxonomy-order-estimation.md)** (and the error-taxonomy ADR
 lineage). Kept here as the anchor entry so the register reflects the full stance.
 
 ### MOD-18 — Container publish via SDK · 🧭 Leaning

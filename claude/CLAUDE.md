@@ -3,7 +3,7 @@
 This file tells Claude how to run the learning program in this repository. Read it at the
 start of every session that touches the backlog, user stories, or solution reviews.
 
-Test conventions live in @testing.md — follow them when writing, editing, or reviewing
+Test conventions live in @../docs/testing.md — follow them when writing, editing, or reviewing
 C# unit and integration tests.
 
 ---
@@ -66,11 +66,16 @@ api-lab/
 │   │   ├── _TEMPLATE.md
 │   │   └── STORY-0001-review-v1.md
 │   ├── notes/                 # (optional) the user's or Claude's study notes per Item
-│   └── decisions/             # (optional) ADRs — practice writing staff-level design docs
+│   └── decisions/             # Lab-focused ADRs (ADR-0001) + modernization register
+├── docs/                      # Project engineering docs (general audience)
+│   ├── testing.md             # Test conventions (imported by claude/CLAUDE.md)
+│   └── decisions/             # Product & engineering ADRs (ADR-0002+)
 └── src/                       # The actual .NET 10 API projects (created as needed)
 ```
 
-Create `notes/` and `decisions/` on first use; don't scaffold empty folders.
+Create `notes/` on first use; don't scaffold empty folders. Product/engineering docs (test
+conventions, product ADRs) live under `docs/`; lab-focused decisions (e.g. ADR-0001) and the
+modernization register stay in `claude/decisions/`.
 
 ---
 

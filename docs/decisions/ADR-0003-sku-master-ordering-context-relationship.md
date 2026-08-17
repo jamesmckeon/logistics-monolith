@@ -7,7 +7,7 @@
   another module's integration-events assembly. See Decision §5 and the revised §1.
 - **Deciders:** Jamesey (engineer), Claude (mentor)
 - **Related items:** T-020 (Bounded Contexts & Context Mapping) — primary rep; supports STORY-0001 (#1). Touches deferred mechanism items T-004/T-006/T-008 (Phase 2) and T-007 (Phase 3).
-- **Builds on:** ADR-0001 (modular monolith; integration-event bus; module-owned tables), ADR-0002 (per-merchant, USD-only pricing).
+- **Builds on:** ADR-0002 (per-merchant, USD-only pricing). Architectural premises — modular monolith, transport-agnostic integration-event bus, module-owned tables — follow Grzybek (canon; verified against the repo this turn).
 - **Source grounding:** `claude/sources.md`. Grzybek **verified against the repo this turn** (async-only; module-owned data; modules depend only on another module's integration-events assembly). Evans/Vernon, Fowler, Martin/Cockburn **cited from knowledge, not verified against the texts this turn.**
 
 ---
@@ -21,16 +21,17 @@ language (product identity / physical attributes) than Ordering (orders / lines 
 The per-merchant pick/surcharge **rate table** is a *separate* source (ADR-0002) and is out
 of this ADR's scope; this ADR is only about **SKU-attribute access**.
 
-ADR-0001 already fixed the inter-module rules: communication via a transport-agnostic
-**integration-event bus**, **each module owns its tables**, and **no cross-module references
-except through published contracts / integration events**. A synchronous direct method call
-into the SKU master's domain is therefore already excluded.
+The project's inter-module rules (Grzybek, verified against the repo this turn) already fix
+the surrounding architecture: communication via a transport-agnostic **integration-event
+bus**, **each module owns its tables**, and **no cross-module references except through
+published contracts / integration events**. A synchronous direct method call into the SKU
+master's domain is therefore already excluded.
 
 Two things remain to decide at this seam:
 1. The **context-mapping relationship** between the two contexts.
-2. **How** Ordering obtains SKU weight within ADR-0001's rules — the one crack ADR-0001
-   leaves: "published contracts" could mean a synchronous *query* contract, or async
-   integration events plus a locally-owned copy.
+2. **How** Ordering obtains SKU weight within those rules — the one crack they leave:
+   "published contracts" could mean a synchronous *query* contract, or async integration
+   events plus a locally-owned copy.
 
 ## Decision
 
@@ -46,7 +47,7 @@ own local model at the boundary — a *light* translation, not defensive isolati
 The SKU master publishes SKU-attribute integration events; Ordering maintains its **own local
 read-model copy** of the attributes it needs (`SkuCode → UnitWeight`); the quote is computed
 from Ordering's local copy. There is **no call to the SKU master at quote time.** This is the
-direct application of ADR-0001's event bus + module-owned tables, and of Grzybek's confirmed
+direct application of the event bus + module-owned tables, and of Grzybek's confirmed
 async-only rule.
 
 **3. Seam in code = a mechanism-neutral port owned by Ordering.**
@@ -83,7 +84,7 @@ is an Ordering concept and lives in Ordering, not in any shared assembly.
   master latency/availability, and Ordering controls *when* weight updates apply — so the same
   order re-quoted against the same rate table is deterministic, and the hot intake path
   (millions/day, retried) has no synchronous fan-out.
-- **No architectural exception.** Aligns with ADR-0001 and Grzybek; nothing to justify later.
+- **No architectural exception.** Aligns with Grzybek and the established inter-module rules; nothing to justify later.
 - **Minimal coupling.** `SkuCode` stays the only shared type; the SKU master's model never
   leaks into Ordering.
 
@@ -100,9 +101,9 @@ is an Ordering concept and lives in Ordering, not in any shared assembly.
 ## Alternatives considered
 
 - **Synchronous published query contract** (SKU master exposes a query API Ordering calls at
-  quote time). A defensible reading of ADR-0001's "published contracts," and permitted by the
+  quote time). A defensible reading of the "published contracts" rule, and permitted by the
   structural sources (Fowler/Martin — a port's adapter *could* be a sync call). **Rejected:**
-  contradicts Grzybek's confirmed async-only rule and ADR-0001's dominant event-bus intent, and
+  contradicts Grzybek's confirmed async-only rule and the dominant event-bus intent, and
   couples quote availability + reproducibility to the SKU master on the hottest path.
 - **Anti-Corruption Layer.** **Rejected** on Vernon's own criteria — an ACL defends against an
   upstream you do not control; we own the SKU master. Would add translation ceremony without
@@ -114,7 +115,7 @@ is an Ordering concept and lives in Ordering, not in any shared assembly.
   relationship or a shared kernel of the *full attribute set* is doubly rejected — it would
   couple Ordering's model and release cadence to the SKU master's.
 - **Direct synchronous in-process method call** into the SKU master's domain. **Already
-  excluded** by ADR-0001 (no cross-module references except via contracts / integration events).
+  excluded** by the inter-module rules (no cross-module references except via contracts / integration events).
 
 ## Revisit when
 
@@ -122,4 +123,4 @@ is an Ordering concept and lives in Ordering, not in any shared assembly.
   Customer/Supplier).
 - A **real-time weight-accuracy** requirement makes eventual consistency unacceptable (reopens
   synchronous access vs. read model).
-- ADR-0001's inter-module transport decision changes.
+- The project's inter-module transport decision changes.

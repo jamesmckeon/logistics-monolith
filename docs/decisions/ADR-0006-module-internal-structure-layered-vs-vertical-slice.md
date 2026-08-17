@@ -4,7 +4,7 @@
 
 **Proposed — 2026-08-16.** This ADR records a *plan*, not a ratified decision. It is accepted only when
 the vertical-slice module is actually built and the comparison is judged worth keeping. Until then the
-governing register entry (MOD-04 in [MODERNIZATION-REGISTER.md](MODERNIZATION-REGISTER.md)) stays 🔷 Open.
+governing register entry (MOD-04 in [MODERNIZATION-REGISTER.md](../../claude/decisions/MODERNIZATION-REGISTER.md)) stays 🔷 Open.
 
 ## Context
 
@@ -13,7 +13,7 @@ This repo is positioned as a .NET 10 successor to
 canon source #—). The original structures **every** module the same way: layered (Application / Domain /
 Infrastructure per module).
 
-Two schools are in tension in the project canon ([sources.md](../sources.md)):
+Two schools are in tension in the project canon ([sources.md](../../claude/sources.md)):
 
 - **#3 Clean / layered architecture** (R. C. Martin; Cockburn Hexagonal) — ✅ **Confirmed, but explicitly
   contested**. Layers are the top-level partition; the dependency rule is enforced at assembly boundaries;
@@ -88,7 +88,7 @@ The only genuinely contested question is **whether reads sit behind a port**. Ru
 > **Reads bypass the write aggregate** (read from a projection/read model, don't rehydrate the aggregate
 > to render a view). **Port a read when (a)** its handler has logic worth isolating, **or (b)** there is a
 > **concrete, nameable expectation of re-platforming that read store** (CQRS read models, `HybridCache`,
-> search index, sharding — all on the [roadmap](../roadmap.md)). **A pure passthrough read with no
+> search index, sharding — all on the [roadmap](../../claude/roadmap.md)). **A pure passthrough read with no
 > re-platform on the horizon is covered by the integration tier, not a mockable query port.**
 
 This reconciles the three forces that were weighed (2026-08-16):
@@ -143,8 +143,8 @@ revisit if source #6 (VSA) is confirmed or a conflicting confirmed source appear
 
 ## Related
 
-- [MODERNIZATION-REGISTER.md](MODERNIZATION-REGISTER.md) — MOD-04 (this ADR's register entry), MOD-02
+- [MODERNIZATION-REGISTER.md](../../claude/decisions/MODERNIZATION-REGISTER.md) — MOD-04 (this ADR's register entry), MOD-02
   (mediation/pipeline — VSA's cross-cutting mechanism), MOD-11 (Testcontainers), MOD-12 (boundary tests).
-- [sources.md](../sources.md) — canon #3 (Clean, ✅ contested) vs #6 (VSA, ⏳ Pending); rule that contested
+- [sources.md](../../claude/sources.md) — canon #3 (Clean, ✅ contested) vs #6 (VSA, ⏳ Pending); rule that contested
   schools are settled by ADR.
 - Bogard, *Vertical Slice Architecture* (jimmybogard.com) — the #6 source.

@@ -18,4 +18,4 @@ on has **gone commercial** — MediatR & AutoMapper (Lucky Penny, 2025) and Mass
 2026). This repo stays **license-clean** and current on the modern .NET platform instead.
 
 Architecture and tooling decisions are tracked in
-[claude/decisions/](claude/decisions/) (ADRs + a forward-looking modernization register).
+[docs/decisions/](docs/decisions/) (product & engineering ADRs).
