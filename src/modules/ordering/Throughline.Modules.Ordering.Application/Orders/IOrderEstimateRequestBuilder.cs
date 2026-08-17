@@ -24,5 +24,6 @@ public interface IOrderEstimateRequestBuilder
     ///     Throughline guarantees this reference data is complete and current, so any such gap is
     ///     returned as <see cref="ErrorType.Unavailable" />.
     /// </returns>
-    Task<Result<OrderEstimateRequest>> CreateRequestAsync(CreateOrderCommand command);
+    Task<Result<OrderEstimateRequest>> CreateRequestAsync(
+        CreateOrderCommand command, CancellationToken cancellationToken = default);
 }

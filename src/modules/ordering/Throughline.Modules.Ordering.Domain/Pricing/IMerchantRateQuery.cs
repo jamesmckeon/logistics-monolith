@@ -4,5 +4,5 @@ namespace Throughline.Modules.Ordering.Domain.Pricing;
 
 public interface IMerchantRateQuery
 {
-    Task<Rate?> GetHandlingAsync(int merchantId);
+    Task<Rate?> GetHandlingAsync(int merchantId, CancellationToken cancellationToken = default);
 }

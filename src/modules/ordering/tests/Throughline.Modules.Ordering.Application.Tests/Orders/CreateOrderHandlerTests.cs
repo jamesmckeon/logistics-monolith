@@ -31,12 +31,12 @@ public sealed class CreateOrderHandlerTests
     [Test]
     public void CreateOrderAsync_NullCommand_ThrowsExpected()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => _sut.CreateOrderAsync(null!));
+        var ex = Assert.ThrowsAsync<ArgumentNullException>(() => _sut.CreateOrderAsync(null!));
         Assert.That(ex.ParamName, Is.EqualTo("command"));
     }
 
     [Test]
-    public void CreateOrderAsync_InvalidAddress_ReturnsFailure()
+    public async Task CreateOrderAsync_InvalidAddress_ReturnsFailure()
     {
         var command = CreateOrderCommand.Create(
                 1, "PO1", "123 Somewhere Drive", null, "Portland", "$$", "@1f$4",
@@ -45,7 +45,7 @@ public sealed class CreateOrderHandlerTests
 
         SetupOrderExists(command);
 
-        var actual = _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(command);
 
         var stateResult = AddressState.Create(command.State);
         var codeResult = PostalCode.Create(command.PostalCode);
@@ -62,13 +62,13 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public void CreateOrderAsync_OrderExists_ReturnsFailure()
+    public async Task CreateOrderAsync_OrderExists_ReturnsFailure()
     {
         var command = TestCommand();
 
         SetupOrderExists(command, true);
 
-        var actual = _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(command);
 
         Assert.Multiple(() =>
         {
@@ -76,22 +76,22 @@ public sealed class CreateOrderHandlerTests
             Assert.That(actual.Errors.Single().ErrorType,
                 Is.EqualTo(ErrorType.Conflict));
             Assert.That(actual.Errors.Single().Description,
-                Is.EqualTo($"An order with reference #{command.ReferenceNumber} for " +
-                           $"merchant id {command.MerchantId} already exists"));
+                Is.EqualTo(
+                    $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}"));
         });
     }
 
     [Test]
-    public void CreateOrderAsync_BuilderError_ReturnsFailure()
+    public async Task CreateOrderAsync_BuilderError_ReturnsFailure()
     {
         var command = TestCommand();
         SetupOrderExists(command);
 
         var error = Error.Validation("Test Error");
-        _requestBuilder.Setup(s => s.CreateRequestAsync(command))
+        _requestBuilder.Setup(s => s.CreateRequestAsync(command, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<OrderEstimateRequest>.Failure(error));
 
-        var actual = _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(command);
 
         Assert.Multiple(() =>
         {
@@ -101,7 +101,7 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public void CreateOrderAsync_EstimateCreated_SavesOrder()
+    public async Task CreateOrderAsync_EstimateCreated_SavesOrder()
     {
         var command = TestCommand();
         SetupOrderExists(command);
@@ -126,15 +126,37 @@ public sealed class CreateOrderHandlerTests
         var estimate = new OrderEstimate(
             new(1), new(2.12m), new(3.45m), estimateItems);
 
-        _requestBuilder.Setup(s => s.CreateRequestAsync(command))
+        _requestBuilder.Setup(s => s.CreateRequestAsync(command, It.IsAny<CancellationToken>()))
             .ReturnsAsync(request);
 
         _orderEstimateService.Setup(s => s.GetEstimate(request))
             .Returns(estimate);
 
-        var actual = _sut.CreateOrderAsync(command);
+        Order savedOrder = null!;
+        _ordersRepository.Setup(s => s.SaveOrderAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Callback<Order, CancellationToken>((o, _) => savedOrder = o)
+            .Returns(Task.CompletedTask);
 
-        throw new NotImplementedException();
+        var result = await _sut.CreateOrderAsync(command);
+
+        var expected = OrderModel.FromOrder(savedOrder);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.True);
+
+            var order = result.Value!;
+            Assert.That(order.OrderId, Is.EqualTo(expected.OrderId));
+            Assert.That(order.MerchantId, Is.EqualTo(expected.MerchantId));
+            Assert.That(order.PurchaseOrderNumber, Is.EqualTo(expected.PurchaseOrderNumber));
+            Assert.That(order.ReferenceNumber, Is.EqualTo(expected.ReferenceNumber));
+            Assert.That(order.Destination, Is.EqualTo(expected.Destination));
+            Assert.That(order.DestinationSurcharge, Is.EqualTo(expected.DestinationSurcharge));
+            Assert.That(order.TotalCharges, Is.EqualTo(expected.TotalCharges));
+            Assert.That(order.OrderLines, Is.EqualTo(expected.OrderLines));
+        });
+
+        _ordersRepository.Verify(s => s.SaveOrderAsync(savedOrder, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #region Helpers
@@ -148,7 +170,8 @@ public sealed class CreateOrderHandlerTests
 
     private void SetupOrderExists(CreateOrderCommand command, bool exists = false)
     {
-        _ordersRepository.Setup(s => s.OrderExistsFor(command.MerchantId, command.ReferenceNumber))
+        _ordersRepository.Setup(s => s.OrderExistsFor(
+                command.MerchantId, command.ReferenceNumber, It.IsAny<CancellationToken>()))
             .ReturnsAsync(exists);
     }
 

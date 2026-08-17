@@ -10,7 +10,7 @@ public sealed class OrderId : ValueObject
         Value = value;
     }
 
-    internal OrderId()
+    public OrderId()
     {
         Value = Guid.CreateVersion7();
     }

@@ -14,7 +14,8 @@ public sealed class Order
         StreetAddress destination,
         IEnumerable<OrderLine> orderLines,
         Money destinationSurcharge,
-        Money totalCharges)
+        Money totalCharges,
+        decimal totalWeight)
     {
         Id = id;
         MerchantId = merchantId;
@@ -24,6 +25,7 @@ public sealed class Order
         OrderLines = orderLines;
         DestinationSurcharge = destinationSurcharge;
         TotalCharges = totalCharges;
+        TotalWeight = totalWeight;
     }
 
     public OrderId Id { get; }
@@ -34,15 +36,17 @@ public sealed class Order
     public Money DestinationSurcharge { get; }
     public Money TotalCharges { get; }
     public IEnumerable<OrderLine> OrderLines { get; }
-
+    public decimal TotalWeight { get; }
 
     public static Order FromOrderEstimate(
+        OrderId orderId,
         OrderEstimate orderEstimate,
         int merchantId,
         string purchaseOrderNumber,
         string referenceNumber,
         StreetAddress destination)
     {
+        ArgumentNullException.ThrowIfNull(orderId);
         ArgumentNullException.ThrowIfNull(orderEstimate);
         ArgumentNullException.ThrowIfNull(destination);
 
@@ -50,16 +54,18 @@ public sealed class Order
         ArgumentNullException.ThrowIfNull(referenceNumber);
 
         var orderLines = orderEstimate.Items.Select(i => new OrderLine(
-            i.Quantity, i.SkuCode, i.PickFeeRate, i.TotalPickFee, i.Weight, i.TotalHandling));
+                i.Quantity, i.SkuCode, i.PickFeeRate, i.TotalPickFee, i.Weight, i.TotalHandling))
+            .ToList();
 
         return new Order(
-            new OrderId(),
+            orderId,
             merchantId,
             purchaseOrderNumber,
             referenceNumber,
             destination,
             orderLines,
             orderEstimate.ZoneSurcharge,
-            orderEstimate.TotalCharge);
+            orderEstimate.TotalCharge,
+            orderLines.Sum(s => s.TotalWeight));
     }
 }

@@ -30,6 +30,11 @@ public class Error : IEquatable<Error>
         return new Error(ErrorType.Unavailable, description);
     }
 
+    public static Error Conflict(string description)
+    {
+        return new Error(ErrorType.Conflict, description);
+    }
+
     public override bool Equals(object? obj)
     {
         return Equals(obj as Error);

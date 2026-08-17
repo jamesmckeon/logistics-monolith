@@ -1,4 +1,5 @@
 using Throughline.Modules.Ordering.Application.Orders.Models;
+using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.OrderEstimates;
 using Throughline.Modules.Ordering.Domain.Orders;
 
@@ -6,9 +7,9 @@ namespace Throughline.Modules.Ordering.Application.Orders;
 
 public sealed class CreateOrderHandler
 {
-    private IOrderEstimateService _estimateService;
-    private IOrdersRepository _ordersRepository;
-    private IOrderEstimateRequestBuilder _requestBuilder;
+    private readonly IOrderEstimateService _estimateService;
+    private readonly IOrdersRepository _ordersRepository;
+    private readonly IOrderEstimateRequestBuilder _requestBuilder;
 
     public CreateOrderHandler(
         IOrderEstimateRequestBuilder requestBuilder,
@@ -20,8 +21,61 @@ public sealed class CreateOrderHandler
         _ordersRepository = ordersRepository;
     }
 
-    public Result<OrderModel> CreateOrderAsync(CreateOrderCommand command)
+    public async Task<Result<OrderModel>> CreateOrderAsync(
+        CreateOrderCommand command, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(command);
+
+        var orderExists = await _ordersRepository.OrderExistsFor(
+            command.MerchantId, command.ReferenceNumber, cancellationToken);
+
+        if (orderExists)
+            return new[]
+            {
+                Error.Conflict(
+                    $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}")
+            };
+
+        var destination = CreateAddress(command);
+
+        if (!destination.Succeeded)
+            return destination.Errors;
+
+        var requestResult = await _requestBuilder.CreateRequestAsync(command, cancellationToken);
+
+        if (!requestResult.Succeeded)
+            return requestResult.Errors.ToArray();
+
+        var estimate = _estimateService.GetEstimate(requestResult.Value);
+
+        var order = Order.FromOrderEstimate(
+            new OrderId(),
+            estimate,
+            command.MerchantId,
+            command.PurchaseOrderNumber,
+            command.ReferenceNumber,
+            destination.Value);
+
+        await _ordersRepository.SaveOrderAsync(order, cancellationToken);
+
+        return OrderModel.FromOrder(order);
+    }
+
+    private static Result<StreetAddress> CreateAddress(CreateOrderCommand command)
+    {
+        var stateResult = AddressState.Create(command.State);
+        var zipResult = PostalCode.Create(command.PostalCode);
+
+        if (!stateResult.Succeeded || !zipResult.Succeeded)
+            return stateResult.Errors.AsEnumerable().Concat(
+                    zipResult.Errors)
+                .ToArray();
+
+        return StreetAddress.Create(
+            command.StreetAddressOne,
+            command.StreetAddressTwo,
+            command.City,
+            stateResult.Value,
+            zipResult.Value);
     }
 }

@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Throughline.Common.Results;
 
 public sealed record Result<T>
@@ -15,8 +17,10 @@ public sealed record Result<T>
         Succeeded = false;
     }
 
+    [MemberNotNullWhen(true, nameof(Value))]
     public bool Succeeded { get; }
-    public IEnumerable<Error> Errors { get; }
+
+    public Error[] Errors { get; }
     public T? Value { get; }
 
 

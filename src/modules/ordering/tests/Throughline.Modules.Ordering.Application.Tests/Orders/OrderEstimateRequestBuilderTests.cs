@@ -51,24 +51,28 @@ public sealed class OrderEstimateRequestBuilderTests
 
     private void GivenPickFees(params SkuPickFee[] pickFees)
     {
-        _pickFeeQuery.Setup(q => q.GetPickFeesAsync(MerchantId)).ReturnsAsync(pickFees);
+        _pickFeeQuery.Setup(q => q.GetPickFeesAsync(MerchantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pickFees);
     }
 
     private void GivenSkuAttributes(params SkuAttributes[] attributes)
     {
         _skuAttributesQuery
-            .Setup(q => q.GetAttributesAsync(MerchantId, It.IsAny<IEnumerable<SkuCode>>()))
+            .Setup(q => q.GetAttributesAsync(
+                MerchantId, It.IsAny<IEnumerable<SkuCode>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(attributes);
     }
 
     private void GivenZones(params ZoneSurcharge[] zones)
     {
-        _zoneChargeQuery.Setup(q => q.GetChargesAsync(MerchantId)).ReturnsAsync(zones);
+        _zoneChargeQuery.Setup(q => q.GetChargesAsync(MerchantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(zones);
     }
 
     private void GivenHandlingRate(Rate? handlingRate)
     {
-        _merchantRateQuery.Setup(q => q.GetHandlingAsync(MerchantId)).ReturnsAsync(handlingRate);
+        _merchantRateQuery.Setup(q => q.GetHandlingAsync(MerchantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(handlingRate);
     }
 
     private static CreateOrderCommand Command(params (string Sku, int Quantity)[] items)
