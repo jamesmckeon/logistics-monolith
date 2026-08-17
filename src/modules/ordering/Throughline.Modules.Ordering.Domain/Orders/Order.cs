@@ -7,6 +7,7 @@ namespace Throughline.Modules.Ordering.Domain.Orders;
 public sealed class Order
 {
     private Order(
+        OrderId id,
         int merchantId,
         string purchaseOrderNumber,
         string referenceNumber,
@@ -15,6 +16,7 @@ public sealed class Order
         Money destinationSurcharge,
         Money totalCharges)
     {
+        Id = id;
         MerchantId = merchantId;
         PurchaseOrderNumber = purchaseOrderNumber.Trim();
         ReferenceNumber = referenceNumber.Trim();
@@ -24,6 +26,7 @@ public sealed class Order
         TotalCharges = totalCharges;
     }
 
+    public OrderId Id { get; }
     public int MerchantId { get; }
     public string PurchaseOrderNumber { get; }
     public string ReferenceNumber { get; }
@@ -50,6 +53,7 @@ public sealed class Order
             i.Quantity, i.SkuCode, i.PickFeeRate, i.TotalPickFee, i.Weight, i.TotalHandling));
 
         return new Order(
+            new OrderId(),
             merchantId,
             purchaseOrderNumber,
             referenceNumber,
