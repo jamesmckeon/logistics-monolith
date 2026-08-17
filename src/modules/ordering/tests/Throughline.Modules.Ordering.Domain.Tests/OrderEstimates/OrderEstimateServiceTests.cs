@@ -39,22 +39,11 @@ public sealed class OrderEstimateServiceTests
     #region GetEstimate
 
     [Test]
-    public void GetEstimate_ValidRequest_Succeeds()
-    {
-        var request = Request([Item("SKU-1", 3, 2m, 1.50m)], 0.25m, 5.00m);
-
-        var result = _sut.GetEstimate(request);
-
-        Assert.That(result.Succeeded, Is.True);
-    }
-
-    [Test]
     public void GetEstimate_SingleLine_TotalChargeIsPickFeePlusHandlingPlusSurcharge()
     {
         // pick fee: 3 * 1.50 = 4.50; handling: (3 * 2) * 0.25 = 1.50; surcharge: 5.00 => 11.00
         var request = Request([Item("SKU-1", 3, 2m, 1.50m)], 0.25m, 5.00m);
-
-        var estimate = _sut.GetEstimate(request).Value!;
+        var estimate = _sut.GetEstimate(request);
 
         Assert.That(estimate.TotalCharge.Value, Is.EqualTo(11.00m));
     }
@@ -64,7 +53,7 @@ public sealed class OrderEstimateServiceTests
     {
         var request = Request([Item("SKU-1", 3, 2m, 1.50m)], 0.25m, 5.00m);
 
-        var line = _sut.GetEstimate(request).Value!.Items.Single();
+        var line = _sut.GetEstimate(request).Items.Single();
 
         Assert.Multiple(() =>
         {
@@ -80,7 +69,7 @@ public sealed class OrderEstimateServiceTests
     {
         var request = Request([Item("SKU-1", 1, 1m, 1.00m)], 0.10m, 5.00m);
 
-        var estimate = _sut.GetEstimate(request).Value!;
+        var estimate = _sut.GetEstimate(request);
 
         Assert.That(estimate.ZoneSurcharge.Value, Is.EqualTo(5.00m));
     }
@@ -92,7 +81,7 @@ public sealed class OrderEstimateServiceTests
         var request = new OrderEstimateRequest(
             handlingRate, [Item("SKU-1", 1, 1m, 1.00m)], Zone(5.00m));
 
-        var estimate = _sut.GetEstimate(request).Value!;
+        var estimate = _sut.GetEstimate(request);
 
         Assert.That(estimate.HandlingRate, Is.EqualTo(handlingRate));
     }
@@ -111,7 +100,7 @@ public sealed class OrderEstimateServiceTests
             0.10m,
             0.00m);
 
-        var estimate = _sut.GetEstimate(request).Value!;
+        var estimate = _sut.GetEstimate(request);
 
         Assert.Multiple(() =>
         {
