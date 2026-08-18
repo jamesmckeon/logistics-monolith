@@ -2,17 +2,19 @@ using Throughline.Modules.Ordering.Domain.Models;
 
 namespace Throughline.Modules.Ordering.Domain.Pricing;
 
-public sealed class SkuPickFee
+public sealed class MerchantPickFee
 {
-    public SkuCode SkuCode { get; }
-    public Rate PickFee { get; }
-
-    public SkuPickFee(SkuCode skuCode, Rate pickFee)
+    public MerchantPickFee(SkuCode skuCode, Rate pickFee, int merchantId)
     {
         ArgumentNullException.ThrowIfNull(skuCode);
         ArgumentNullException.ThrowIfNull(pickFee);
 
         SkuCode = skuCode;
         PickFee = pickFee;
+        MerchantId = merchantId;
     }
+
+    public int MerchantId { get; }
+    public SkuCode SkuCode { get; }
+    public Rate PickFee { get; }
 }

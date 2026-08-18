@@ -15,8 +15,8 @@ public sealed class OrderEstimateRequestBuilderTests
 
     private static readonly Rate HandlingRate = new(0.25m);
 
-    private static readonly SkuPickFee Sku1PickFee = new(new SkuCode("SKU-1"), new Rate(1.50m));
-    private static readonly SkuPickFee Sku2PickFee = new(new SkuCode("SKU-2"), new Rate(2.00m));
+    private static readonly MerchantPickFee Sku1PickFee = new(new SkuCode("SKU-1"), new Rate(1.50m));
+    private static readonly MerchantPickFee Sku2PickFee = new(new SkuCode("SKU-2"), new Rate(2.00m));
 
     private static readonly SkuAttributes Sku1Attributes = new(new SkuCode("SKU-1"), 0.5m);
     private static readonly SkuAttributes Sku2Attributes = new(new SkuCode("SKU-2"), 1.25m);
@@ -49,7 +49,7 @@ public sealed class OrderEstimateRequestBuilderTests
             _merchantRateQuery.Object);
     }
 
-    private void GivenPickFees(params SkuPickFee[] pickFees)
+    private void GivenPickFees(params MerchantPickFee[] pickFees)
     {
         _pickFeeQuery.Setup(q => q.GetPickFeesAsync(MerchantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pickFees);

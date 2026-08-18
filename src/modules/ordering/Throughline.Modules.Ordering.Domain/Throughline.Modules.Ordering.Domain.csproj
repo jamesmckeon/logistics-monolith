@@ -11,5 +11,6 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Throughline.Modules.Ordering.Application.Tests"/>
+        <InternalsVisibleTo Include="Throughline.Modules.Ordering.Domain.Tests"/>
     </ItemGroup>
 </Project>
