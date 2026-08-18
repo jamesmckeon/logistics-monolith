@@ -1,6 +1,6 @@
 namespace Throughline.Modules.Ordering.Domain.Models;
 
-public sealed class PostalZone
+public sealed class PostalZone : ValueObject
 {
     public PostalZone(PostalCode startCode, PostalCode endCode)
     {
@@ -26,5 +26,11 @@ public sealed class PostalZone
         var end = int.Parse(EndCode.BaseCode);
 
         return candidate >= start && candidate <= end;
+    }
+
+    protected override IEnumerable<object> GetAtomicValues()
+    {
+        yield return StartCode;
+        yield return EndCode;
     }
 }

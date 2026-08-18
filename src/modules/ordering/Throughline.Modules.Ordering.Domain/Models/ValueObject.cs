@@ -29,12 +29,12 @@ public abstract class ValueObject : IEquatable<ValueObject>
     public override int GetHashCode()
     {
         return GetAtomicValues().Aggregate(
-            default(int),
+            0,
             (hashcode, value) =>
-                HashCode.Combine(hashcode, value.GetHashCode()));
+                HashCode.Combine(hashcode, value?.GetHashCode() ?? 0));
     }
 
-    protected abstract IEnumerable<object> GetAtomicValues();
+    protected abstract IEnumerable<object?> GetAtomicValues();
 
     private bool ValuesAreEqual(ValueObject valueObject)
     {

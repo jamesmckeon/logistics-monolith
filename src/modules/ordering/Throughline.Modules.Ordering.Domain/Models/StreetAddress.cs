@@ -2,7 +2,7 @@ using Throughline.Modules.Ordering.Domain.Exceptions;
 
 namespace Throughline.Modules.Ordering.Domain.Models;
 
-public sealed class StreetAddress
+public sealed class StreetAddress : ValueObject
 {
     public StreetAddress(
         string streeAddressOne,
@@ -27,6 +27,15 @@ public sealed class StreetAddress
     public string City { get; }
     public AddressState State { get; }
     public PostalCode ZipCode { get; }
+
+    protected override IEnumerable<object> GetAtomicValues()
+    {
+        yield return StreeAddressOne;
+        yield return StreetAddressTwo ?? string.Empty;
+        yield return City;
+        yield return State;
+        yield return ZipCode;
+    }
 
     public static Result<StreetAddress> Create(
         string addressOne,
