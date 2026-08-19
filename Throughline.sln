@@ -10,9 +10,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain.Tests", "src\modules\ordering\tests\Throughline.Modules.Ordering.Domain.Tests\Throughline.Modules.Ordering.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Tests", "Throughline.Common.Tests\Throughline.Common.Tests.csproj", "{32D436D4-17B4-49EA-AAE2-0E9D283E10D6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Tests", "src\shared\Throughline.Common.Tests\Throughline.Common.Tests.csproj", "{32D436D4-17B4-49EA-AAE2-0E9D283E10D6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Infrastructure", "src\modules\ordering\Throughline.Modules.Ordering.Infrastructure\Throughline.Modules.Ordering.Infrastructure.csproj", "{54180782-77EC-46F1-BB78-BB0A320C5FF4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api", "api\Throughline.Api\Throughline.Api.csproj", "{57D7860C-202F-4B14-AB12-281647607589}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Api", "src\modules\ordering\Throughline.Modules.Ordering.Api\Throughline.Modules.Ordering.Api.csproj", "{35E9329E-834F-48AD-B40F-2B8270A692AE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -48,5 +52,13 @@ Global
 		{54180782-77EC-46F1-BB78-BB0A320C5FF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{54180782-77EC-46F1-BB78-BB0A320C5FF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{54180782-77EC-46F1-BB78-BB0A320C5FF4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57D7860C-202F-4B14-AB12-281647607589}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57D7860C-202F-4B14-AB12-281647607589}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57D7860C-202F-4B14-AB12-281647607589}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57D7860C-202F-4B14-AB12-281647607589}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

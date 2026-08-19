@@ -35,6 +35,7 @@ public sealed class OrdersRepository : DbContext, IOrdersRepository
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema("orders");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersRepository).Assembly);
     }
 }

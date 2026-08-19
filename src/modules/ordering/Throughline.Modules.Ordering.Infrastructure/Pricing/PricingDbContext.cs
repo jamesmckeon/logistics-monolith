@@ -31,6 +31,7 @@ public sealed class PricingDbContext : DbContext, IPickFeeQuery, IZoneChargeQuer
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema("orders");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PricingDbContext).Assembly);
     }
 }
