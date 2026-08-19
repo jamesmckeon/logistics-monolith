@@ -12,7 +12,7 @@ public sealed class Order
         string purchaseOrderNumber,
         string referenceNumber,
         StreetAddress destination,
-        IEnumerable<OrderLine> orderLines,
+        List<OrderLine> orderLines,
         Money destinationSurcharge,
         Money totalCharges,
         decimal totalWeight)
@@ -35,7 +35,7 @@ public sealed class Order
     public StreetAddress Destination { get; }
     public Money DestinationSurcharge { get; }
     public Money TotalCharges { get; }
-    public IEnumerable<OrderLine> OrderLines { get; }
+    public IReadOnlyCollection<OrderLine> OrderLines { get; }
     public decimal TotalWeight { get; }
 
     public static Order FromOrderEstimate(
