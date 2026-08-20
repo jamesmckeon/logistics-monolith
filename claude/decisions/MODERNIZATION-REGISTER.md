@@ -21,7 +21,7 @@ Status legend: 🔷 Open (genuinely undecided) · 🧭 Leaning (a recommended di
 ✅ Decided (ratified → ADR).
 
 _Created 2026-08-16. Update the `Updated` line on any change._
-Updated: 2026-08-16
+Updated: 2026-08-19
 
 ---
 
@@ -64,6 +64,7 @@ Q1 2026; v8 Apache-2.0 maintained only through end of 2026). A copy-me reference
 | MOD-17 | Result pattern over exceptions for domain errors | ✅ Decided | — (in force; see ADR-0005) |
 | MOD-18 | Container publish via .NET SDK (no Dockerfile) | 🧭 Leaning | First deployable artifact |
 | MOD-19 | Source generators: `[LoggerMessage]`, System.Text.Json source-gen | 🧭 Leaning | Hot-path / performance pass |
+| MOD-20 | Module extractability contract & deployment posture (host-agnostic; OCI/ACA target, IIS non-goal) | 🧭 Leaning | Anchor for extraction/deploy decisions — see ADR-0008 |
 
 ---
 
@@ -155,7 +156,8 @@ ADR because that wiring is the interesting part.
 **Lean:** **PostgreSQL** over SQL Server — closer to modern logistics shops, Testcontainers-friendly,
 free. Keep the CQRS read/write split (e.g. Dapper reads / EF writes) if desired; that's still sound.
 **Becomes live when:** first persistence layer.
-**Lands in:** brief ADR (engine + rationale).
+**Lands in:** brief ADR (engine + rationale). Data ownership / schema-per-module is clause B.3 of the
+extractability contract (MOD-20 / ADR-0008).
 
 ### MOD-08 — API layer · 🧭 Leaning
 **Lean:** **Minimal APIs** with route groups, endpoint filters, `TypedResults`, and **native OpenAPI**
@@ -170,7 +172,8 @@ propagate context **across the async/messaging boundary** (the hard, high-value 
 trace an order through Ordering → Fulfillment → Shipping). Wire early (Aspire service defaults), harden
 in Phase 4. Replaces the original's Serilog+ELK+custom-correlation approach.
 **Becomes live when:** as soon as there's a request path worth tracing.
-**Lands in:** ADR; also a roadmap Item (already listed as an OBS candidate).
+**Lands in:** ADR; also a roadmap Item (already listed as an OBS candidate). Context propagation across
+the async boundary is clause B.5 of the extractability contract (MOD-20 / ADR-0008).
 
 ### MOD-10 — .NET Aspire · 🧭 Leaning
 **Question:** Use Aspire for local orchestration, service defaults (OTel/health/resilience wiring), and
@@ -199,6 +202,7 @@ without touching module code?
 **Why it matters:** The "monolith-first, extract-when-proven" evolution is the whole *point* of the
 modular monolith in 2025 and is underexplained online — a core narrative for this repo.
 **Lean:** Yes, as a design principle. Interacts with MOD-02 (Wolverine provides this seam natively).
+This seam is clause B.2 of the extractability contract (MOD-20 / ADR-0008) — the load-bearing one.
 **Becomes live when:** first cross-module event.
 **Lands in:** folded into MOD-02's ADR or its own.
 
@@ -226,12 +230,40 @@ lineage). Kept here as the anchor entry so the register reflects the full stance
 
 ### MOD-18 — Container publish via SDK · 🧭 Leaning
 **Lean:** `dotnet publish /t:PublishContainer` — no Dockerfile. Low priority until there's a deployable.
+OCI container is the LCD deployment unit in the extractability posture (MOD-20 / ADR-0008, clause B.7).
 **Becomes live when:** first deployable artifact / CI publish step.
 
 ### MOD-19 — Source generators for hot paths · 🧭 Leaning
 **Lean:** `[LoggerMessage]` logging + System.Text.Json source-gen contexts; signals a 2025 codebase and
 avoids reflection on hot paths. Low priority; a polish pass.
 **Becomes live when:** a performance/hot-path pass, or when logging volume grows.
+
+### MOD-20 — Module extractability contract & deployment posture · 🧭 Leaning
+**Question:** What must be true of every module so a future split into its own process is a
+*deployment change, not a rewrite* — and what deployment targets does that imply (Azure Container
+App? IIS web app?)?
+**Key reframe:** a module in the monolith is class libraries with no deployment target; it gains one
+only when wrapped in a host. So we don't design *for* a target — we design for **extractability** and
+bind the target late. The lowest common denominator is an **OCI (linux) container**.
+**Decision (in ADR-0008):**
+- **Extraction is demand-driven** along modeled bounded-context seams (independent scaling, deploy
+  cadence/team autonomy, fault isolation, divergent runtime/compliance/SLA) — monolith-first, no
+  pre-splitting; the first extraction is expected to be a **worker**, not a request/response module.
+- **The extractability contract** every module holds from day one: host-agnostic code (no
+  `System.Web`/`HttpContext`/`web.config`), cross-module comms only via the transport-swappable seam
+  (MOD-13), data ownership / schema-per-module (MOD-07), hostile-from-day-one integration
+  (idempotent, at-least-once, inbox/outbox — MOD-16/MOD-02), OTel across the boundary (MOD-09),
+  stateless + graceful shutdown + health endpoints, container-publishable (MOD-18). Enforced by
+  architecture tests (MOD-12).
+- **Deployment posture:** target OCI containers; **Azure Container Apps** primary (Container Apps
+  Jobs/Functions for workers, AKS situational, App Service fallback); **IIS/on-prem Windows a
+  non-goal** but kept *possible for free* by the host-agnostic clause. Per-module `.Api` +
+  `Add{Module}`/`Map{Module}` (MOD-08) makes extraction a ~20-line host; **Aspire (MOD-10)** rehearses
+  the multi-process topology locally.
+**Status:** 🧭 Leaning — ADR-0008 is **Proposed**; ratifies (→ ✅) when the first module is actually
+extracted or the first cross-module event is built and the contract is tested against reality.
+**Binds:** MOD-13, MOD-07, MOD-09, MOD-18, MOD-10, MOD-16, MOD-02, MOD-12; relies on MOD-08.
+**Lands in:** [ADR-0008](../../docs/decisions/ADR-0008-module-extractability-contract-and-deployment-posture.md) (Proposed).
 
 ---
 
