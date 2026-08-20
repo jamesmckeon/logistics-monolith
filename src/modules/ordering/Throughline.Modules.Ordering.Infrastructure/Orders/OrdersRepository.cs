@@ -33,6 +33,16 @@ public sealed class OrdersRepository : DbContext, IOrdersRepository
             cancellationToken);
     }
 
+    public async Task<Order?> GetOrderByMerchantReferenceAsync(int merchantId, string referenceNumber,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(referenceNumber);
+
+        return await Orders.SingleOrDefaultAsync(o =>
+                o.MerchantId == merchantId && o.ReferenceNumber == referenceNumber,
+            cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("orders");
