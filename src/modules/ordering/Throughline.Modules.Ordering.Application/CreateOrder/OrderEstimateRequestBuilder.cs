@@ -4,7 +4,7 @@ using Throughline.Modules.Ordering.Domain.OrderEstimates;
 using Throughline.Modules.Ordering.Domain.Pricing;
 using Throughline.Modules.Ordering.Domain.Skus;
 
-namespace Throughline.Modules.Ordering.Application.Orders;
+namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
 public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
 {

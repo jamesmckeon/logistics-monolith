@@ -3,9 +3,9 @@ using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.OrderEstimates;
 using Throughline.Modules.Ordering.Domain.Orders;
 
-namespace Throughline.Modules.Ordering.Application.Orders;
+namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
-public sealed class CreateOrderHandler
+public sealed class CreateOrderHandler : ICreateOrderHandler
 {
     private readonly IOrderEstimateService _estimateService;
     private readonly IOrdersRepository _ordersRepository;

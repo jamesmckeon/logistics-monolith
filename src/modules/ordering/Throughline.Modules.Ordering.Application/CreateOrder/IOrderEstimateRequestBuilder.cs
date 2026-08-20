@@ -1,7 +1,7 @@
 using Throughline.Modules.Ordering.Application.Orders.Models;
 using Throughline.Modules.Ordering.Domain.OrderEstimates;
 
-namespace Throughline.Modules.Ordering.Application.Orders;
+namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
 /// <summary>
 ///     Assembles a priceable <see cref="OrderEstimateRequest" /> from a validated

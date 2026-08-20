@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Ordering.Application.Models;
+namespace Throughline.Modules.Ordering.Application.Orders.Models;
 
 public sealed record DestinationModel(
     string StreetAddressOne,
