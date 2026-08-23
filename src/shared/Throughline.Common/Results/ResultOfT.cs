@@ -30,7 +30,6 @@ public sealed record Result<T>
     public static Result<T> Failure(Error error, ErrorType errorType)
     {
         ArgumentNullException.ThrowIfNull(error);
-        ArgumentNullException.ThrowIfNull(errorType);
 
         return new Result<T>([error], errorType);
     }
@@ -44,24 +43,34 @@ public sealed record Result<T>
         if (!errorArray.Any())
             throw new ArgumentException("errors cannot be empty", nameof(errors));
 
-        ArgumentNullException.ThrowIfNull(errorType);
-
         return new Result<T>(errorArray, errorType);
     }
 
-    public static Result<T> Validation(params Error[] errors)
+    public static Result<T> Validation(IEnumerable<Error> errors)
     {
         return Failure(errors, Results.ErrorType.Validation);
     }
 
-    public static Result<T> Conflict(params Error[] errors)
+    public static Result<T> Validation(IEnumerable<string> errors)
     {
-        return Failure(errors, Results.ErrorType.Conflict);
+        return Failure(errors.Select(e => new Error(e)), Results.ErrorType.Validation);
+    }
+
+    public static Result<T> Conflict(params string[] errors)
+    {
+        // conflict result shouldn't carry errors with field names
+        return Failure(errors.Select(e => new Error(e)),
+            Results.ErrorType.Conflict);
     }
 
 
     public static Result<T> Success(T value)
     {
         return new Result<T>(value);
+    }
+
+    public static implicit operator Result<T>(T value)
+    {
+        return Success(value);
     }
 }
