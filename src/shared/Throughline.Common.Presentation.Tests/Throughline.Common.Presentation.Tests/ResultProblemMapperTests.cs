@@ -9,6 +9,8 @@ using TestResult = Result<object>;
 [Category("Unit")]
 public sealed class ResultProblemMapperTests
 {
+    #region ToProblemDetails
+
     [Test]
     public void ToProblemDetails_SuccessResult_ThrowsExpected()
     {
@@ -105,6 +107,8 @@ public sealed class ResultProblemMapperTests
             Assert.That(actual.Extensions.Count, Is.EqualTo(0));
         });
     }
+
+    #endregion
 
     private static void AssertFieldErrors(ValidationProblemDetails actual, Error error)
     {
