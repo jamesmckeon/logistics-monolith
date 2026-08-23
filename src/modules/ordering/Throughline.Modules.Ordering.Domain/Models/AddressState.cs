@@ -7,7 +7,7 @@ public sealed class AddressState : ValueObject
         if (GetValidationErrors(value).Any())
             throw new ArgumentException("value is not a valid state name", nameof(value));
 
-        Value = value;
+        Value = value.Trim().ToUpperInvariant();
     }
 
     public string Value { get; }
@@ -17,9 +17,10 @@ public sealed class AddressState : ValueObject
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
 
         var errors = GetValidationErrors(state);
-        
-        return errors.Any() ? Result<AddressState>.Validation(errors): 
-            Result<AddressState>.Success(new AddressState(state));
+
+        return errors.Any()
+            ? Result<AddressState>.Validation(errors)
+            : Result<AddressState>.Success(new AddressState(state));
     }
 
     protected override IEnumerable<object> GetAtomicValues()

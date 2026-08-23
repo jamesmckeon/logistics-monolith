@@ -13,16 +13,22 @@ public sealed class ErrorTests
         Assert.Multiple(() =>
         {
             Assert.That(sut.FieldName, Is.EqualTo("test"));
-            Assert.That(sut.Description, Is.EqualTo("test is required"));
+            Assert.That(sut.Description, Is.EqualTo("test is required."));
         });
     }
 
-    [TestCase(null)]
     [TestCase("")]
     [TestCase(" ")]
-    public void Validation_DescriptionMissing_ThrowsArgumentException(string? val)
+    public void Validation_DescriptionMissing_ThrowsArgumentException(string val)
     {
-        var ex = Assert.Throws<ArgumentException>(() => _ = new Error(val!));
+        var ex = Assert.Throws<ArgumentException>(() => _ = new Error(val));
+        Assert.That(ex.ParamName, Is.EqualTo("description"));
+    }
+
+    [Test]
+    public void Validation_NullDescription_ThrowsArgumentNullException()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(() => _ = new Error(null!));
         Assert.That(ex.ParamName, Is.EqualTo("description"));
     }
 }
