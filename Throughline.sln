@@ -18,6 +18,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api", "api\Thro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Api", "src\modules\ordering\Throughline.Modules.Ordering.Api\Throughline.Modules.Ordering.Api.csproj", "{35E9329E-834F-48AD-B40F-2B8270A692AE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Presentation", "src\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj", "{1C551051-2B0B-48E0-95CF-3D98B615C14E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Presentation.Tests", "src\shared\Throughline.Common.Presentation.Tests\Throughline.Common.Presentation.Tests\Throughline.Common.Presentation.Tests.csproj", "{DAA209AF-A756-4A55-9B06-2947386C1FDC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,5 +64,13 @@ Global
 		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{35E9329E-834F-48AD-B40F-2B8270A692AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C551051-2B0B-48E0-95CF-3D98B615C14E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C551051-2B0B-48E0-95CF-3D98B615C14E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C551051-2B0B-48E0-95CF-3D98B615C14E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C551051-2B0B-48E0-95CF-3D98B615C14E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,63 +1,15 @@
 namespace Throughline.Common.Results;
 
-public class Error : IEquatable<Error>
+public sealed record Error
 {
-    protected Error(ErrorType errorType, string description)
+    public Error(string description, string? fieldName = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentNullException.ThrowIfNull(description);
 
-        ErrorType = errorType;
         Description = description;
+        FieldName = fieldName;
     }
 
-    public ErrorType ErrorType { get; }
-    public string? Description { get; }
-
-    public bool Equals(Error? other)
-    {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return ErrorType == other.ErrorType && Description == other.Description;
-    }
-
-    public static Error Validation(string description)
-    {
-        return new Error(ErrorType.Validation, description);
-    }
-
-    public static Error Unavailable(string description)
-    {
-        return new Error(ErrorType.Unavailable, description);
-    }
-
-    public static Error Conflict(string description)
-    {
-        return new Error(ErrorType.Conflict, description);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as Error);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine((int)ErrorType, Description);
-    }
-
-    public static bool operator ==(Error? left, Error? right)
-    {
-        if (left is null && right is null)
-            return true;
-
-        if (left is null || right is null)
-            return false;
-
-        return left.Equals(right);
-    }
-
-    public static bool operator !=(Error? left, Error? right)
-    {
-        return !(left == right);
-    }
+    public string Description { get; }
+    public string? FieldName { get; }
 }
