@@ -27,13 +27,6 @@ public sealed record Result<T>
     public T? Value { get; }
 
 
-    private static Result<T> Failure(Error error, ErrorType errorType)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return new Result<T>([error], errorType);
-    }
-
     private static Result<T> Failure(IEnumerable<Error> errors, ErrorType errorType)
     {
         ArgumentNullException.ThrowIfNull(errors);
