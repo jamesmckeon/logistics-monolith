@@ -27,14 +27,14 @@ public sealed record Result<T>
     public T? Value { get; }
 
 
-    public static Result<T> Failure(Error error, ErrorType errorType)
+    private static Result<T> Failure(Error error, ErrorType errorType)
     {
         ArgumentNullException.ThrowIfNull(error);
 
         return new Result<T>([error], errorType);
     }
 
-    public static Result<T> Failure(IEnumerable<Error> errors, ErrorType errorType)
+    private static Result<T> Failure(IEnumerable<Error> errors, ErrorType errorType)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
@@ -46,9 +46,10 @@ public sealed record Result<T>
         return new Result<T>(errorArray, errorType);
     }
 
-    public static Result<T> Validation(Error error)
+
+    public static Result<T> Validation(params Error[] errors)
     {
-        return Failure(error, Results.ErrorType.Validation);
+        return Failure(errors, Results.ErrorType.Validation);
     }
 
     public static Result<T> Validation(IEnumerable<Error> errors)
@@ -56,7 +57,7 @@ public sealed record Result<T>
         return Failure(errors, Results.ErrorType.Validation);
     }
 
-    public static Result<T> Validation(IEnumerable<string> errors)
+    public static Result<T> Validation(params string[] errors)
     {
         return Failure(errors.Select(e => new Error(e)), Results.ErrorType.Validation);
     }

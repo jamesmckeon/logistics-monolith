@@ -71,7 +71,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(purchaseOrderNumber: purchaseOrderNumber!);
 
-        AssertSingleValidationError(result, "purchaseOrderNumber is required");
+        AssertSingleValidationError(result, "purchaseOrderNumber is required.");
     }
 
     [TestCase(null)]
@@ -81,7 +81,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(referenceNumber: referenceNumber!);
 
-        AssertSingleValidationError(result, "referenceNumber is required");
+        AssertSingleValidationError(result, "referenceNumber is required.");
     }
 
     [TestCase(null)]
@@ -91,7 +91,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(city: city!);
 
-        AssertSingleValidationError(result, "city is required");
+        AssertSingleValidationError(result, "city is required.");
     }
 
     [TestCase(null)]
@@ -101,7 +101,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(state: state!);
 
-        AssertSingleValidationError(result, "state is required");
+        AssertSingleValidationError(result, "state is required.");
     }
 
     [TestCase(null)]
@@ -111,7 +111,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(postalCode: postalCode!);
 
-        AssertSingleValidationError(result, "postalCode is required");
+        AssertSingleValidationError(result, "postalCode is required.");
     }
 
 
@@ -122,7 +122,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(items: [(sku!, 1)]);
 
-        AssertSingleValidationError(result, "each item must have a sku");
+        AssertSingleValidationError(result, "each item must have a sku.");
     }
 
     [TestCase(0)]
@@ -131,7 +131,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(items: [("SKU-1", quantity)]);
 
-        AssertSingleValidationError(result, "each item must have a quantity greater than 0");
+        AssertSingleValidationError(result, "each item must have a quantity greater than 0.");
     }
 
     [Test]
@@ -145,9 +145,9 @@ public sealed class CreateOrderCommandTests
             Assert.That(result.Value, Is.Null);
             Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
             Assert.That(result.Errors.Select(e => e.Description), Is.EquivalentTo([
-                "purchaseOrderNumber is required",
-                "state is required",
-                "each item must have a quantity greater than 0"
+                "purchaseOrderNumber is required.",
+                "state is required.",
+                "each item must have a quantity greater than 0."
             ]));
         });
     }
@@ -157,7 +157,7 @@ public sealed class CreateOrderCommandTests
     {
         var result = Create(items: Array.Empty<(string, int)>());
 
-        AssertSingleValidationError(result, "items must contain at least one item");
+        AssertSingleValidationError(result, "items must contain at least one item.");
     }
 
     [Test]
@@ -166,7 +166,7 @@ public sealed class CreateOrderCommandTests
         var result = CreateOrderCommand.Create(
             42, "PO-1", "1 Main St", "Apt 2", "Springfield", "IL", "10000", null!, "REF-1");
 
-        AssertSingleValidationError(result, "items is required");
+        AssertSingleValidationError(result, "items is required.");
     }
 
     #endregion

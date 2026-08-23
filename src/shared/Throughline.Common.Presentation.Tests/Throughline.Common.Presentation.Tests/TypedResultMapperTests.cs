@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -67,14 +66,6 @@ public sealed class TypedResultMapperTests
             Assert.That(actual.Value, Is.Not.Null);
             Assert.That(actual.Value!.Title, Is.EqualTo("A conflict occurred"));
         });
-    }
-
-    [Test]
-    public void ToTypedResult_UnmappedErrorType_Throws()
-    {
-        var result = TestResult.Failure(new Error("Service down"), (ErrorType)999999);
-
-        Assert.That(() => result.ToTypedResult(), Throws.TypeOf<UnreachableException>());
     }
 
     #endregion

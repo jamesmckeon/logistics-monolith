@@ -87,16 +87,16 @@ public sealed class CreateOrderHandlerTests
         var command = TestCommand();
         SetupOrderExists(command);
 
-        var error = new Error("Test Error");
+        var errorDescription = "Test Error";
         _requestBuilder.Setup(s => s.CreateRequestAsync(command, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<OrderEstimateRequest>.Validation(error));
+            .ReturnsAsync(Result<OrderEstimateRequest>.Validation(errorDescription));
 
         var actual = await _sut.CreateOrderAsync(command);
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.False);
-            Assert.That(actual.Errors.Single(), Is.EqualTo(error));
+            Assert.That(actual.Errors.Single(), Is.EqualTo(new Error(errorDescription)));
         });
     }
 
