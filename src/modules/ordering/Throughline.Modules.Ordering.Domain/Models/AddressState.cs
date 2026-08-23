@@ -17,7 +17,9 @@ public sealed class AddressState : ValueObject
         ArgumentException.ThrowIfNullOrWhiteSpace(state);
 
         var errors = GetValidationErrors(state);
-        return errors.Any() ? errors.ToArray() : new AddressState(state.Trim().ToUpperInvariant());
+        
+        return errors.Any() ? Result<AddressState>.Validation(errors): 
+            Result<AddressState>.Success(new AddressState(state));
     }
 
     protected override IEnumerable<object> GetAtomicValues()
@@ -33,7 +35,7 @@ public sealed class AddressState : ValueObject
     private static Error[] GetValidationErrors(string state)
     {
         if (state.Trim().Length != 2 || state.Trim().Any(a => !char.IsLetter(a)))
-            return [Error.Validation("state must be 2 alpha characters")];
+            return [new Error("state must be 2 alpha characters", "state")];
 
         return [];
     }

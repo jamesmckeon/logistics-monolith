@@ -38,6 +38,17 @@ public sealed class PostalCodeTests
         });
     }
 
+    private static void AssertValidationError(Result<PostalCode> result, string expectedDescription)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Errors.Select(e => e.Description), Has.Member(expectedDescription));
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
+        });
+    }
+
     #region Create
 
     [TestCase("05001", "05001")]
@@ -113,17 +124,6 @@ public sealed class PostalCodeTests
     }
 
     #endregion
-
-    private static void AssertValidationError(Result<PostalCode> result, string expectedDescription)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Succeeded, Is.False);
-            Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Select(e => e.Description), Has.Member(expectedDescription));
-            Assert.That(result.Errors.Select(e => e.ErrorType), Is.All.EqualTo(ErrorType.Validation));
-        });
-    }
 
     #region Equals
 

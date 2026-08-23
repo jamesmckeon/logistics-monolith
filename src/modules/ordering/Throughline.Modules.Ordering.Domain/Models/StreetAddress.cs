@@ -47,7 +47,7 @@ public sealed class StreetAddress : ValueObject
         var errors = GetValidationErrors(addressOne, addressTwo, city, state, postalCode);
 
         return errors.Any()
-            ? errors
+            ? Result<StreetAddress>.Validation(errors)
             : new StreetAddress(
                 addressOne.Trim(),
                 addressTwo?.Trim(),
@@ -71,10 +71,10 @@ public sealed class StreetAddress : ValueObject
         var errors = new List<Error>();
 
         if (addressOne.Trim() == "")
-            errors.Add(Error.Validation("addressOne is required"));
+            errors.Add(Error.IsRequired(nameof(addressOne)));
 
         if (city.Trim() == "")
-            errors.Add(Error.Validation("city is required"));
+            errors.Add(Error.IsRequired(nameof(city)));
 
         return errors.ToArray();
     }

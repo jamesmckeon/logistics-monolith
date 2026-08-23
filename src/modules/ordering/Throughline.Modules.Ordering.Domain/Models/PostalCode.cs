@@ -40,7 +40,7 @@ public sealed class PostalCode : ValueObject
     public static Result<PostalCode> Create(string value)
     {
         var errors = Validate(value);
-        return errors.Any() ? Result<PostalCode>.Failure(errors) : new PostalCode(value);
+        return errors.Any() ? Result<PostalCode>.Validation(errors) : new PostalCode(value);
     }
 
     private static List<Error> Validate(string value)
@@ -52,7 +52,7 @@ public sealed class PostalCode : ValueObject
 
         if (!UsZipRegex.IsMatch(trimmed))
         {
-            errors.Add(Error.Validation("Invalid postal code format"));
+            errors.Add(new Error("Invalid postal code format"));
             return errors;
         }
 
@@ -60,11 +60,11 @@ public sealed class PostalCode : ValueObject
 
         if (parts.Left <= 00500 || parts.Left >= 99501)
             errors.Add(
-                Error.Validation("The start of a postal code must be between 00501 and 99500"));
+               new Error("The start of a postal code must be between 00501 and 99500"));
 
         if (parts.Right.HasValue && parts.Right < 1)
             errors.Add(
-                Error.Validation("The last four of a postal code must be greater than 0000"));
+                new Error("The last four of a postal code must be greater than 0000"));
 
         return errors;
     }

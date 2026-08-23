@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Common.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Orders.Models;
 
@@ -18,6 +19,7 @@ public static class OrderingExtensions
     public static IEndpointRouteBuilder MapOrdering(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/orders").WithTags("Ordering");
+
         group.MapPost("/", async (CancellationToken token,
             CreateOrderRequest request, ICreateOrderHandler handler) =>
         {
@@ -33,14 +35,11 @@ public static class OrderingExtensions
                 request.ReferenceNumber);
 
             if (!commandResult.Succeeded)
-                return Results.BadRequest();
+                return commandResult.ToTypedResult();
 
             var result = await handler.CreateOrderAsync(commandResult.Value, token);
 
-            if (result.Succeeded)
-                return result.Value;
-            // what do i return here
-            throw new NotImplementedException();
+            return result.ToTypedResult();
         });
 
         return app;

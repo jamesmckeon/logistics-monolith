@@ -61,24 +61,24 @@ public sealed class CreateOrderCommand
         var errors = new List<Error>();
 
         if (string.IsNullOrWhiteSpace(purchaseOrderNumber))
-            AddError("purchaseOrderNumber is required", errors);
+            AddError(nameof(purchaseOrderNumber), errors);
 
         if (string.IsNullOrWhiteSpace(referenceNumber))
-            AddError("referenceNumber is required", errors);
+            AddError(nameof(referenceNumber), errors);
 
         if (string.IsNullOrWhiteSpace(city))
-            AddError("city is required", errors);
+            AddError(nameof(city), errors);
 
         if (string.IsNullOrWhiteSpace(state))
-            AddError("state is required", errors);
+            AddError(nameof(state), errors);
 
         if (string.IsNullOrWhiteSpace(postalCode))
-            AddError("postalCode is required", errors);
+            AddError(nameof(postalCode), errors);
 
         if (items is null)
         {
             AddError("items is required", errors);
-            return errors.ToArray();
+            return Result<CreateOrderCommand>.Validation(errors);
         }
 
         var itemsArray = items.ToArray();
@@ -86,7 +86,7 @@ public sealed class CreateOrderCommand
         if (!itemsArray.Any())
         {
             AddError("items must contain at least one item", errors);
-            return errors.ToArray();
+            return Result<CreateOrderCommand>.Validation(errors);
         }
 
         if (itemsArray.Any(x => string.IsNullOrWhiteSpace(x.Sku)))
@@ -96,7 +96,7 @@ public sealed class CreateOrderCommand
             AddError("each item must have a quantity greater than 0", errors);
 
         if (errors.Any())
-            return errors.ToArray();
+            return Result<CreateOrderCommand>.Validation(errors);
 
         return new CreateOrderCommand(
             merchantId,
@@ -110,8 +110,8 @@ public sealed class CreateOrderCommand
             itemsArray);
     }
 
-    private static void AddError(string error, List<Error> errors)
+    private static void AddError(string paramName, List<Error> errors)
     {
-        errors.Add(Error.Validation(error));
+        errors.Add(Error.IsRequired(paramName));
     }
 }

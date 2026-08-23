@@ -36,7 +36,7 @@ public sealed class CreateOrderCommandTests
             Assert.That(result.Succeeded, Is.False);
             Assert.That(result.Value, Is.Null);
             Assert.That(result.Errors.Single().Description, Is.EqualTo(expectedDescription));
-            Assert.That(result.Errors.Single().ErrorType, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
         });
     }
 
@@ -143,13 +143,12 @@ public sealed class CreateOrderCommandTests
         {
             Assert.That(result.Succeeded, Is.False);
             Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Select(e => e.Description), Is.EquivalentTo(new[]
-            {
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Errors.Select(e => e.Description), Is.EquivalentTo([
                 "purchaseOrderNumber is required",
                 "state is required",
                 "each item must have a quantity greater than 0"
-            }));
-            Assert.That(result.Errors.Select(e => e.ErrorType), Is.All.EqualTo(ErrorType.Validation));
+            ]));
         });
     }
 

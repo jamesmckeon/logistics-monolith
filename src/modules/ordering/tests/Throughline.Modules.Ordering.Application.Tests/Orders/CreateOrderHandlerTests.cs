@@ -1,6 +1,5 @@
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
-using Throughline.Modules.Ordering.Application.Orders;
 using Throughline.Modules.Ordering.Application.Orders.Models;
 using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.OrderEstimates;
@@ -20,10 +19,10 @@ public sealed class CreateOrderHandlerTests
     [SetUp]
     public void Setup()
     {
-        _ordersRepository = new();
-        _requestBuilder = new();
-        _orderEstimateService = new();
-        _sut = new(
+        _ordersRepository = new Mock<IOrdersRepository>();
+        _requestBuilder = new Mock<IOrderEstimateRequestBuilder>();
+        _orderEstimateService = new Mock<IOrderEstimateService>();
+        _sut = new CreateOrderHandler(
             _requestBuilder.Object,
             _orderEstimateService.Object,
             _ordersRepository.Object);
@@ -74,7 +73,7 @@ public sealed class CreateOrderHandlerTests
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.False);
-            Assert.That(actual.Errors.Single().ErrorType,
+            Assert.That(actual.ErrorType,
                 Is.EqualTo(ErrorType.Conflict));
             Assert.That(actual.Errors.Single().Description,
                 Is.EqualTo(
@@ -88,9 +87,9 @@ public sealed class CreateOrderHandlerTests
         var command = TestCommand();
         SetupOrderExists(command);
 
-        var error = Error.Validation("Test Error");
+        var error = new Error("Test Error");
         _requestBuilder.Setup(s => s.CreateRequestAsync(command, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<OrderEstimateRequest>.Failure(error));
+            .ReturnsAsync(Result<OrderEstimateRequest>.Validation(error));
 
         var actual = await _sut.CreateOrderAsync(command);
 
@@ -109,23 +108,23 @@ public sealed class CreateOrderHandlerTests
 
         var requestItems = new OrderEstimateRequestItem[]
         {
-            new(new("TESTSKU"), 1, 1.23m, new(2.34m))
+            new(new SkuCode("TESTSKU"), 1, 1.23m, new Rate(2.34m))
         };
 
         var request = new OrderEstimateRequest(
             new Rate(9.87m),
             requestItems,
             new ZoneSurcharge(1,
-                new PostalZone(new("12345"), new("23456")),
+                new PostalZone(new PostalCode("12345"), new PostalCode("23456")),
                 new Money(99.99m)));
 
         var estimateItems = new OrderEstimateItem[]
         {
-            new(new("TESTSKU"), 1, new(1.23m), new(2.34m), 3.45m, new(4.56m))
+            new(new SkuCode("TESTSKU"), 1, new Rate(1.23m), new Money(2.34m), 3.45m, new Money(4.56m))
         };
 
         var estimate = new OrderEstimate(
-            new(1), new(2.12m), new(3.45m), estimateItems);
+            new Money(1), new Money(2.12m), new Rate(3.45m), estimateItems);
 
         _requestBuilder.Setup(s => s.CreateRequestAsync(command, It.IsAny<CancellationToken>()))
             .ReturnsAsync(request);

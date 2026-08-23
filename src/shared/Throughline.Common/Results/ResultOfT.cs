@@ -46,6 +46,11 @@ public sealed record Result<T>
         return new Result<T>(errorArray, errorType);
     }
 
+    public static Result<T> Validation(Error error)
+    {
+        return Failure(error, Results.ErrorType.Validation);
+    }
+
     public static Result<T> Validation(IEnumerable<Error> errors)
     {
         return Failure(errors, Results.ErrorType.Validation);

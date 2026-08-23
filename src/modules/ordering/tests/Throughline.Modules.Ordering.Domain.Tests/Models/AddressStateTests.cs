@@ -6,6 +6,18 @@ namespace Throughline.Modules.Ordering.Domain.Tests.Models;
 [Category("Unit")]
 public sealed class AddressStateTests
 {
+    private static void AssertValidationError(Result<AddressState> result, string expectedDescription)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Errors.Count, Is.EqualTo(1));
+            Assert.That(result.Errors.Select(e => e.Description), Has.Member(expectedDescription));
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
+        });
+    }
+
     #region Create
 
     [TestCase("IL", "IL")]
@@ -88,15 +100,4 @@ public sealed class AddressStateTests
     }
 
     #endregion
-
-    private static void AssertValidationError(Result<AddressState> result, string expectedDescription)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Succeeded, Is.False);
-            Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Select(e => e.Description), Has.Member(expectedDescription));
-            Assert.That(result.Errors.Select(e => e.ErrorType), Is.All.EqualTo(ErrorType.Validation));
-        });
-    }
 }

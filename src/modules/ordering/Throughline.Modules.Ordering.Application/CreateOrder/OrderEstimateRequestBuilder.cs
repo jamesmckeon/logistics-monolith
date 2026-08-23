@@ -33,7 +33,7 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
         var zipResult = PostalCode.Create(command.PostalCode);
 
         if (!zipResult.Succeeded)
-            return zipResult.Errors.ToArray();
+            return Validation(zipResult.Errors);
 
         var quantityBySku = ConsolidateBySku(command.Items);
 
@@ -48,10 +48,10 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
         foreach (var (skuCode, totalQuantity) in quantityBySku)
         {
             if (!pickFeeBySku.TryGetValue(skuCode, out var pickFee))
-                return Unavailable($"No pick fee for SKU '{skuCode}' (merchant {command.MerchantId}).");
+                return Validation($"No pick fee for SKU '{skuCode}' (merchant {command.MerchantId}).");
 
             if (!weightBySku.TryGetValue(skuCode, out var unitWeight))
-                return Unavailable($"No attributes for SKU '{skuCode}' (merchant {command.MerchantId}).");
+                return Validation($"No attributes for SKU '{skuCode}' (merchant {command.MerchantId}).");
 
             items.Add(new OrderEstimateRequestItem(skuCode, totalQuantity, unitWeight, pickFee));
         }
@@ -59,12 +59,12 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
         var zoneCharge = (await _zoneChargeQuery.GetChargesAsync(command.MerchantId, cancellationToken))
             .FirstOrDefault(z => z.PostalZone.Includes(zipResult.Value));
         if (zoneCharge is null)
-            return Unavailable(
+            return Validation(
                 $"No zone surcharge covers postal code '{zipResult.Value}' (merchant {command.MerchantId}).");
 
         var handlingRate = await _merchantRateQuery.GetHandlingAsync(command.MerchantId, cancellationToken);
         if (handlingRate is null)
-            return Unavailable($"No handling rate for merchant {command.MerchantId}.");
+            return Validation($"No handling rate for merchant {command.MerchantId}.");
 
         return new OrderEstimateRequest(handlingRate, items, zoneCharge);
     }
@@ -82,8 +82,13 @@ public sealed class OrderEstimateRequestBuilder : IOrderEstimateRequestBuilder
         return quantityBySku;
     }
 
-    private static Result<OrderEstimateRequest> Unavailable(string description)
+    private static Result<OrderEstimateRequest> Validation(string description)
     {
-        return Result<OrderEstimateRequest>.Failure(Error.Unavailable(description));
+        return Result<OrderEstimateRequest>.Validation([new Error(description)]);
+    }
+
+    private static Result<OrderEstimateRequest> Validation(IEnumerable<Error> errors)
+    {
+        return Result<OrderEstimateRequest>.Validation(errors);
     }
 }

@@ -30,21 +30,20 @@ public sealed class CreateOrderHandler : ICreateOrderHandler
             command.MerchantId, command.ReferenceNumber, cancellationToken);
 
         if (orderExists)
-            return new[]
-            {
-                Error.Conflict(
-                    $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}")
-            };
+            return
+                Result<OrderModel>.Conflict(
+                    $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}");
+
 
         var destination = CreateAddress(command);
 
         if (!destination.Succeeded)
-            return destination.Errors;
+            return Validation(destination.Errors);
 
         var requestResult = await _requestBuilder.CreateRequestAsync(command, cancellationToken);
 
         if (!requestResult.Succeeded)
-            return requestResult.Errors.ToArray();
+            return Validation(requestResult.Errors);
 
         var estimate = _estimateService.GetEstimate(requestResult.Value);
 
@@ -67,9 +66,9 @@ public sealed class CreateOrderHandler : ICreateOrderHandler
         var zipResult = PostalCode.Create(command.PostalCode);
 
         if (!stateResult.Succeeded || !zipResult.Succeeded)
-            return stateResult.Errors.AsEnumerable().Concat(
-                    zipResult.Errors)
-                .ToArray();
+            return Result<StreetAddress>.Validation(stateResult.Errors.AsEnumerable().Concat(
+                zipResult.Errors));
+
 
         return StreetAddress.Create(
             command.StreetAddressOne,
@@ -77,5 +76,10 @@ public sealed class CreateOrderHandler : ICreateOrderHandler
             command.City,
             stateResult.Value,
             zipResult.Value);
+    }
+
+    private static Result<OrderModel> Validation(IEnumerable<Error> errors)
+    {
+        return Result<OrderModel>.Validation(errors);
     }
 }

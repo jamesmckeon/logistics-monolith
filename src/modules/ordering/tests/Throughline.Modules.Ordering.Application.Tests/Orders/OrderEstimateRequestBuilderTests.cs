@@ -1,6 +1,5 @@
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
-using Throughline.Modules.Ordering.Application.Orders;
 using Throughline.Modules.Ordering.Application.Orders.Models;
 using Throughline.Modules.Ordering.Domain.Models;
 using Throughline.Modules.Ordering.Domain.OrderEstimates;
@@ -83,13 +82,13 @@ public sealed class OrderEstimateRequestBuilderTests
             items, "REF-1").Value!;
     }
 
-    private static void AssertUnavailable(Result<OrderEstimateRequest> result)
+    private static void AssertValidation(Result<OrderEstimateRequest> result)
     {
         Assert.Multiple(() =>
         {
             Assert.That(result.Succeeded, Is.False);
             Assert.That(result.Value, Is.Null);
-            Assert.That(result.Errors.Single().ErrorType, Is.EqualTo(ErrorType.Unavailable));
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
         });
     }
 
@@ -169,7 +168,7 @@ public sealed class OrderEstimateRequestBuilderTests
 
         var result = await _sut.CreateRequestAsync(Command(("SKU-1", 2), ("SKU-2", 4)));
 
-        AssertUnavailable(result);
+        AssertValidation(result);
     }
 
     [Test]
@@ -182,7 +181,7 @@ public sealed class OrderEstimateRequestBuilderTests
 
         var result = await _sut.CreateRequestAsync(Command(("SKU-1", 2), ("SKU-2", 4)));
 
-        AssertUnavailable(result);
+        AssertValidation(result);
     }
 
     [Test]
@@ -195,7 +194,7 @@ public sealed class OrderEstimateRequestBuilderTests
 
         var result = await _sut.CreateRequestAsync(Command(("SKU-1", 2), ("SKU-2", 4)));
 
-        AssertUnavailable(result);
+        AssertValidation(result);
     }
 
     [Test]
@@ -208,7 +207,7 @@ public sealed class OrderEstimateRequestBuilderTests
 
         var result = await _sut.CreateRequestAsync(Command(("SKU-1", 2), ("SKU-2", 4)));
 
-        AssertUnavailable(result);
+        AssertValidation(result);
     }
 
     #endregion
