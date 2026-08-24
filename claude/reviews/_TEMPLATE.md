@@ -28,9 +28,10 @@ Each: **severity → concrete failure scenario → specific fix.**
 _Only fill what's relevant to this story._
 - **Requirements & correctness:**
 - **Domain modeling (DDD):**
-- **Target-pattern fidelity:**
+- **Target-skill fidelity:**
 - **Failure modes & resilience:**
 - **Consistency & data integrity:**
+- **Tenant isolation:** _owner scoping enforced on every read *and* write; no cross-owner leakage (IDOR/BOLA)._
 - **API & contract design:**
 - **Testing:**
 - **Observability:**
