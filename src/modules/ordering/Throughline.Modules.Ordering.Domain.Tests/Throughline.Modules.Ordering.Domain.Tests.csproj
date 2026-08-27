@@ -21,7 +21,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj"/>
+        <ProjectReference Include="..\Throughline.Modules.Ordering.Domain\Throughline.Modules.Ordering.Domain.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="OrderEstimates\"/>
     </ItemGroup>
 
 </Project>
