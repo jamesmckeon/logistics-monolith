@@ -1,26 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain", "src\modules\ordering\Throughline.Modules.Ordering.Domain\Throughline.Modules.Ordering.Domain.csproj", "{29B56357-B8FF-4D42-B159-F33832BAD800}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Domain", "src\modules\billing\Throughline.Modules.Billing.Domain\Throughline.Modules.Billing.Domain.csproj", "{29B56357-B8FF-4D42-B159-F33832BAD800}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application", "src\modules\ordering\Throughline.Modules.Ordering.Application\Throughline.Modules.Ordering.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Application", "src\modules\billing\Throughline.Modules.Billing.Application\Throughline.Modules.Billing.Application.csproj", "{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "src\shared\Throughline.Common\Throughline.Common.csproj", "{B58B61DA-7541-4FA5-B02F-0CBC1735400B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Application.Tests", "src\modules\ordering\Throughline.Modules.Ordering.Application.Tests\Throughline.Modules.Ordering.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Application.Tests", "src\modules\billing\Throughline.Modules.Billing.Application.Tests\Throughline.Modules.Billing.Application.Tests.csproj", "{AB00182B-62D2-4C98-B3DA-81429DB70807}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Domain.Tests", "src\modules\ordering\Throughline.Modules.Ordering.Domain.Tests\Throughline.Modules.Ordering.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Domain.Tests", "src\modules\billing\Throughline.Modules.Billing.Domain.Tests\Throughline.Modules.Billing.Domain.Tests.csproj", "{C7E3F48C-A389-447C-A1ED-CC28B904B15A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Tests", "src\shared\Throughline.Common.Tests\Throughline.Common.Tests.csproj", "{32D436D4-17B4-49EA-AAE2-0E9D283E10D6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Infrastructure", "src\modules\ordering\Throughline.Modules.Ordering.Infrastructure\Throughline.Modules.Ordering.Infrastructure.csproj", "{54180782-77EC-46F1-BB78-BB0A320C5FF4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Infrastructure", "src\modules\billing\Throughline.Modules.Billing.Infrastructure\Throughline.Modules.Billing.Infrastructure.csproj", "{54180782-77EC-46F1-BB78-BB0A320C5FF4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api", "api\Throughline.Api\Throughline.Api.csproj", "{57D7860C-202F-4B14-AB12-281647607589}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Api", "src\modules\ordering\Throughline.Modules.Ordering.Api\Throughline.Modules.Ordering.Api.csproj", "{35E9329E-834F-48AD-B40F-2B8270A692AE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Billing.Api", "src\modules\billing\Throughline.Modules.Billing.Api\Throughline.Modules.Billing.Api.csproj", "{35E9329E-834F-48AD-B40F-2B8270A692AE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Presentation", "src\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj", "{1C551051-2B0B-48E0-95CF-3D98B615C14E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Presentation.Tests", "src\shared\Throughline.Common.Presentation.Tests\Throughline.Common.Presentation.Tests\Throughline.Common.Presentation.Tests.csproj", "{DAA209AF-A756-4A55-9B06-2947386C1FDC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Billing", "Billing", "{07F74251-5610-4A1D-B1DD-84370882A983}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,5 +74,13 @@ Global
 		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DAA209AF-A756-4A55-9B06-2947386C1FDC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{35E9329E-834F-48AD-B40F-2B8270A692AE} = {07F74251-5610-4A1D-B1DD-84370882A983}
+		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5} = {07F74251-5610-4A1D-B1DD-84370882A983}
+		{AB00182B-62D2-4C98-B3DA-81429DB70807} = {07F74251-5610-4A1D-B1DD-84370882A983}
+		{29B56357-B8FF-4D42-B159-F33832BAD800} = {07F74251-5610-4A1D-B1DD-84370882A983}
+		{C7E3F48C-A389-447C-A1ED-CC28B904B15A} = {07F74251-5610-4A1D-B1DD-84370882A983}
+		{54180782-77EC-46F1-BB78-BB0A320C5FF4} = {07F74251-5610-4A1D-B1DD-84370882A983}
 	EndGlobalSection
 EndGlobal

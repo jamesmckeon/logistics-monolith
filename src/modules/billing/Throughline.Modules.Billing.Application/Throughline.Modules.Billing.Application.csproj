@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Throughline.Modules.Billing.Domain\Throughline.Modules.Billing.Domain.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
+    </ItemGroup>
+
+</Project>
