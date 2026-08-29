@@ -1,0 +1,23 @@
+using Throughline.Common.Models;
+
+namespace Throughline.Modules.Ordering.Domain;
+
+public sealed class OrderId : ValueObject
+{
+    public OrderId(Guid value)
+    {
+        Value = value;
+    }
+
+    public OrderId()
+    {
+        Value = Guid.CreateVersion7();
+    }
+
+    public Guid Value { get; }
+
+    protected override IEnumerable<object> GetAtomicValues()
+    {
+        yield return Value;
+    }
+}

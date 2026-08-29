@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Billing.Api;
+namespace Throughline.Modules.Ordering.Application;
 
 public sealed record CreateOrderRequest(
     int MerchantId,
