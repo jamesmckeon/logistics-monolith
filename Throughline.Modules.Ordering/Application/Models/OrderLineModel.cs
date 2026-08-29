@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Ordering.Models;
+namespace Throughline.Modules.Ordering.Application.Models;
 
 public sealed record OrderLineModel(
     string SkuCode,

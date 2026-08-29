@@ -1,7 +1,8 @@
 using Throughline.Common.Results;
 using Throughline.Modules.Billing.Domain.Models;
+using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Domain;
-using Throughline.Modules.Ordering.Models;
+using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Application;
 

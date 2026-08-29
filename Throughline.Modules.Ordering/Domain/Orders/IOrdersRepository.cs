@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Ordering.Domain;
+namespace Throughline.Modules.Ordering.Domain.Orders;
 
 public interface IOrdersRepository
 {

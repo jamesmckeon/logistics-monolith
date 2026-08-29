@@ -1,5 +1,5 @@
 using Throughline.Common.Results;
-using Throughline.Modules.Ordering.Models;
+using Throughline.Modules.Ordering.Application.Models;
 
 namespace Throughline.Modules.Ordering.Application;
 

@@ -1,6 +1,7 @@
 using Throughline.Modules.Ordering.Domain;
+using Throughline.Modules.Ordering.Domain.Orders;
 
-namespace Throughline.Modules.Ordering.Models;
+namespace Throughline.Modules.Ordering.Application.Models;
 
 public sealed record OrderModel(
     Guid OrderId,
