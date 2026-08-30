@@ -6,16 +6,17 @@ namespace Throughline.Modules.Ordering.Domain;
 
 public sealed class StreetAddress : ValueObject
 {
-    public StreetAddress(
+    internal StreetAddress(
         string streeAddressOne,
         string? streetAddressTwo,
         string city,
         string state,
         PostalCode zipCode)
     {
-        if (GetValidationErrors(streeAddressOne,
-                streetAddressTwo, city, state, zipCode).Any())
-            throw new InvalidOperationException("One or more validation errors occurred.");
+        ArgumentNullException.ThrowIfNull(streeAddressOne);
+        ArgumentNullException.ThrowIfNull(city);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(zipCode);
 
         StreeAddressOne = streeAddressOne;
         StreetAddressTwo = streetAddressTwo;
@@ -39,26 +40,7 @@ public sealed class StreetAddress : ValueObject
         yield return ZipCode;
     }
 
-    public static Result<StreetAddress> Create(
-        string addressOne,
-        string? addressTwo,
-        string city,
-        string state,
-        PostalCode postalCode)
-    {
-        var errors = GetValidationErrors(addressOne, addressTwo, city, state, postalCode);
-
-        return errors.Any()
-            ? Result<StreetAddress>.Validation(errors)
-            : new StreetAddress(
-                addressOne.Trim(),
-                addressTwo?.Trim(),
-                city.Trim(),
-                state.Trim().ToUpperInvariant(),
-                postalCode);
-    }
-
-    private static Error[] GetValidationErrors(
+    internal static Result<StreetAddress> Create(
         string addressOne,
         string? addressTwo,
         string city,
@@ -89,6 +71,8 @@ public sealed class StreetAddress : ValueObject
         }
 
 
-        return errors.ToArray();
+        return errors.Any()
+            ? Result<StreetAddress>.Validation(errors)
+            : new StreetAddress(addressOne, addressTwo, city, state, postalCode);
     }
 }

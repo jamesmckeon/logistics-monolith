@@ -4,7 +4,7 @@ namespace Throughline.Modules.Ordering.Domain;
 
 public class SkuCode : ValueObject
 {
-    public SkuCode(string value)
+    internal SkuCode(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         Value = value.Trim().ToUpperInvariant();

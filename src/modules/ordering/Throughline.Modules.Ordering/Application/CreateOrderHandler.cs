@@ -8,24 +8,38 @@ namespace Throughline.Modules.Ordering.Application;
 
 public sealed class CreateOrderHandler : ICreateOrderHandler
 {
-    private readonly CreateOrderCommandValidator _commandValidator;
     private readonly IOrdersRepository _ordersRepository;
 
     public CreateOrderHandler(
-        IOrdersRepository ordersRepository,
-        CreateOrderCommandValidator commandValidator)
+        IOrdersRepository ordersRepository)
     {
         _ordersRepository = ordersRepository;
-        _commandValidator = commandValidator;
     }
 
     public async Task<Result<OrderModel>> CreateOrderAsync(
         CreateOrderCommand command, CancellationToken cancellationToken = default)
     {
-        var validationResult = _commandValidator.ValidateCommand(command);
+        ArgumentNullException.ThrowIfNull(command);
 
-        if (!validationResult.Succeeded)
-            return Validation(validationResult.Errors);
+        var commandResult = command.Validate();
+
+        if (!commandResult.Succeeded)
+            return Validation(commandResult.Errors);
+
+        var postalResult = PostalCode.Create(command.PostalCode);
+
+        if (!postalResult.Succeeded)
+            return Validation(postalResult.Errors);
+
+        var addressResult = StreetAddress.Create(
+            command.StreetAddressOne,
+            command.StreetAddressTwo,
+            command.City,
+            command.State,
+            postalResult.Value);
+
+        if (!addressResult.Succeeded)
+            return Validation(addressResult.Errors);
 
         var orderExists = await _ordersRepository.OrderExistsFor(
             command.MerchantId, command.ReferenceNumber, cancellationToken);
@@ -35,25 +49,20 @@ public sealed class CreateOrderHandler : ICreateOrderHandler
                 Result<OrderModel>.Conflict(
                     $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}");
 
-        var postalCode = new PostalCode(command.PostalCode);
-        var destination = new StreetAddress(
-            command.StreetAddressOne,
-            command.StreetAddressTwo,
-            command.City,
-            command.State,
-            postalCode);
-
-        var order = new Order(
+        var orderResult = Order.Create(
             new OrderId(),
             command.MerchantId,
             command.PurchaseOrderNumber,
             command.ReferenceNumber,
-            destination,
+            addressResult.Value,
             command.Items.Select(i => new OrderLine(new SkuCode(i.Sku), i.Quantity)));
 
-        await _ordersRepository.SaveOrderAsync(order, cancellationToken);
+        if (!orderResult.Succeeded)
+            return Validation(orderResult.Errors);
 
-        return OrderModel.FromOrder(order);
+        await _ordersRepository.SaveOrderAsync(orderResult.Value, cancellationToken);
+
+        return OrderModel.FromOrder(orderResult.Value);
     }
 
     private static Result<OrderModel> Validation(IEnumerable<Error> errors)
