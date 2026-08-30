@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\src\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
-        <ProjectReference Include="..\src\shared\Throughline.Common\Throughline.Common.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj" />
+        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj" />
     </ItemGroup>
 
     <ItemGroup>
