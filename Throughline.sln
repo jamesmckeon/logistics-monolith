@@ -26,6 +26,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ordering", "Ordering", "{9D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering", "src\modules\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj", "{07598D31-1810-4C4F-9088-EF73860E9A89}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Tests", "src\modules\ordering\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests.csproj", "{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -76,6 +78,10 @@ Global
 		{07598D31-1810-4C4F-9088-EF73860E9A89}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{07598D31-1810-4C4F-9088-EF73860E9A89}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{07598D31-1810-4C4F-9088-EF73860E9A89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{51DFA9A6-80A4-42D1-962F-ABCF57AA93A5} = {07F74251-5610-4A1D-B1DD-84370882A983}
@@ -84,5 +90,6 @@ Global
 		{C7E3F48C-A389-447C-A1ED-CC28B904B15A} = {07F74251-5610-4A1D-B1DD-84370882A983}
 		{54180782-77EC-46F1-BB78-BB0A320C5FF4} = {07F74251-5610-4A1D-B1DD-84370882A983}
 		{07598D31-1810-4C4F-9088-EF73860E9A89} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
+		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
 	EndGlobalSection
 EndGlobal

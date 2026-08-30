@@ -1,6 +1,7 @@
 using Throughline.Modules.Billing.Domain.Models;
+using Throughline.Modules.Ordering.Domain;
 
-namespace Throughline.Modules.Billing.Domain.Tests.Models;
+namespace Throughline.Modules.Ordering.Tests.Domain;
 
 [Category("Unit")]
 public sealed class StreetAddressTests
@@ -16,7 +17,7 @@ public sealed class StreetAddressTests
             addressOne,
             addressTwo,
             city,
-            new AddressState(state),
+            state,
             new PostalCode(zip));
     }
 
@@ -61,8 +62,8 @@ public sealed class StreetAddressTests
     [Test]
     public void Equals_DifferentAddressOne_ReturnsFalse()
     {
-        var left = Given(addressOne: "1 Main St");
-        var right = Given(addressOne: "2 Main St");
+        var left = Given("1 Main St");
+        var right = Given("2 Main St");
 
         Assert.Multiple(() =>
         {

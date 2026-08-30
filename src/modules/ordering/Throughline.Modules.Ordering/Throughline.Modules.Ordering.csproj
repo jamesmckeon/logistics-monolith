@@ -7,12 +7,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj" />
-        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj" />
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Modules.Ordering.Tests"/>
     </ItemGroup>
 
 </Project>

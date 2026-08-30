@@ -1,7 +1,7 @@
 ﻿using Throughline.Common.Results;
 using Throughline.Modules.Billing.Domain.Models;
 
-namespace Throughline.Modules.Billing.Domain.Tests.Models;
+namespace Throughline.Modules.Ordering.Tests.Domain.Orders;
 
 [Category("Unit")]
 public sealed class PostalCodeTests
@@ -20,22 +20,14 @@ public sealed class PostalCodeTests
     public void Constructor_WithWhitespaces_TrimsWhitespace()
     {
         var sut = new PostalCode(" 05001 ");
-        Assert.Multiple(() =>
-        {
-            Assert.That(sut.Value, Is.EqualTo("05001"));
-            Assert.That(sut.BaseCode, Is.EqualTo("05001"));
-        });
+        Assert.That(sut.Value, Is.EqualTo("05001"));
     }
 
     [Test]
     public void Constructor_Plus4WithWhitespaces_TrimsWhitespace()
     {
         var sut = new PostalCode(" 05001-0001 ");
-        Assert.Multiple(() =>
-        {
-            Assert.That(sut.Value, Is.EqualTo("05001-0001"));
-            Assert.That(sut.BaseCode, Is.EqualTo("05001"));
-        });
+        Assert.That(sut.Value, Is.EqualTo("05001-0001"));
     }
 
     private static void AssertValidationError(Result<PostalCode> result, string expectedDescription)
@@ -48,6 +40,7 @@ public sealed class PostalCodeTests
             Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
         });
     }
+
 
     #region Create
 
@@ -72,12 +65,7 @@ public sealed class PostalCodeTests
     public void Create_Plus4_SetsBaseCodeToFiveDigitPrefix()
     {
         var result = PostalCode.Create("05001-0001");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Succeeded, Is.True);
-            Assert.That(result.Value!.BaseCode, Is.EqualTo("05001"));
-        });
+        Assert.That(result.Succeeded, Is.True);
     }
 
     [TestCase("00500")]

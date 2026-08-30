@@ -1,6 +1,6 @@
-using Throughline.Modules.Billing.Domain.Models;
+using Throughline.Common.Models;
 
-namespace Throughline.Modules.Billing.Domain.Tests.Models;
+namespace Throughline.Common.Tests.Models;
 
 [Category("Unit")]
 public sealed class ValueObjectTests
