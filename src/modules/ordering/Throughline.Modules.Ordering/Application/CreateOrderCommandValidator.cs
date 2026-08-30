@@ -34,9 +34,10 @@ public sealed class CreateOrderCommandValidator
         }
         else
         {
-            var postalCodeErrors = PostalCode.Validate(command.PostalCode);
-            if (postalCodeErrors.Any())
-                errors.AddRange(postalCodeErrors);
+            var postalCodeResult = PostalCode.Create(command.PostalCode);
+            
+            if (!postalCodeResult.Succeeded)
+                errors.AddRange(postalCodeResult.Errors);
         }
 
         if (command.Items is null)
@@ -58,6 +59,15 @@ public sealed class CreateOrderCommandValidator
 
         if (itemsArray.Any(x => x.Quantity <= 0))
             errors.Add(new Error("each item must have a quantity greater than 0."));
+
+        var duplicateskus = itemsArray
+            .GroupBy(x => x.Sku.Trim().ToUpperInvariant())
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToArray();
+
+        if (duplicateskus.Any())
+            errors.Add(new Error($"Items contains duplicate skus: {string.Join(", ", duplicateskus)}"));
 
         if (errors.Any())
             return Result.Validation(errors);
