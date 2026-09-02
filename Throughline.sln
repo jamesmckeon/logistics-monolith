@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Tests", "src\modules\ordering\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests.csproj", "{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "api\Throughline.Api.Tests\Throughline.Api.Tests\Throughline.Api.Tests.csproj", "{409176FF-B155-4FD1-95C8-9EBDB7F85676}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,6 +52,10 @@ Global
 		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
