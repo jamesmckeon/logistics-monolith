@@ -1,1 +1,0 @@
-global using Throughline.Common.Results;
