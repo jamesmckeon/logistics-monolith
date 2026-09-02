@@ -4,7 +4,9 @@ namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
 internal sealed class OrdersDbContext : DbContext
 {
-    internal OrdersDbContext(
+    // Public ctor is required by AddDbContext (EF resolves the context through DI); the type
+    // itself stays internal, so the module boundary is unaffected.
+    public OrdersDbContext(
         DbContextOptions<OrdersDbContext> options) : base(options)
     {
     }

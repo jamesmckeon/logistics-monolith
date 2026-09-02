@@ -1,10 +1,5 @@
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
-/// <summary>
-///     EF persistence model for an order. Owned entirely by Infrastructure and never leaves it;
-///     the domain <see cref="Domain.Orders.Order" /> aggregate stays persistence-ignorant.
-///     Translation lives in <see cref="OrderMapper" />.
-/// </summary>
 internal sealed class OrderRecord
 {
     public Guid OrderId { get; set; }
