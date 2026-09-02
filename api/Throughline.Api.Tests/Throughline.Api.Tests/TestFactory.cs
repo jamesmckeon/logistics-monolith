@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 
@@ -18,8 +19,6 @@ internal sealed class TestFactory : WebApplicationFactory<Program>
 
     public async Task InitializeAsync()
     {
-        // Bounds container startup (image pull / readiness / Ryuk), which happens before any
-        // SQL and so is not covered by the connection-string timeouts below.
         using var cts = new CancellationTokenSource(ResponseTimeout);
         await _dbContainer.StartAsync(cts.Token);
     }
@@ -31,6 +30,13 @@ internal sealed class TestFactory : WebApplicationFactory<Program>
         var connectionString =
             $"{_dbContainer.GetConnectionString()};Timeout={seconds};Command Timeout={seconds}";
         builder.UseSetting("ConnectionStrings:Throughline", connectionString);
+
+        builder.ConfigureLogging(logging =>
+        {
+            logging.ClearProviders();
+            logging.AddProvider(new NUnitLoggerProvider());
+            logging.SetMinimumLevel(LogLevel.Information);
+        });
     }
 
     public new async Task DisposeAsync()

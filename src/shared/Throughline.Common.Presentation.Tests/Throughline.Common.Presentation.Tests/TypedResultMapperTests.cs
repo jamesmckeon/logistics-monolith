@@ -18,7 +18,7 @@ public sealed class TypedResultMapperTests
     public void ToTypedResult_NullResult_Throws()
     {
         TestResult result = null!;
-        Assert.That(() => result.ToTypedResult(), Throws.ArgumentNullException);
+        Assert.That(() => result.ToOkResult(), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -26,7 +26,7 @@ public sealed class TypedResultMapperTests
     {
         var result = TestResult.Success(SuccessValue);
 
-        var actual = result.ToTypedResult() as Ok<object>;
+        var actual = result.ToOkResult() as Ok<object>;
 
         Assert.Multiple(() =>
         {
@@ -39,9 +39,9 @@ public sealed class TypedResultMapperTests
     [Test]
     public void ToTypedResult_ValidationResult_ReturnsBadRequestWithProblem()
     {
-        var result = TestResult.Validation(["Bad input"]);
+        var result = TestResult.Validation("Bad input");
 
-        var actual = result.ToTypedResult() as BadRequest<ProblemDetails>;
+        var actual = result.ToOkResult() as BadRequest<ProblemDetails>;
 
         Assert.Multiple(() =>
         {
@@ -57,7 +57,7 @@ public sealed class TypedResultMapperTests
     {
         var result = TestResult.Conflict("Order already placed");
 
-        var actual = result.ToTypedResult() as Conflict<ProblemDetails>;
+        var actual = result.ToOkResult() as Conflict<ProblemDetails>;
 
         Assert.Multiple(() =>
         {

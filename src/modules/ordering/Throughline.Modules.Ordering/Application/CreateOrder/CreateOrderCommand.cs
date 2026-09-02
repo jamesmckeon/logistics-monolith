@@ -11,7 +11,7 @@ public sealed record CreateOrderCommand(
     string City,
     string State,
     string PostalCode,
-    IEnumerable<(string Sku, int Quantity)> Items)
+    IEnumerable<CreateOrderCommandItem> Items)
 {
     public Result Validate()
     {

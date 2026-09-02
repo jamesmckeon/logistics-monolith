@@ -44,7 +44,7 @@ public sealed class CreateOrderHandlerTests
     {
         var command = new CreateOrderCommand(
             1, " ", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
-            "97211", [("TestSku", 1)]);
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var commandResult = command.Validate();
 
@@ -63,7 +63,7 @@ public sealed class CreateOrderHandlerTests
     {
         var command = new CreateOrderCommand(
             1, "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
-            "$%^eRR", [("TestSku", 1)]);
+            "$%^eRR", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var postalCodeResult = PostalCode.Create(command.PostalCode);
 
@@ -82,7 +82,7 @@ public sealed class CreateOrderHandlerTests
     {
         var command = new CreateOrderCommand(
             1, "TESTPO", "REF1", "123 Somewhere Dr.", null, "Portland", "$$",
-            "97211", [("TestSku", 1)]);
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var addressResult = StreetAddress.Create(
             command.StreetAddressOne,
@@ -106,7 +106,7 @@ public sealed class CreateOrderHandlerTests
     {
         var command = new CreateOrderCommand(
             1, "PO1", "REF1", "Address One", null, "Portland", "OR",
-            "97211", [("TestSku", 1)]);
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var existing = TestOrder(command);
         _dbContext.Add(existing.ToOrderRecord());
@@ -130,7 +130,7 @@ public sealed class CreateOrderHandlerTests
     {
         var command = new CreateOrderCommand(
             1, "PO1", "REF1", "Address One", null, "Portland", "OR",
-            "97211", [("TestSku", 1)]);
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var actual = await _sut.CreateOrderAsync(command);
 
@@ -152,7 +152,7 @@ public sealed class CreateOrderHandlerTests
     {
         return new CreateOrderCommand(
             1, "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "$$",
-            "@1f$4", [("TestSku", 1)]);
+            "@1f$4", [new CreateOrderCommandItem("TestSku", 1)]);
     }
 
     private static Order TestOrder(CreateOrderCommand command)

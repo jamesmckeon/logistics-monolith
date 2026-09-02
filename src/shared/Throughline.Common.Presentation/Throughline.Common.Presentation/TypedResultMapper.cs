@@ -6,7 +6,7 @@ namespace Throughline.Common.Presentation;
 
 public static class TypedResultMapper
 {
-    public static IResult ToTypedResult<T>(this Result<T> result)
+    public static IResult ToOkResult<T>(this Result<T> result)
     {
         ArgumentNullException.ThrowIfNull(result);
 

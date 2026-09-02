@@ -43,7 +43,15 @@ public class OrderingTests
     public async Task Post_InvalidRequest_ReturnsProblemDetails()
     {
         var command = new CreateOrderCommand(
-            1, "  ", "testreference", "test address", null, "TestCity", "OR", "97211", [("TestSku", 1)]);
+            1,
+            "  ",
+            "testreference",
+            "test address",
+            null,
+            "TestCity",
+            "OR",
+            "97211",
+            [new CreateOrderCommandItem("TestSku", 1)]);
 
         var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
 
@@ -60,8 +68,7 @@ public class OrderingTests
     [Test]
     public async Task Post_OrderExists_ReturnsConflict()
     {
-        var command = new CreateOrderCommand(
-            1, "TESTPO", "testreference", "test address", null, "TestCity", "OR", "97211", [("TestSku", 1)]);
+        var command = TestCommand();
 
         var orderRecord = new OrderRecord
         {
@@ -108,10 +115,9 @@ public class OrderingTests
     }
 
     [Test]
-    public async Task Post_NewOrder_ReturnsSuccessWithModel()
+    public async Task Post_NewOrder_ReturnsOkWithModel()
     {
-        var command = new CreateOrderCommand(
-            1, "TESTPO", "testreference", "test address", null, "TestCity", "OR", "97211", [("TestSku", 1)]);
+        var command = TestCommand();
 
         var expectedAddress = new DestinationModel(
             command.StreetAddressOne,
@@ -121,7 +127,7 @@ public class OrderingTests
             command.PostalCode);
 
         IEnumerable<OrderLineModel> expectedLines =
-            [new(command.Items.Single().Sku, command.Items.Single().Quantity)];
+            [new(command.Items.Single().Sku.ToUpper(), command.Items.Single().Quantity)];
 
         var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
         response.EnsureSuccessStatusCode();
@@ -131,7 +137,7 @@ public class OrderingTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
             Assert.That(model.MerchantId, Is.EqualTo(command.MerchantId));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
@@ -140,7 +146,23 @@ public class OrderingTests
         });
     }
 
+
     #region Helpers
+
+    private static CreateOrderCommand TestCommand()
+    {
+        return new CreateOrderCommand(
+            1,
+            "TESTPO",
+            "testreference",
+            "test address",
+            null,
+            "TestCity",
+            "OR",
+            "97211", [
+                new CreateOrderCommandItem("TestSku", 1)
+            ]);
+    }
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
     {
