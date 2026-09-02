@@ -1,4 +1,3 @@
-using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Application.Models;
@@ -11,7 +10,7 @@ public sealed record OrderModel(
     DestinationModel Destination,
     IReadOnlyCollection<OrderLineModel> OrderLines)
 {
-    public static OrderModel FromOrder(Order order)
+    internal static OrderModel FromOrder(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
 

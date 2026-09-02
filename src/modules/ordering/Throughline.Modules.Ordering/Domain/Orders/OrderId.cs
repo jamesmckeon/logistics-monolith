@@ -2,7 +2,7 @@ using Throughline.Common.Models;
 
 namespace Throughline.Modules.Ordering.Domain.Orders;
 
-public sealed class OrderId : ValueObject
+internal sealed class OrderId : ValueObject
 {
     public OrderId(Guid value)
     {

@@ -4,8 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Presentation;
-using Throughline.Modules.Ordering.Application;
-using Throughline.Modules.Ordering.Domain.Orders;
+using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Modules.Ordering.Presentation;
@@ -14,8 +13,8 @@ public static class OrderingExtensions
 {
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
-        services.AddTransient<ICreateOrderHandler, CreateOrderHandler>();
-        services.AddTransient<IOrdersRepository, OrdersRepository>();
+        services.AddTransient<CreateOrderHandler>();
+        services.AddTransient<OrdersRepository>();
         return services;
     }
 
@@ -24,7 +23,7 @@ public static class OrderingExtensions
         var group = app.MapGroup("/orders").WithTags("Ordering");
 
         group.MapPost("/", async (CancellationToken token,
-            CreateOrderCommand command, ICreateOrderHandler handler) =>
+            CreateOrderCommand command, CreateOrderHandler handler) =>
         {
             var result = await handler.CreateOrderAsync(command, token);
             return result.ToTypedResult();

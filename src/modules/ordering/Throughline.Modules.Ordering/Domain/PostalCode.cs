@@ -2,9 +2,9 @@ using System.Text.RegularExpressions;
 using Throughline.Common.Models;
 using Throughline.Common.Results;
 
-namespace Throughline.Modules.Billing.Domain.Models;
+namespace Throughline.Modules.Ordering.Domain;
 
-public sealed class PostalCode : ValueObject
+internal sealed class PostalCode : ValueObject
 {
     // Matches 5 digits OR 5 digits followed by a hyphen and 4 digits
     private static readonly Regex UsZipRegex = new(@"^\d{5}(-\d{4})?$", RegexOptions.Compiled);
@@ -12,7 +12,7 @@ public sealed class PostalCode : ValueObject
     internal PostalCode(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        Value = value;
+        Value = value.Trim();
     }
 
     public string Value { get; }

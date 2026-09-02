@@ -1,6 +1,6 @@
 using Throughline.Common.Results;
 
-namespace Throughline.Modules.Ordering.Application;
+namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
 public sealed record CreateOrderCommand(
     int MerchantId,

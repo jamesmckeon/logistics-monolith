@@ -1,11 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
-public sealed class OrdersRepository : DbContext, IOrdersRepository
+public sealed class OrdersRepository : DbContext
 {
     private readonly ILogger<OrdersRepository> _logger;
 
@@ -15,16 +14,16 @@ public sealed class OrdersRepository : DbContext, IOrdersRepository
         _logger = logger;
     }
 
-    public DbSet<Order> Orders => Set<Order>();
+    internal DbSet<Order> Orders => Set<Order>();
 
-    public Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
+    internal Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
 
         throw new NotImplementedException();
     }
 
-    public async Task<bool> OrderExistsFor(int merchantId, string referenceNumber,
+    internal async Task<bool> OrderExistsFor(int merchantId, string referenceNumber,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(referenceNumber);

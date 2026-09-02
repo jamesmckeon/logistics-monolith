@@ -1,10 +1,9 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
-using Throughline.Modules.Billing.Domain.Models;
 
 namespace Throughline.Modules.Ordering.Domain;
 
-public sealed class StreetAddress : ValueObject
+internal sealed class StreetAddress : ValueObject
 {
     internal StreetAddress(
         string streeAddressOne,

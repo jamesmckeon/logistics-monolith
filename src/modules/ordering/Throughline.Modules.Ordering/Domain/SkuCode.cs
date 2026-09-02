@@ -2,7 +2,7 @@ using Throughline.Common.Models;
 
 namespace Throughline.Modules.Ordering.Domain;
 
-public class SkuCode : ValueObject
+internal sealed class SkuCode : ValueObject
 {
     internal SkuCode(string value)
     {

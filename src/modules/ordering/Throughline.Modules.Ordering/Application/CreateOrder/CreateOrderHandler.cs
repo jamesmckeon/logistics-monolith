@@ -1,17 +1,17 @@
 using Throughline.Common.Results;
-using Throughline.Modules.Billing.Domain.Models;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
+using Throughline.Modules.Ordering.Infrastructure.Orders;
 
-namespace Throughline.Modules.Ordering.Application;
+namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
-public sealed class CreateOrderHandler : ICreateOrderHandler
+public sealed class CreateOrderHandler
 {
-    private readonly IOrdersRepository _ordersRepository;
+    private readonly OrdersRepository _ordersRepository;
 
     public CreateOrderHandler(
-        IOrdersRepository ordersRepository)
+        OrdersRepository ordersRepository)
     {
         _ordersRepository = ordersRepository;
     }

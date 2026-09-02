@@ -1,5 +1,5 @@
 ﻿using Throughline.Common.Results;
-using Throughline.Modules.Billing.Domain.Models;
+using Throughline.Modules.Ordering.Domain;
 
 namespace Throughline.Modules.Ordering.Tests.Domain.Orders;
 

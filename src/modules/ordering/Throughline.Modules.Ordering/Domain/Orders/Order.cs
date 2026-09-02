@@ -2,7 +2,7 @@ using Throughline.Common.Results;
 
 namespace Throughline.Modules.Ordering.Domain.Orders;
 
-public sealed class Order
+internal sealed class Order
 {
     internal Order(
         OrderId id,
@@ -42,6 +42,10 @@ public sealed class Order
         ArgumentNullException.ThrowIfNull(referenceNumber);
 
         var linesArray = orderLines.ToArray();
+
+        if (linesArray.Length == 0)
+            return Result<Order>.Validation("An order must have at least one line");
+
         var duplicateSkus = linesArray.GroupBy(g => g.SkuCode)
             .Select(s => new { Sku = s.Key, Count = s.Count() })
             .Where(s => s.Count > 1)
