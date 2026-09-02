@@ -14,7 +14,7 @@ public static class OrderingExtensions
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
         services.AddTransient<CreateOrderHandler>();
-        services.AddTransient<OrdersRepository>();
+        services.AddTransient<OrdersDbContext>();
         return services;
     }
 

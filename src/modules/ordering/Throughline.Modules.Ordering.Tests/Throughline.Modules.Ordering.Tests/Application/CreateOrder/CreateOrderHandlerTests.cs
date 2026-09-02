@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Domain;
@@ -12,24 +10,26 @@ namespace Throughline.Modules.Ordering.Tests.Application.CreateOrder;
 [Category("Unit")]
 public sealed class CreateOrderHandlerTests
 {
-    private OrdersRepository _repository;
+    private OrdersDbContext _dbContext;
+    private OrdersRepository _ordersRepository;
     private CreateOrderHandler _sut;
 
     [SetUp]
     public void Setup()
     {
-        var options = new DbContextOptionsBuilder<OrdersRepository>()
+        var options = new DbContextOptionsBuilder<OrdersDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        _repository = new OrdersRepository(options, new Mock<ILogger<OrdersRepository>>().Object);
-        _sut = new CreateOrderHandler(_repository);
+        _dbContext = new OrdersDbContext(options);
+        _ordersRepository = new OrdersRepository(_dbContext);
+        _sut = new CreateOrderHandler(_ordersRepository);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _repository.Dispose();
+        _dbContext.Dispose();
     }
 
     [Test]
@@ -81,7 +81,7 @@ public sealed class CreateOrderHandlerTests
     public async Task CreateOrderAsync_InvalidStreetAddress_ReturnsFailure()
     {
         var command = new CreateOrderCommand(
-            1, "TESTPO", "REF1", "", null, "Portland", "OR",
+            1, "TESTPO", "REF1", "123 Somewhere Dr.", null, "Portland", "$$",
             "97211", [("TestSku", 1)]);
 
         var addressResult = StreetAddress.Create(
@@ -109,8 +109,8 @@ public sealed class CreateOrderHandlerTests
             "97211", [("TestSku", 1)]);
 
         var existing = TestOrder(command);
-        _repository.Add(existing);
-        await _repository.SaveChangesAsync();
+        _dbContext.Add(existing.ToOrderRecord());
+        await _dbContext.SaveChangesAsync();
 
         var expectedError =
             $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}";

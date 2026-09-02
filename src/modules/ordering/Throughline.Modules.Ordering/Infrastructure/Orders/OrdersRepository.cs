@@ -1,41 +1,32 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
-public sealed class OrdersRepository : DbContext
+internal sealed class OrdersRepository
 {
-    private readonly ILogger<OrdersRepository> _logger;
+    private readonly OrdersDbContext _dbContext;
 
-    internal OrdersRepository(
-        DbContextOptions<OrdersRepository> options, ILogger<OrdersRepository> logger) : base(options)
+    public OrdersRepository(OrdersDbContext dbContext)
     {
-        _logger = logger;
+        _dbContext = dbContext;
     }
 
-    internal DbSet<Order> Orders => Set<Order>();
-
-    internal Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        throw new NotImplementedException();
+        _dbContext.Orders.Add(order.ToOrderRecord());
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    internal async Task<bool> OrderExistsFor(int merchantId, string referenceNumber,
+    public async Task<bool> OrderExistsFor(int merchantId, string referenceNumber,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(referenceNumber);
 
-        return await Orders.AnyAsync(a =>
+        return await _dbContext.Orders.AnyAsync(a =>
                 a.MerchantId == merchantId && a.ReferenceNumber == referenceNumber,
             cancellationToken);
-    }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.HasDefaultSchema("orders");
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersRepository).Assembly);
     }
 }

@@ -6,7 +6,7 @@ using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
-public sealed class CreateOrderHandler
+internal sealed class CreateOrderHandler
 {
     private readonly OrdersRepository _ordersRepository;
 
