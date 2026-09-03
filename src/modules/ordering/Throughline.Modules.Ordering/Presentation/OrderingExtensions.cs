@@ -33,7 +33,7 @@ public static class OrderingExtensions
             CreateOrderCommand command, CreateOrderHandler handler) =>
         {
             var result = await handler.CreateOrderAsync(command, token);
-            return result.ToOkResult();
+            return result.Ok();
         });
 
         return app;

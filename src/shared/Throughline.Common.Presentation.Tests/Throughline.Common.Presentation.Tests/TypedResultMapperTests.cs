@@ -12,21 +12,21 @@ public sealed class TypedResultMapperTests
 {
     private static readonly object SuccessValue = new();
 
-    #region ToTypedResult
+    #region Ok
 
     [Test]
-    public void ToTypedResult_NullResult_Throws()
+    public void Ok_NullResult_Throws()
     {
         TestResult result = null!;
-        Assert.That(() => result.ToOkResult(), Throws.ArgumentNullException);
+        Assert.That(() => result.Ok(), Throws.ArgumentNullException);
     }
 
     [Test]
-    public void ToTypedResult_SuccessResult_ReturnsOkWithValue()
+    public void Ok_SuccessResult_ReturnsOkWithValue()
     {
         var result = TestResult.Success(SuccessValue);
 
-        var actual = result.ToOkResult() as Ok<object>;
+        var actual = result.Ok() as Ok<object>;
 
         Assert.Multiple(() =>
         {
@@ -37,11 +37,11 @@ public sealed class TypedResultMapperTests
     }
 
     [Test]
-    public void ToTypedResult_ValidationResult_ReturnsBadRequestWithProblem()
+    public void Ok_ValidationResult_ReturnsBadRequestWithProblem()
     {
         var result = TestResult.Validation("Bad input");
 
-        var actual = result.ToOkResult() as BadRequest<ProblemDetails>;
+        var actual = result.Ok() as BadRequest<ProblemDetails>;
 
         Assert.Multiple(() =>
         {
@@ -53,11 +53,11 @@ public sealed class TypedResultMapperTests
     }
 
     [Test]
-    public void ToTypedResult_ConflictResult_ReturnsConflictWithProblem()
+    public void Ok_ConflictResult_ReturnsConflictWithProblem()
     {
         var result = TestResult.Conflict("Order already placed");
 
-        var actual = result.ToOkResult() as Conflict<ProblemDetails>;
+        var actual = result.Ok() as Conflict<ProblemDetails>;
 
         Assert.Multiple(() =>
         {
