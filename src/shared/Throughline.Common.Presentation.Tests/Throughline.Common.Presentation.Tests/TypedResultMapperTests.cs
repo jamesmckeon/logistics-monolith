@@ -12,36 +12,28 @@ public sealed class TypedResultMapperTests
 {
     private static readonly object SuccessValue = new();
 
-    #region Ok
 
     [Test]
-    public void Ok_NullResult_Throws()
-    {
-        TestResult result = null!;
-        Assert.That(() => result.Ok(), Throws.ArgumentNullException);
-    }
-
-    [Test]
-    public void Ok_SuccessResult_ReturnsOkWithValue()
+    public void Created_SuccessResult_ReturnsCreatedAt()
     {
         var result = TestResult.Success(SuccessValue);
 
-        var actual = result.Ok() as Ok<object>;
+        var route = "/test/1";
+        var actual = (Created<object>)result.Created(route);
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual, Is.Not.Null);
-            Assert.That(actual!.StatusCode, Is.EqualTo(StatusCodes.Status200OK));
-            Assert.That(actual.Value, Is.SameAs(SuccessValue));
+            Assert.That(actual.StatusCode, Is.EqualTo(StatusCodes.Status201Created));
+            Assert.That(actual.Location, Is.SameAs(route));
+            Assert.That(actual.Value, Is.SameAs(result.Value));
         });
     }
 
     [Test]
-    public void Ok_ValidationResult_ReturnsBadRequestWithProblem()
+    public void Created_ValidationResult_ReturnsBadRequestWithProblem()
     {
         var result = TestResult.Validation("Bad input");
-
-        var actual = result.Ok() as BadRequest<ProblemDetails>;
+        var actual = result.Created("test") as BadRequest<ProblemDetails>;
 
         Assert.Multiple(() =>
         {
@@ -53,11 +45,10 @@ public sealed class TypedResultMapperTests
     }
 
     [Test]
-    public void Ok_ConflictResult_ReturnsConflictWithProblem()
+    public void Created_ConflictResult_ReturnsConflictWithProblem()
     {
         var result = TestResult.Conflict("Order already placed");
-
-        var actual = result.Ok() as Conflict<ProblemDetails>;
+        var actual = result.Created("test") as Conflict<ProblemDetails>;
 
         Assert.Multiple(() =>
         {
@@ -67,6 +58,4 @@ public sealed class TypedResultMapperTests
             Assert.That(actual.Value!.Title, Is.EqualTo("A conflict occurred"));
         });
     }
-
-    #endregion
 }

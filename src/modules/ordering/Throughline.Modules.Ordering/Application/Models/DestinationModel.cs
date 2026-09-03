@@ -5,4 +5,6 @@ public sealed record DestinationModel(
     string? StreetAddressTwo,
     string City,
     string State,
-    string PostalCode);
+    string PostalCode)
+{
+}

@@ -73,7 +73,7 @@ public class OrderingTests
         var orderRecord = new OrderRecord
         {
             OrderId = Guid.NewGuid(),
-            MerchantId = command.MerchantId,
+            OwnerId = command.OwnerId,
             PurchaseOrderNumber = command.PurchaseOrderNumber,
             ReferenceNumber = command.ReferenceNumber,
             StreetAddressOne = command.StreetAddressOne,
@@ -99,7 +99,7 @@ public class OrderingTests
         });
 
         var expectedMessage =
-            $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}";
+            $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}";
 
         var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
 
@@ -115,7 +115,7 @@ public class OrderingTests
     }
 
     [Test]
-    public async Task Post_NewOrder_ReturnsOkWithModel()
+    public async Task Post_NewOrder_ReturnsCreatedWithModel()
     {
         var command = TestCommand();
 
@@ -137,9 +137,9 @@ public class OrderingTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(model.MerchantId, Is.EqualTo(command.MerchantId));
+            Assert.That(model.OwnerId, Is.EqualTo(command.OwnerId));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(model.Destination, Is.EqualTo(expectedAddress));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
