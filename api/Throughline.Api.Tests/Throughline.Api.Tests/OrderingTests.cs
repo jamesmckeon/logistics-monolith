@@ -69,28 +69,7 @@ public class OrderingTests
     public async Task Post_OrderExists_ReturnsConflict()
     {
         var command = TestCommand();
-
-        var orderRecord = new OrderRecord
-        {
-            OrderId = Guid.NewGuid(),
-            OwnerId = command.OwnerId,
-            PurchaseOrderNumber = command.PurchaseOrderNumber,
-            ReferenceNumber = command.ReferenceNumber,
-            StreetAddressOne = command.StreetAddressOne,
-            StreetAddressTwo = command.StreetAddressTwo,
-            City = command.City,
-            State = command.State,
-            Zipcode = command.PostalCode,
-            OrderLines =
-            [
-                new OrderLineRecord
-                {
-                    OrderId = Guid.NewGuid(),
-                    SkuCode = "TestSku",
-                    Quantity = 1
-                }
-            ]
-        };
+        var orderRecord = TestOrder(command);
 
         await SeedAsync(db =>
         {
@@ -113,6 +92,7 @@ public class OrderingTests
             Assert.That(problemDetails.Detail, Is.EqualTo(expectedMessage));
         });
     }
+
 
     [Test]
     public async Task Post_NewOrder_ReturnsCreatedWithModel()
@@ -147,7 +127,90 @@ public class OrderingTests
     }
 
 
+    [Test]
+    public async Task Get_OrderExists_ReturnsModel()
+    {
+        var command = TestCommand();
+        var orderRecord = TestOrder(command);
+
+        await SeedAsync(db =>
+        {
+            db.Orders.Add(orderRecord);
+            return Task.CompletedTask;
+        });
+
+        var expectedAddress = new DestinationModel(
+            command.StreetAddressOne,
+            command.StreetAddressTwo,
+            command.City,
+            command.State,
+            command.PostalCode);
+
+        IEnumerable<OrderLineModel> expectedLines =
+            orderRecord.OrderLines.Select(l => new OrderLineModel(l.SkuCode, l.Quantity));
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
+        request.Headers.Add("owner_id", command.OwnerId.ToString());
+
+        var response = await _client.SendAsync(request);
+        await EnsureSuccessAsync(response);
+        var model = await response.Content.ReadFromJsonAsync<OrderModel>();
+
+        Assert.That(model, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
+            Assert.That(model.OwnerId, Is.EqualTo(command.OwnerId));
+            Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
+            Assert.That(model.Destination, Is.EqualTo(expectedAddress));
+            Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
+        });
+    }
+
+    [Test]
+    public async Task Get_OrderNotFound_ReturnsNotFound()
+    {
+        var orderId = Guid.NewGuid();
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderId}");
+        request.Headers.Add("owner_id", "1");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
     #region Helpers
+
+    private static OrderRecord TestOrder(CreateOrderCommand command)
+    {
+        var orderRecord = new OrderRecord
+        {
+            OrderId = Guid.NewGuid(),
+            OwnerId = command.OwnerId,
+            PurchaseOrderNumber = command.PurchaseOrderNumber,
+            ReferenceNumber = command.ReferenceNumber,
+            StreetAddressOne = command.StreetAddressOne,
+            StreetAddressTwo = command.StreetAddressTwo,
+            City = command.City,
+            State = command.State,
+            Zipcode = command.PostalCode,
+            OrderLines =
+            [
+                new OrderLineRecord
+                {
+                    OrderId = Guid.NewGuid(),
+                    SkuCode = "TestSku",
+                    Quantity = 1
+                }
+            ]
+        };
+        return orderRecord;
+    }
 
     private static CreateOrderCommand TestCommand()
     {
@@ -162,6 +225,21 @@ public class OrderingTests
             "97211", [
                 new CreateOrderCommandItem("TestSku", 1)
             ]);
+    }
+
+    // Surfaces the server's response body (in Development the exception page returns the full
+    // stack trace as text/plain) directly in the NUnit failure message — which the runner prints,
+    // unlike logs written during the test body, which NUnit captures and dotnet test discards.
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Fail(
+            $"Expected a success status but got {(int)response.StatusCode} ({response.StatusCode}).\n" +
+            $"Content-Type: {response.Content.Headers.ContentType}\n" +
+            $"Body:\n{body}");
     }
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)

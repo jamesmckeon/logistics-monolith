@@ -41,12 +41,12 @@ public static class OrderingExtensions
             CreateOrderCommand command, CreateOrderHandler handler) =>
         {
             var result = await handler.CreateOrderAsync(command, token);
-            var uri = result.Succeeded? $"/orders/{result.Value.OrderId}" : null;
-            
+            var uri = result.Succeeded ? $"/{OrdersRoute}/{result.Value.OrderId}" : null;
+
             return result.Created(uri);
         });
 
-        group.MapGet("/orders/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (CancellationToken token,
+        group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (CancellationToken token,
             Guid orderId, RequestContext requestContext, GetOrderByIdQuery query) =>
         {
             var model = await query.GetOrderByIdAsync(orderId, requestContext.OwnerId, token);
