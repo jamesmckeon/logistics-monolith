@@ -146,7 +146,7 @@ public class OrderingTests
             command.State,
             command.PostalCode);
 
-        IEnumerable<OrderLineModel> expectedLines =
+        var expectedLines =
             orderRecord.OrderLines.Select(l => new OrderLineModel(l.SkuCode, l.Quantity));
 
         using var request = new HttpRequestMessage(
@@ -181,6 +181,27 @@ public class OrderingTests
 
         var response = await _client.SendAsync(request);
 
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task Get_OrderExistsForDifferentOwner_ReturnsNotFound()
+    {
+        var command = TestCommand();
+        var orderRecord = TestOrder(command);
+
+        await SeedAsync(db =>
+        {
+            db.Orders.Add(orderRecord);
+            return Task.CompletedTask;
+        });
+
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
+        request.Headers.Add("owner_id", (command.OwnerId + 1).ToString()); // different owner
+
+        var response = await _client.SendAsync(request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
