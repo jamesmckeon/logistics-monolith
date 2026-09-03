@@ -113,7 +113,7 @@ public sealed class CreateOrderHandlerTests
         await _dbContext.SaveChangesAsync();
 
         var expectedError =
-            $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}";
+            $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}";
 
         var actual = await _sut.CreateOrderAsync(command);
 
@@ -142,7 +142,7 @@ public sealed class CreateOrderHandlerTests
             Assert.That(actual.Succeeded, Is.True);
             Assert.That(order.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(order.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(order.MerchantId, Is.EqualTo(command.MerchantId));
+            Assert.That(order.OwnerId, Is.EqualTo(command.OwnerId));
         });
     }
 
@@ -165,7 +165,7 @@ public sealed class CreateOrderHandlerTests
 
         return new Order(
             new OrderId(),
-            command.MerchantId,
+            command.OwnerId,
             command.PurchaseOrderNumber,
             command.ReferenceNumber,
             streetAddress,

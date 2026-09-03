@@ -20,13 +20,13 @@ internal sealed class OrdersRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<bool> OrderExistsFor(int merchantId, string referenceNumber,
+    public async Task<bool> OrderExistsFor(int ownerId, string referenceNumber,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(referenceNumber);
 
         return await _dbContext.Orders.AnyAsync(a =>
-                a.MerchantId == merchantId && a.ReferenceNumber == referenceNumber,
+                a.OwnerId == ownerId && a.ReferenceNumber == referenceNumber,
             cancellationToken);
     }
 }

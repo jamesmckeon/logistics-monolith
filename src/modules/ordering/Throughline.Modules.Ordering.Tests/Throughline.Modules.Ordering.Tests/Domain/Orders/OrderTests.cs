@@ -7,7 +7,7 @@ namespace Throughline.Modules.Ordering.Tests.Domain.Orders;
 [Category("Unit")]
 public sealed class OrderTests
 {
-    private const int MerchantId = 42;
+    private const int OwnerId = 42;
     private static readonly OrderId Id = new();
 
     private static OrderLine Line(string sku, int quantity = 1)
@@ -21,7 +21,7 @@ public sealed class OrderTests
     }
 
     private static Result<Order> WhenCreated(
-        int merchantId = MerchantId,
+        int ownerId = OwnerId,
         string purchaseOrderNumber = "PO-1001",
         string referenceNumber = "REF-1001",
         StreetAddress? destination = null,
@@ -29,7 +29,7 @@ public sealed class OrderTests
     {
         return Order.Create(
             Id,
-            merchantId,
+            ownerId,
             purchaseOrderNumber,
             referenceNumber,
             destination ?? Destination(),
@@ -50,7 +50,7 @@ public sealed class OrderTests
         {
             Assert.That(result.Succeeded, Is.True);
             Assert.That(result.Value!.Id, Is.EqualTo(Id));
-            Assert.That(result.Value.MerchantId, Is.EqualTo(MerchantId));
+            Assert.That(result.Value.OwnerId, Is.EqualTo(OwnerId));
             Assert.That(result.Value.Destination, Is.EqualTo(destination));
             Assert.That(result.Value.OrderLines, Is.EqualTo(lines));
         });
@@ -113,35 +113,35 @@ public sealed class OrderTests
     public void Create_NullOrderId_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => Order.Create(
-            null!, MerchantId, "PO-1001", "REF-1001", Destination(), [Line("SKU-1")]));
+            null!, OwnerId, "PO-1001", "REF-1001", Destination(), [Line("SKU-1")]));
     }
 
     [Test]
     public void Create_NullDestination_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => Order.Create(
-            Id, MerchantId, "PO-1001", "REF-1001", null!, [Line("SKU-1")]));
+            Id, OwnerId, "PO-1001", "REF-1001", null!, [Line("SKU-1")]));
     }
 
     [Test]
     public void Create_NullOrderLines_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => Order.Create(
-            Id, MerchantId, "PO-1001", "REF-1001", Destination(), null!));
+            Id, OwnerId, "PO-1001", "REF-1001", Destination(), null!));
     }
 
     [Test]
     public void Create_NullPurchaseOrderNumber_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => Order.Create(
-            Id, MerchantId, null!, "REF-1001", Destination(), [Line("SKU-1")]));
+            Id, OwnerId, null!, "REF-1001", Destination(), [Line("SKU-1")]));
     }
 
     [Test]
     public void Create_NullReferenceNumber_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => Order.Create(
-            Id, MerchantId, "PO-1001", null!, Destination(), [Line("SKU-1")]));
+            Id, OwnerId, "PO-1001", null!, Destination(), [Line("SKU-1")]));
     }
 
     #endregion

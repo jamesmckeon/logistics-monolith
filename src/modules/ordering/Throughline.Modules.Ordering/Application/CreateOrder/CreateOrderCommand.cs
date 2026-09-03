@@ -3,7 +3,7 @@ using Throughline.Common.Results;
 namespace Throughline.Modules.Ordering.Application.CreateOrder;
 
 public sealed record CreateOrderCommand(
-    int MerchantId,
+    int OwnerId,
     string PurchaseOrderNumber,
     string ReferenceNumber,
     string StreetAddressOne,

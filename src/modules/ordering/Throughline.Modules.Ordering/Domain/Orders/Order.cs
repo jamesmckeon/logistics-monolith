@@ -6,14 +6,14 @@ internal sealed class Order
 {
     internal Order(
         OrderId id,
-        int merchantId,
+        int ownerId,
         string purchaseOrderNumber,
         string referenceNumber,
         StreetAddress destination,
         IEnumerable<OrderLine> orderLines)
     {
         Id = id;
-        MerchantId = merchantId;
+        OwnerId = ownerId;
         PurchaseOrderNumber = purchaseOrderNumber.Trim();
         ReferenceNumber = referenceNumber.Trim();
         Destination = destination;
@@ -21,7 +21,7 @@ internal sealed class Order
     }
 
     public OrderId Id { get; }
-    public int MerchantId { get; }
+    public int OwnerId { get; }
     public string PurchaseOrderNumber { get; }
     public string ReferenceNumber { get; }
     public IReadOnlyCollection<OrderLine> OrderLines { get; }
@@ -29,7 +29,7 @@ internal sealed class Order
 
     internal static Result<Order> Create(
         OrderId orderId,
-        int merchantId,
+        int ownerId,
         string purchaseOrderNumber,
         string referenceNumber,
         StreetAddress destination,
@@ -58,7 +58,7 @@ internal sealed class Order
 
         return new Order(
             orderId,
-            merchantId,
+            ownerId,
             purchaseOrderNumber,
             referenceNumber,
             destination,

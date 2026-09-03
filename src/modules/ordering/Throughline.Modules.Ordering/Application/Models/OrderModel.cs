@@ -4,7 +4,7 @@ namespace Throughline.Modules.Ordering.Application.Models;
 
 public sealed record OrderModel(
     Guid OrderId,
-    int MerchantId,
+    int OwnerId,
     string PurchaseOrderNumber,
     string ReferenceNumber,
     DestinationModel Destination,
@@ -16,7 +16,7 @@ public sealed record OrderModel(
 
         return new OrderModel(
             order.Id.Value,
-            order.MerchantId,
+            order.OwnerId,
             order.PurchaseOrderNumber,
             order.ReferenceNumber,
             new DestinationModel(

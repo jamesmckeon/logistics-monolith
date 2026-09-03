@@ -42,16 +42,16 @@ internal sealed class CreateOrderHandler
             return Validation(addressResult.Errors);
 
         var orderExists = await _ordersRepository.OrderExistsFor(
-            command.MerchantId, command.ReferenceNumber, cancellationToken);
+            command.OwnerId, command.ReferenceNumber, cancellationToken);
 
         if (orderExists)
             return
                 Result<OrderModel>.Conflict(
-                    $"An order exists for merchant #{command.MerchantId} with reference #{command.ReferenceNumber}");
+                    $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}");
 
         var orderResult = Order.Create(
             new OrderId(),
-            command.MerchantId,
+            command.OwnerId,
             command.PurchaseOrderNumber,
             command.ReferenceNumber,
             addressResult.Value,

@@ -3,7 +3,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 internal sealed class OrderRecord
 {
     public Guid OrderId { get; set; }
-    public int MerchantId { get; set; }
+    public int OwnerId { get; set; }
     public string PurchaseOrderNumber { get; set; } = null!;
     public string ReferenceNumber { get; set; } = null!;
 

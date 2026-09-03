@@ -62,7 +62,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("City");
 
-                    b.Property<int>("MerchantId")
+                    b.Property<int>("OwnerId")
                         .HasColumnType("integer");
 
                     b.Property<string>("PurchaseOrderNumber")
@@ -101,7 +101,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
 
                     b.HasKey("OrderId");
 
-                    b.HasIndex("MerchantId", "ReferenceNumber")
+                    b.HasIndex("OwnerId", "ReferenceNumber")
                         .IsUnique();
 
                     b.ToTable("Orders", "orders");

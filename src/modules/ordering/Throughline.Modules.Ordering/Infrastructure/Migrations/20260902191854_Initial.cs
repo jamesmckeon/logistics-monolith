@@ -21,7 +21,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                 columns: table => new
                 {
                     OrderId = table.Column<Guid>(type: "uuid", nullable: false),
-                    MerchantId = table.Column<int>(type: "integer", nullable: false),
+                    OwnerId = table.Column<int>(type: "integer", nullable: false),
                     PurchaseOrderNumber = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     ReferenceNumber = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     StreetAddressOne = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
@@ -65,10 +65,10 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                 column: "OrderId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Orders_MerchantId_ReferenceNumber",
+                name: "IX_Orders_OwnerId_ReferenceNumber",
                 schema: "orders",
                 table: "Orders",
-                columns: new[] { "MerchantId", "ReferenceNumber" },
+                columns: new[] { "OwnerId", "ReferenceNumber" },
                 unique: true);
         }
 

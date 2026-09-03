@@ -12,7 +12,7 @@ internal static class OrderMapper
         return new OrderRecord
         {
             OrderId = order.Id.Value,
-            MerchantId = order.MerchantId,
+            OwnerId = order.OwnerId,
             PurchaseOrderNumber = order.PurchaseOrderNumber,
             ReferenceNumber = order.ReferenceNumber,
             StreetAddressOne = order.Destination.StreeAddressOne,
@@ -49,7 +49,7 @@ internal static class OrderMapper
         // aggregate directly rather than re-running (or failing) validation on read.
         return new Order(
             new OrderId(record.OrderId),
-            record.MerchantId,
+            record.OwnerId,
             record.PurchaseOrderNumber,
             record.ReferenceNumber,
             destination,

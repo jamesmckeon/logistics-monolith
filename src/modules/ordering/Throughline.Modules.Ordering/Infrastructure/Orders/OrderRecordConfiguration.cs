@@ -46,8 +46,8 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
             .WithOne()
             .HasForeignKey(l => l.OrderId);
 
-        // Backs OrderExistsFor and enforces "one order per merchant + reference" at the database.
-        builder.HasIndex(o => new { o.MerchantId, o.ReferenceNumber })
+        // Backs OrderExistsFor and enforces "one order per owner + reference" at the database.
+        builder.HasIndex(o => new { o.OwnerId, o.ReferenceNumber })
             .IsUnique();
     }
 }
