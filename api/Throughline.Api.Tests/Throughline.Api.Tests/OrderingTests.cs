@@ -154,7 +154,7 @@ public class OrderingTests
         request.Headers.Add("owner_id", command.OwnerId.ToString());
 
         var response = await _client.SendAsync(request);
-        await EnsureSuccessAsync(response);
+        response.EnsureSuccessStatusCode();
         var model = await response.Content.ReadFromJsonAsync<OrderModel>();
 
         Assert.That(model, Is.Not.Null);
@@ -246,21 +246,6 @@ public class OrderingTests
             "97211", [
                 new CreateOrderCommandItem("TestSku", 1)
             ]);
-    }
-
-    // Surfaces the server's response body (in Development the exception page returns the full
-    // stack trace as text/plain) directly in the NUnit failure message — which the runner prints,
-    // unlike logs written during the test body, which NUnit captures and dotnet test discards.
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
-    {
-        if (response.IsSuccessStatusCode)
-            return;
-
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Fail(
-            $"Expected a success status but got {(int)response.StatusCode} ({response.StatusCode}).\n" +
-            $"Content-Type: {response.Content.Headers.ContentType}\n" +
-            $"Body:\n{body}");
     }
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
