@@ -21,7 +21,8 @@ public static class OrderingExtensions
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<OrdersDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("Throughline")));
+            options.UseNpgsql(config.GetConnectionString("Throughline"))
+                .UseSnakeCaseNamingConvention());
 
         services.AddScoped<OrdersRepository>();
         services.AddScoped<CreateOrderHandler>();
