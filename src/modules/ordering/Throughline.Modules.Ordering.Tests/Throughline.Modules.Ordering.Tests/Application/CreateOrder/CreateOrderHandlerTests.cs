@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Domain;
@@ -23,7 +24,7 @@ public sealed class CreateOrderHandlerTests
 
         _dbContext = new OrdersDbContext(options);
         _ordersRepository = new OrdersRepository(_dbContext);
-        _sut = new CreateOrderHandler(_ordersRepository);
+        _sut = new CreateOrderHandler(_ordersRepository, NullLogger<CreateOrderHandler>.Instance);
     }
 
     [TearDown]
