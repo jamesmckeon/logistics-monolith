@@ -52,7 +52,7 @@ internal sealed class CreateOrderHandler
 
         if (orderExists)
         {
-            _logger.LogWarning("Order for ref #{@RefNumber} already exists for owner id {@OwnerId}",
+            _logger.LogInformation("Order for ref #{@RefNumber} already exists for owner id {@OwnerId}",
                 command.ReferenceNumber, ownerId);
             return
                 Result<OrderModel>.Conflict(

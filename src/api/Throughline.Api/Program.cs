@@ -1,3 +1,4 @@
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
@@ -19,7 +20,16 @@ builder.Services.AddOpenTelemetry()
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddOtlpExporter();
-    });
+    })
+    .WithLogging(
+        logging => logging.AddOtlpExporter(),
+        options =>
+        {
+            // Ships the rendered message and scope attributes so Aspire's
+            // Structured logs view isn't just empty templates.
+            options.IncludeFormattedMessage = true;
+            options.IncludeScopes = true;
+        });
 
 
 builder.Services.AddOpenApi();
