@@ -41,7 +41,7 @@ public static class OrderingExtensions
             CreateOrderCommand command, CreateOrderHandler handler) =>
         {
             var result = await handler.CreateOrderAsync(command, token);
-            var uri = result.Succeeded ? $"/{OrdersRoute}/{result.Value.OrderId}" : null;
+            var uri = result.Succeeded ? $"{OrdersRoute}/{result.Value.OrderId}" : null;
 
             return result.Created(uri);
         });

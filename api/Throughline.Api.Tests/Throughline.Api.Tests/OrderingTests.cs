@@ -123,6 +123,7 @@ public class OrderingTests
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(model.Destination, Is.EqualTo(expectedAddress));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
+            Assert.That(response.Headers.Location?.ToString(), Is.EqualTo($"/orders/{model.OrderId}"));
         });
     }
 
