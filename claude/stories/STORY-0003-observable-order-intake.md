@@ -42,9 +42,11 @@ failures against our availability commitment.**
 `GET /orders/{orderId}` retrieve):
 - Every request on the path (any endpoint) emits **one structured, machine-parseable record** — a
   **per-request pipeline concern** — carrying the method, route, response status, duration, and
-  **owning client**; plus, as **explicit safe fields**, the **order id** on acceptance and the
-  **reason code(s)** on rejection. Request/response **bodies are not emitted** (they carry ship-to
-  PII).
+  **owning client**. Records are **assembled from classified fields, not raw bodies**: the record
+  carries the **client identifiers** (purchase-order + reference number), the **order id** on
+  acceptance, and the **reason code(s) + offending field/line (with SKU and quantity)** on
+  rejection, plus the ship-to **city and state**; the ship-to **street address and postal code**
+  (and any recipient name) are **redacted**.
 - Every emitted record — and every unit of work done while handling one request (the handler /
   query and the database call) — carries **one correlation identity** that ties them together and
   is **stable for the whole request**, so all records for one submission can be pulled as a set.
@@ -76,9 +78,11 @@ failures against our availability commitment.**
    structured, correlated record** carrying the request method, route, response status, and
    duration, tagged with the owning client. This is a **per-request pipeline concern**, not
    per-endpoint / per-outcome logging.
-2. **Business outcome is captured as explicit, safe fields — never by emitting the request or
-   response body:** on acceptance, the resulting **order id**; on rejection, the **reason code(s)**.
-   Bodies are not emitted — they carry ship-to PII (criterion 6).
+2. **Any order is identifiable, and the outcome diagnosable, from safe fields — never from the raw
+   body.** Every record carries the **client's own identifiers** — the **purchase-order number and
+   reference number** — so *any* order can be found, **including a rejection, which has no order
+   id**. On acceptance the record also carries the assigned **order id**; on rejection it carries
+   the **reason code(s) and the offending field / line, with the line's SKU and quantity**.
 3. Given any single request, when its emitted records are collected, then **all** of them — across
    the request record, the handler/query, and the database call — **share one correlation
    identity**, and that identity is **stable** for the whole request.
@@ -89,10 +93,11 @@ failures against our availability commitment.**
    record is **attributed to the owner whose request produced it** — no owner id, order id, or data
    **bleeds** onto another owner's record (a per-request scoping / async bug must never
    mis-attribute).
-6. Given any emitted record for any outcome, when inspected, then it **does not embed** the ship-to
-   street address, postal code, or consignee name — only the owning-client identifier, the order
-   id, the outcome/status, and non-sensitive facts. In particular, **request/response bodies are
-   not logged**.
+6. Given any emitted record, when inspected, then **end-customer PII is redacted**: the ship-to
+   **street address** and **postal code** (and any recipient name) are **absent**, while the
+   **client identifiers, line-level SKU/quantity, reason/field, order id, outcome/status, and the
+   ship-to city and state** are retained. Records are built from **classified fields, not raw
+   request/response bodies**.
 7. **Observation does not alter behavior:** submissions accepted/rejected before this story behave
    **identically** after it, and a **telemetry failure never fails a valid order**.
 
@@ -120,8 +125,6 @@ names._
 
 ## Open questions
 
-- **PII aggressiveness:** omit delivery fields from telemetry entirely, or emit a **redacted /
-  tokenized** form so support can still correlate on it? (Recommend omit for v1.)
 - **Rejection severity:** a business rejection (zero-line, bad quantity) is *expected flow*, not a
   system fault — record it at an informational/warning level, reserving error-level strictly for
   unexpected faults? (Recommend yes.)
@@ -191,12 +194,13 @@ one submission joins on one id, is filterable by owner, and embeds no end-custom
 ## Definition of done
 
 - Acceptance criteria met; tests cover **each rule** — one structured / correlated / owner-tagged
-  record per request (method, route, status, duration); **order id on accept and reason code(s) on
-  reject captured as fields, never the body**; **one correlation id across a request**;
-  **adopt-vs-originate** correlation; **concurrent requests never mis-attribute the owner**; **no
-  end-customer PII (no bodies) in any record**; and **behavior-unchanged** (a telemetry failure
-  never fails a valid order). Note which `src/` project(s) you touched. Then ask for a `review`
-  pass.
+  record per request (method, route, status, duration); **any order findable via the client's
+  PO/reference number, including on rejection**; **order id on accept**, **reason code + offending
+  field/line (SKU/qty) on reject**; **street address and postal code redacted while city/state are
+  retained**; **one correlation id across a request**; **adopt-vs-originate** correlation;
+  **concurrent requests never mis-attribute the owner**; and **behavior-unchanged** (a telemetry
+  failure never fails a valid order). Note which `src/` project(s) you touched. Then ask for a
+  `review` pass.
 
 ## Issue
 
