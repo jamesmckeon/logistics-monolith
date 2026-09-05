@@ -51,9 +51,13 @@ internal sealed class CreateOrderHandler
             ownerId, command.ReferenceNumber, cancellationToken);
 
         if (orderExists)
+        {
+            _logger.LogWarning("Order for ref #{@RefNumber} already exists for owner id {@OwnerId}",
+                command.ReferenceNumber, ownerId);
             return
                 Result<OrderModel>.Conflict(
                     $"An order exists for owner #{ownerId} with reference #{command.ReferenceNumber}");
+        }
 
         var orderResult = Order.Create(
             new OrderId(),
@@ -73,8 +77,8 @@ internal sealed class CreateOrderHandler
 
     private Result<OrderModel> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
     {
-        _logger.LogWarning("Create order request for owner id {@OwnerId}, PO # {@PoNumber}, " +
-                           "ref #{@refNumber} rejected as invalid: {@errors}",
+        _logger.LogInformation("Create order request for owner id {@OwnerId}, PO # {@PoNumber}, " +
+                               "ref #{@refNumber} rejected as invalid: {@errors}",
             ownerId, command.PurchaseOrderNumber, command.ReferenceNumber, errors);
         return Result<OrderModel>.Validation(errors);
     }
