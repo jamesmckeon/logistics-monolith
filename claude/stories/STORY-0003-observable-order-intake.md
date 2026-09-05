@@ -40,9 +40,11 @@ failures against our availability commitment.**
 
 **In scope** — for the existing intake path (`POST /orders` accept/reject and
 `GET /orders/{orderId}` retrieve):
-- Every request emits a **structured, machine-parseable record** of what happened: the **outcome**
-  (accepted / rejected / found / not-found), the **owning client**, the **order id** when one
-  exists, and the **reason(s)** on rejection.
+- Every request on the path (any endpoint) emits **one structured, machine-parseable record** — a
+  **per-request pipeline concern** — carrying the method, route, response status, duration, and
+  **owning client**; plus, as **explicit safe fields**, the **order id** on acceptance and the
+  **reason code(s)** on rejection. Request/response **bodies are not emitted** (they carry ship-to
+  PII).
 - Every emitted record — and every unit of work done while handling one request (the handler /
   query and the database call) — carries **one correlation identity** that ties them together and
   is **stable for the whole request**, so all records for one submission can be pulled as a set.
@@ -70,29 +72,28 @@ failures against our availability commitment.**
 
 ## Acceptance criteria
 
-1. Given a valid submission from a known owner, when it is **accepted**, then a structured record
-   is emitted stating **accepted**, the **order id**, and the **owning client**, correlated to the
-   same request as all other work done for that submission.
-2. Given a **rejected** submission (e.g., zero-line, or quantity < 1), when it is rejected, then a
-   structured record is emitted stating **rejected** with the **reason(s)**, tagged with the owning
-   client and correlated to the request — and with **no order id** (none was created).
-3. Given a **retrieval**, when the order **exists** / **does not exist** within the caller's owner
-   scope, then a structured record distinguishes **found** vs **not-found**, tagged with the owning
-   client and correlated to the request.
-4. Given any single request, when its emitted records are collected, then **all** of them — across
-   the endpoint, the handler/query, and the database call — **share one correlation identity**, and
-   that identity is **stable** for the whole request.
-5. Given a caller that presents a correlation identity in the **standard interchange form**, when
+1. **Every request on the intake path — any endpoint, any outcome — produces exactly one
+   structured, correlated record** carrying the request method, route, response status, and
+   duration, tagged with the owning client. This is a **per-request pipeline concern**, not
+   per-endpoint / per-outcome logging.
+2. **Business outcome is captured as explicit, safe fields — never by emitting the request or
+   response body:** on acceptance, the resulting **order id**; on rejection, the **reason code(s)**.
+   Bodies are not emitted — they carry ship-to PII (criterion 6).
+3. Given any single request, when its emitted records are collected, then **all** of them — across
+   the request record, the handler/query, and the database call — **share one correlation
+   identity**, and that identity is **stable** for the whole request.
+4. Given a caller that presents a correlation identity in the **standard interchange form**, when
    the request is handled, then that identity is **adopted** (not replaced) and **echoed back** to
    the caller; given a caller that presents **none**, then one is **originated** and returned.
-6. Given **two owners' requests handled concurrently**, when their records are emitted, then each
+5. Given **two owners' requests handled concurrently**, when their records are emitted, then each
    record is **attributed to the owner whose request produced it** — no owner id, order id, or data
    **bleeds** onto another owner's record (a per-request scoping / async bug must never
    mis-attribute).
-7. Given any emitted record for any outcome, when inspected, then it **does not embed** the ship-to
+6. Given any emitted record for any outcome, when inspected, then it **does not embed** the ship-to
    street address, postal code, or consignee name — only the owning-client identifier, the order
-   id, the outcome, and non-sensitive facts.
-8. **Observation does not alter behavior:** submissions accepted/rejected before this story behave
+   id, the outcome/status, and non-sensitive facts. In particular, **request/response bodies are
+   not logged**.
+7. **Observation does not alter behavior:** submissions accepted/rejected before this story behave
    **identically** after it, and a **telemetry failure never fails a valid order**.
 
 ## Constraints & non-functional requirements
@@ -189,11 +190,13 @@ one submission joins on one id, is filterable by owner, and embeds no end-custom
 
 ## Definition of done
 
-- Acceptance criteria met; tests cover **each rule** — accepted / rejected / found / not-found
-  records; **one correlation id across a request**; **adopt-vs-originate** correlation;
-  **concurrent requests never mis-attribute the owner**; **no end-customer PII in any record**; and
-  **behavior-unchanged** (a telemetry failure never fails a valid order). Note which `src/`
-  project(s) you touched. Then ask for a `review` pass.
+- Acceptance criteria met; tests cover **each rule** — one structured / correlated / owner-tagged
+  record per request (method, route, status, duration); **order id on accept and reason code(s) on
+  reject captured as fields, never the body**; **one correlation id across a request**;
+  **adopt-vs-originate** correlation; **concurrent requests never mis-attribute the owner**; **no
+  end-customer PII (no bodies) in any record**; and **behavior-unchanged** (a telemetry failure
+  never fails a valid order). Note which `src/` project(s) you touched. Then ask for a `review`
+  pass.
 
 ## Issue
 
