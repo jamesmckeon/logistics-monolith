@@ -42,11 +42,10 @@ failures against our availability commitment.**
 `GET /orders/{orderId}` retrieve):
 - Every request on the path (any endpoint) emits **one structured, machine-parseable record** — a
   **per-request pipeline concern** — carrying the method, route, response status, duration, and
-  **owning client**. Records are **assembled from classified fields, not raw bodies**: the record
-  carries the **client identifiers** (purchase-order + reference number), the **order id** on
-  acceptance, and the **reason code(s) + offending field/line (with SKU and quantity)** on
-  rejection, plus the ship-to **city and state**; the ship-to **street address and postal code**
-  (and any recipient name) are **redacted**.
+  **owning client**, plus the order's **operational attributes as structured fields**: the **client
+  identifiers** (purchase-order + reference number), the **order id** on acceptance, and the
+  **reason code(s) + offending field/line (with SKU and quantity)** on rejection. Emit as **named
+  fields, not an opaque body blob**, so records stay queryable.
 - Every emitted record — and every unit of work done while handling one request (the handler /
   query and the database call) — carries **one correlation identity** that ties them together and
   is **stable for the whole request**, so all records for one submission can be pulled as a set.
@@ -56,11 +55,6 @@ failures against our availability commitment.**
 - The **owning client** appears on **every** emitted record as a first-class, **filterable**
   attribute, so an operator can **pivot telemetry by owner** and attribute every record to the
   right client. Operators see across all owners — this is *attribution*, **not** isolation.
-- **End-customer PII is minimized in telemetry:** the ship-to street address, postal code, and
-  consignee name are **not embedded** in emitted records — a record shows *that* an order for owner
-  X was accepted/retrieved, not the delivery address of the goods. This is data-minimization for a
-  broad, long-retained log surface, and is **independent of owner tenancy** (operators may still
-  view full order data in the app itself).
 
 **Out of scope:**
 - **Metrics, dashboards, SLO / error-budget measurement, and alerting** — the next story (T-013).
@@ -70,6 +64,11 @@ failures against our availability commitment.**
   orders; that isolation is STORY-0002's (T-033), not this story's.
 - Deploying a **telemetry backend / collector** — emit in the standard shape; *where* it ships is
   config, not this story.
+- **Personal-data governance on telemetry export** — order attributes (including ship-to) are
+  operational data, logged **in full** to Throughline's own logs. *If/when* telemetry is exported
+  to a third-party backend (deferred with the collector decision above), revisit which consumer
+  personal data may cross that processor boundary (DPA / retention / jurisdiction). **Not a v1
+  redaction requirement.**
 - **Facility** on telemetry — single DC; not modeled.
 
 ## Acceptance criteria
@@ -78,8 +77,8 @@ failures against our availability commitment.**
    structured, correlated record** carrying the request method, route, response status, and
    duration, tagged with the owning client. This is a **per-request pipeline concern**, not
    per-endpoint / per-outcome logging.
-2. **Any order is identifiable, and the outcome diagnosable, from safe fields — never from the raw
-   body.** Every record carries the **client's own identifiers** — the **purchase-order number and
+2. **Any order is identifiable, and the outcome diagnosable, from explicit structured fields on the
+   record.** Every record carries the **client's own identifiers** — the **purchase-order number and
    reference number** — so *any* order can be found, **including a rejection, which has no order
    id**. On acceptance the record also carries the assigned **order id**; on rejection it carries
    the **reason code(s) and the offending field / line, with the line's SKU and quantity**.
@@ -93,12 +92,7 @@ failures against our availability commitment.**
    record is **attributed to the owner whose request produced it** — no owner id, order id, or data
    **bleeds** onto another owner's record (a per-request scoping / async bug must never
    mis-attribute).
-6. Given any emitted record, when inspected, then **end-customer PII is redacted**: the ship-to
-   **street address** and **postal code** (and any recipient name) are **absent**, while the
-   **client identifiers, line-level SKU/quantity, reason/field, order id, outcome/status, and the
-   ship-to city and state** are retained. Records are built from **classified fields, not raw
-   request/response bodies**.
-7. **Observation does not alter behavior:** submissions accepted/rejected before this story behave
+6. **Observation does not alter behavior:** submissions accepted/rejected before this story behave
    **identically** after it, and a **telemetry failure never fails a valid order**.
 
 ## Constraints & non-functional requirements
@@ -118,10 +112,10 @@ names._
   every record is **correctly and unambiguously attributed** to its owning client so activity can
   be filtered and pivoted by owner; **mis-attribution** (owner A's record tagged owner B) is a
   correctness bug.
-- **End-customer PII is minimized at the point of emission:** delivery addresses / consignee names
-  are kept out of what is emitted, because the telemetry pipeline (aggregators, third-party
-  vendors, long retention) is a broader and leakier surface than the application itself. This is
-  data-minimization, **not** owner-tenancy.
+- **Order attributes are operational data, logged in full** — the ship-to address, SKUs, and
+  quantities are what the warehouse acts on, and the 3PL's own operators need them for triage; this
+  story does **not** redact them from internal logs. (Personal-data governance applies only if
+  telemetry is later exported to a third-party backend — see Scope / out-of-scope.)
 
 ## Open questions
 
@@ -144,9 +138,9 @@ deleted._
   (`"Order {OrderId} accepted for owner {OwnerId}"`), never interpolated strings; **outcome**,
   **reason**, and **owning client** as queryable fields (owner is a *filter dimension* so an
   operator can pivot by client — see the tenancy note below). *Traps:* `$"…{x}…"` interpolation
-  that destroys structure; embedding delivery PII in the template; log-and-throw / double-logging
-  the same failure; **level misuse** (a business rejection is expected flow — Information/Warning,
-  not Error — reserve Error for unexpected faults).
+  that destroys structure; log-and-throw / double-logging the same failure; **level misuse** (a
+  business rejection is expected flow — Information/Warning, not Error — reserve Error for
+  unexpected faults).
 - **Distributed Tracing & Correlation IDs (T-036):** one trace spanning
   endpoint → handler/query → DB, using **W3C Trace Context (`traceparent`)**; **adopt** inbound
   context, **propagate** it to child work, and stamp the trace/correlation id onto every log record
@@ -156,18 +150,20 @@ deleted._
   primitive that already survives `await` (the same primitive keeps each request's owner from
   bleeding onto another's record under concurrency — criterion 6).
 
-**Tenancy note — three things people conflate, only two of which are in this story:**
+**Tenancy & data note — three things people conflate; be clear which this story owns:**
 1. **Owner-vs-owner isolation** (one client never sees another's data) — the **data path**, already
    enforced by STORY-0002 / T-033. **Not** re-litigated here, and it does **not** apply to internal
    telemetry: the operator is the 3PL and sees *all* owners.
 2. **Owner attribution** (every telemetry record is tagged with — and filterable by — the correct
    owning client, with no cross-request bleed) — **in scope**, part of T-035/T-036.
-3. **End-customer PII minimization** (don't scatter consignee delivery addresses across a leaky,
-   long-retained log surface) — **in scope**, but a *data-minimization* concern, **not** tenancy.
+3. **End-customer personal data** — order attributes including the ship-to address are the WMS's
+   **operational data**, logged **in full** to our own logs (a 3PL operator's on-call needs them);
+   **not** redacted in v1. The only real caveat is *data-governance on export* to a third-party
+   telemetry backend (deferred) — never a reason to strip order data from internal logs.
 
 *The central trap:* **treating logging as print statements.** At this scale an uncorrelated,
 unstructured, owner-blind line is nearly useless for triage — the value is that **every record for
-one submission joins on one id, is filterable by owner, and embeds no end-customer PII.**
+one submission joins on one id and is filterable by owner.**
 
 ## Hints (optional — ignore if you want the full challenge)
 
@@ -178,10 +174,10 @@ one submission joins on one id, is filterable by owner, and embeds no end-custom
   bleed under concurrency). `[LoggerMessage]` source-gen keeps the hot path allocation-free.
 - ASP.NET Core already reads an inbound `traceparent` into `Activity.Current` when tracing is
   configured — you mostly **consume** it, then **originate-and-return** when it's absent.
-- **PII minimization:** the cleanest guarantee is to keep ship-to / consignee data out of what you
-  emit in the first place; if you'd rather emit a DTO and mark sensitive fields,
-  `Microsoft.Extensions.Compliance` redaction + `[LogProperties]` / `DataClassification` classifies
-  and redacts them.
+- **PII on export (deferred, not v1):** order attributes are logged as operational data now — no
+  redaction. If a third-party telemetry backend is added later, `Microsoft.Extensions.Compliance`
+  (`[LogProperties]` / `DataClassification`) is how you'd classify/redact consumer PII at *that*
+  boundary — nothing to redact for this story.
 - The concrete surface to make observable already exists: `OrderingExtensions.MapOrdering`
   (`POST /orders` → `CreateOrderHandler.CreateOrderAsync(ownerId, …)`, `GET /orders/{orderId}` →
   `GetOrderByIdQuery`), with `RequestContext.OwnerId` as the owner and the EF/Npgsql call as the
@@ -196,11 +192,10 @@ one submission joins on one id, is filterable by owner, and embeds no end-custom
 - Acceptance criteria met; tests cover **each rule** — one structured / correlated / owner-tagged
   record per request (method, route, status, duration); **any order findable via the client's
   PO/reference number, including on rejection**; **order id on accept**, **reason code + offending
-  field/line (SKU/qty) on reject**; **street address and postal code redacted while city/state are
-  retained**; **one correlation id across a request**; **adopt-vs-originate** correlation;
-  **concurrent requests never mis-attribute the owner**; and **behavior-unchanged** (a telemetry
-  failure never fails a valid order). Note which `src/` project(s) you touched. Then ask for a
-  `review` pass.
+  field/line (SKU/qty) on reject**; **one correlation id across a request**; **adopt-vs-originate**
+  correlation; **concurrent requests never mis-attribute the owner**; and **behavior-unchanged** (a
+  telemetry failure never fails a valid order). Note which `src/` project(s) you touched. Then ask
+  for a `review` pass.
 
 ## Issue
 
