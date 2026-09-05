@@ -70,6 +70,10 @@ internal sealed class CreateOrderHandler
         if (!orderResult.Succeeded)
             return RejectInvalid(orderResult.Errors, command, ownerId);
 
+        _logger.LogInformation(
+            "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
+            orderResult.Value.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+
         await _ordersRepository.SaveOrderAsync(orderResult.Value, cancellationToken);
 
         return OrderModel.FromOrder(orderResult.Value);
