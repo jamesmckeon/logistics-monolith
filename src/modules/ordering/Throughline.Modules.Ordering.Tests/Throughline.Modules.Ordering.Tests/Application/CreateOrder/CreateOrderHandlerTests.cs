@@ -33,22 +33,15 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public void CreateOrderAsync_NullCommand_ThrowsExpected()
-    {
-        var ex = Assert.ThrowsAsync<ArgumentNullException>(() => _sut.CreateOrderAsync(null!));
-        Assert.That(ex.ParamName, Is.EqualTo("command"));
-    }
-
-    [Test]
     public async Task CreateOrderAsync_InvalidCommand_ReturnsFailure()
     {
         var command = new CreateOrderCommand(
-            1, " ", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
+            " ", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var commandResult = command.Validate();
 
-        var actual = await _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(1, command);
 
         Assert.Multiple(() =>
         {
@@ -62,12 +55,12 @@ public sealed class CreateOrderHandlerTests
     public async Task CreateOrderAsync_InvalidPostalCode_ReturnsFailure()
     {
         var command = new CreateOrderCommand(
-            1, "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
+            "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "OR",
             "$%^eRR", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var postalCodeResult = PostalCode.Create(command.PostalCode);
 
-        var actual = await _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(1, command);
 
         Assert.Multiple(() =>
         {
@@ -81,7 +74,7 @@ public sealed class CreateOrderHandlerTests
     public async Task CreateOrderAsync_InvalidStreetAddress_ReturnsFailure()
     {
         var command = new CreateOrderCommand(
-            1, "TESTPO", "REF1", "123 Somewhere Dr.", null, "Portland", "$$",
+            "TESTPO", "REF1", "123 Somewhere Dr.", null, "Portland", "$$",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var addressResult = StreetAddress.Create(
@@ -91,7 +84,7 @@ public sealed class CreateOrderHandlerTests
             command.State,
             new PostalCode(command.PostalCode));
 
-        var actual = await _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(1, command);
 
         Assert.Multiple(() =>
         {
@@ -105,7 +98,7 @@ public sealed class CreateOrderHandlerTests
     public async Task CreateOrderAsync_OrderExists_ReturnsConflictFailure()
     {
         var command = new CreateOrderCommand(
-            1, "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var existing = TestOrder(command);
@@ -113,9 +106,9 @@ public sealed class CreateOrderHandlerTests
         await _dbContext.SaveChangesAsync();
 
         var expectedError =
-            $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}";
+            $"An order exists for owner #1 with reference #{command.ReferenceNumber}";
 
-        var actual = await _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(1, command);
 
         Assert.Multiple(() =>
         {
@@ -129,10 +122,10 @@ public sealed class CreateOrderHandlerTests
     public async Task CreateOrderAsync_OrderNotFound_SavesAndReturnsSuccess()
     {
         var command = new CreateOrderCommand(
-            1, "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
-        var actual = await _sut.CreateOrderAsync(command);
+        var actual = await _sut.CreateOrderAsync(1, command);
 
         var order = actual.Value;
         Assert.That(order, Is.Not.Null);
@@ -142,7 +135,7 @@ public sealed class CreateOrderHandlerTests
             Assert.That(actual.Succeeded, Is.True);
             Assert.That(order.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(order.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(order.OwnerId, Is.EqualTo(command.OwnerId));
+            Assert.That(order.OwnerId, Is.EqualTo(1));
         });
     }
 
@@ -151,7 +144,7 @@ public sealed class CreateOrderHandlerTests
     private static CreateOrderCommand TestCommand()
     {
         return new CreateOrderCommand(
-            1, "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "$$",
+            "TESTPO", "REF1", "123 Somewhere Drive", null, "Portland", "$$",
             "@1f$4", [new CreateOrderCommandItem("TestSku", 1)]);
     }
 
@@ -165,7 +158,7 @@ public sealed class CreateOrderHandlerTests
 
         return new Order(
             new OrderId(),
-            command.OwnerId,
+            1,
             command.PurchaseOrderNumber,
             command.ReferenceNumber,
             streetAddress,

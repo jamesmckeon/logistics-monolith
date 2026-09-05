@@ -43,7 +43,6 @@ public class OrderingTests
     public async Task Post_InvalidRequest_ReturnsProblemDetails()
     {
         var command = new CreateOrderCommand(
-            1,
             "  ",
             "testreference",
             "test address",
@@ -53,7 +52,7 @@ public class OrderingTests
             "97211",
             [new CreateOrderCommandItem("TestSku", 1)]);
 
-        var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
+        var response = await PostOrder(command, 1);
 
         var problemDetails = await GetFromResponse(response);
         Assert.That(problemDetails, Is.Not.Null);
@@ -78,9 +77,9 @@ public class OrderingTests
         });
 
         var expectedMessage =
-            $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}";
+            $"An order exists for owner #{orderRecord.OwnerId} with reference #{command.ReferenceNumber}";
 
-        var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
+        var response = await PostOrder(command, orderRecord.OwnerId);
 
         var problemDetails = await GetFromResponse(response);
         Assert.That(problemDetails, Is.Not.Null);
@@ -109,8 +108,7 @@ public class OrderingTests
         IEnumerable<OrderLineModel> expectedLines =
             [new(command.Items.Single().Sku.ToUpper(), command.Items.Single().Quantity)];
 
-        var response = await _client.PostAsJsonAsync(OrderingExtensions.OrdersRoute, command);
-        response.EnsureSuccessStatusCode();
+        var response = await PostOrder(command, 1);
         var model = await response.Content.ReadFromJsonAsync<OrderModel>();
 
         Assert.That(model, Is.Not.Null);
@@ -119,7 +117,7 @@ public class OrderingTests
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(model.OwnerId, Is.EqualTo(command.OwnerId));
+            Assert.That(model.OwnerId, Is.EqualTo(1));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(model.Destination, Is.EqualTo(expectedAddress));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
@@ -152,7 +150,7 @@ public class OrderingTests
 
         using var request = new HttpRequestMessage(
             HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", command.OwnerId.ToString());
+        request.Headers.Add("owner_id", orderRecord.OwnerId.ToString());
 
         var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();
@@ -164,7 +162,7 @@ public class OrderingTests
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(model.OwnerId, Is.EqualTo(command.OwnerId));
+            Assert.That(model.OwnerId, Is.EqualTo(orderRecord.OwnerId));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
             Assert.That(model.Destination, Is.EqualTo(expectedAddress));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
@@ -197,10 +195,9 @@ public class OrderingTests
             return Task.CompletedTask;
         });
 
-
         using var request = new HttpRequestMessage(
             HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", (command.OwnerId + 1).ToString()); // different owner
+        request.Headers.Add("owner_id", (orderRecord.OwnerId + 1).ToString()); // different owner
 
         var response = await _client.SendAsync(request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
@@ -208,12 +205,12 @@ public class OrderingTests
 
     #region Helpers
 
-    private static OrderRecord TestOrder(CreateOrderCommand command)
+    private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
     {
         var orderRecord = new OrderRecord
         {
             OrderId = Guid.NewGuid(),
-            OwnerId = command.OwnerId,
+            OwnerId = ownerId,
             PurchaseOrderNumber = command.PurchaseOrderNumber,
             ReferenceNumber = command.ReferenceNumber,
             StreetAddressOne = command.StreetAddressOne,
@@ -237,7 +234,6 @@ public class OrderingTests
     private static CreateOrderCommand TestCommand()
     {
         return new CreateOrderCommand(
-            1,
             "TESTPO",
             "testreference",
             "test address",
@@ -269,6 +265,16 @@ public class OrderingTests
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
+    }
+
+    private async Task<HttpResponseMessage> PostOrder(CreateOrderCommand command, int ownerId)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, OrderingExtensions.OrdersRoute);
+        request.Headers.Add("owner_id", ownerId.ToString());
+        request.Content = JsonContent.Create(command);
+
+        return await _client.SendAsync(request);
     }
 
     #endregion

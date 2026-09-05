@@ -17,7 +17,9 @@ internal sealed class CreateOrderHandler
     }
 
     public async Task<Result<OrderModel>> CreateOrderAsync(
-        CreateOrderCommand command, CancellationToken cancellationToken = default)
+        int ownerId,
+        CreateOrderCommand command,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -42,16 +44,16 @@ internal sealed class CreateOrderHandler
             return Validation(addressResult.Errors);
 
         var orderExists = await _ordersRepository.OrderExistsFor(
-            command.OwnerId, command.ReferenceNumber, cancellationToken);
+            ownerId, command.ReferenceNumber, cancellationToken);
 
         if (orderExists)
             return
                 Result<OrderModel>.Conflict(
-                    $"An order exists for owner #{command.OwnerId} with reference #{command.ReferenceNumber}");
+                    $"An order exists for owner #{ownerId} with reference #{command.ReferenceNumber}");
 
         var orderResult = Order.Create(
             new OrderId(),
-            command.OwnerId,
+            ownerId,
             command.PurchaseOrderNumber,
             command.ReferenceNumber,
             addressResult.Value,

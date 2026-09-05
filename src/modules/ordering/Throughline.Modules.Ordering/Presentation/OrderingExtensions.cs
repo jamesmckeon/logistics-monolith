@@ -37,17 +37,23 @@ public static class OrderingExtensions
     {
         var group = app.MapGroup(OrdersRoute).WithTags("Ordering");
 
-        group.MapPost("/", async (CancellationToken token,
-            CreateOrderCommand command, CreateOrderHandler handler) =>
+        group.MapPost("/", async (
+            CreateOrderCommand command,
+            CreateOrderHandler handler,
+            RequestContext requestContext,
+            CancellationToken token) =>
         {
-            var result = await handler.CreateOrderAsync(command, token);
+            var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
             var uri = result.Succeeded ? $"{OrdersRoute}/{result.Value.OrderId}" : null;
 
             return result.Created(uri);
         });
 
-        group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (CancellationToken token,
-            Guid orderId, RequestContext requestContext, GetOrderByIdQuery query) =>
+        group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (
+            CancellationToken token,
+            Guid orderId,
+            RequestContext requestContext,
+            GetOrderByIdQuery query) =>
         {
             var model = await query.GetOrderByIdAsync(orderId, requestContext.OwnerId, token);
 
