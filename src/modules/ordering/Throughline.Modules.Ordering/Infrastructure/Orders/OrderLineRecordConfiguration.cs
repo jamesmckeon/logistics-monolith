@@ -7,14 +7,13 @@ internal sealed class OrderLineRecordConfiguration : IEntityTypeConfiguration<Or
 {
     public void Configure(EntityTypeBuilder<OrderLineRecord> builder)
     {
-        builder.ToTable("OrderLines");
+        builder.ToTable("order_lines");
         builder.HasKey(l => l.Id);
 
         builder.Property(l => l.Id)
             .ValueGeneratedOnAdd();
 
         builder.Property(l => l.SkuCode)
-            .HasColumnName("SkuCode")
             .HasMaxLength(50);
     }
 }

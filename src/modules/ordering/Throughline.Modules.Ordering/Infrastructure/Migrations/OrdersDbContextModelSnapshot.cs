@@ -27,84 +27,94 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<Guid>("OrderId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
 
                     b.Property<string>("SkuCode")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("SkuCode");
+                        .HasColumnName("sku_code");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_order_lines");
 
-                    b.HasIndex("OrderId");
+                    b.HasIndex("OrderId")
+                        .HasDatabaseName("ix_order_lines_order_id");
 
-                    b.ToTable("OrderLines", "orders");
+                    b.ToTable("order_lines", "orders");
                 });
 
             modelBuilder.Entity("Throughline.Modules.Ordering.Infrastructure.Orders.OrderRecord", b =>
                 {
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid")
-                        .HasColumnName("OrderId");
+                        .HasColumnName("order_id");
 
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("City");
+                        .HasColumnName("city");
 
                     b.Property<int>("OwnerId")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
 
                     b.Property<string>("PurchaseOrderNumber")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("purchase_order_number");
 
                     b.Property<string>("ReferenceNumber")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("reference_number");
 
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(2)
                         .HasColumnType("character(2)")
-                        .HasColumnName("State")
+                        .HasColumnName("state")
                         .IsFixedLength();
 
                     b.Property<string>("StreetAddressOne")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
-                        .HasColumnName("StreetAddressOne");
+                        .HasColumnName("street_address_one");
 
                     b.Property<string>("StreetAddressTwo")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
-                        .HasColumnName("StreetAddressTwo");
+                        .HasColumnName("street_address_two");
 
                     b.Property<string>("Zipcode")
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasColumnName("Zipcode");
+                        .HasColumnName("zipcode");
 
-                    b.HasKey("OrderId");
+                    b.HasKey("OrderId")
+                        .HasName("pk_orders");
 
                     b.HasIndex("OwnerId", "ReferenceNumber")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_orders_owner_id_reference_number");
 
-                    b.ToTable("Orders", "orders");
+                    b.ToTable("orders", "orders");
                 });
 
             modelBuilder.Entity("Throughline.Modules.Ordering.Infrastructure.Orders.OrderLineRecord", b =>
@@ -113,7 +123,8 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                         .WithMany("OrderLines")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_order_lines_orders_order_id");
                 });
 
             modelBuilder.Entity("Throughline.Modules.Ordering.Infrastructure.Orders.OrderRecord", b =>

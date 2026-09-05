@@ -7,11 +7,10 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
 {
     public void Configure(EntityTypeBuilder<OrderRecord> builder)
     {
-        builder.ToTable("Orders");
+        builder.ToTable("orders");
         builder.HasKey(o => o.OrderId);
 
         builder.Property(o => o.OrderId)
-            .HasColumnName("OrderId")
             .HasColumnType("uuid")
             .ValueGeneratedNever();
 
@@ -22,24 +21,19 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
             .HasMaxLength(50);
 
         builder.Property(o => o.StreetAddressOne)
-            .HasColumnName("StreetAddressOne")
             .HasMaxLength(150);
 
         builder.Property(o => o.StreetAddressTwo)
-            .HasColumnName("StreetAddressTwo")
             .HasMaxLength(150);
 
         builder.Property(o => o.City)
-            .HasColumnName("City")
             .HasMaxLength(50);
 
         builder.Property(o => o.State)
-            .HasColumnName("State")
             .HasMaxLength(2)
             .IsFixedLength();
 
         builder.Property(o => o.Zipcode)
-            .HasColumnName("Zipcode")
             .HasMaxLength(10);
 
         builder.HasMany(o => o.OrderLines)
