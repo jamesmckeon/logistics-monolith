@@ -261,7 +261,10 @@ When the user says "review my solution to STORY-XXXX" (code in `src/` or a branc
    - **API & contract design** — REST/gRPC shape, versioning, idempotent verbs, pagination;
      EDI/GS1 contracts where relevant.
    - **Testing** — unit/integration/contract coverage, determinism, what's missing.
-   - **Observability** — tracing/correlation, metrics, structured logging.
+   - **Observability** — tracing/correlation, metrics, structured logging. Judge against
+     the **Observability & Logging** register in [sources.md](sources.md) (OpenTelemetry +
+     W3C Trace Context + .NET platform docs; `OwnerId` on every signal — facility is out of
+     scope while single-facility; instrument as if already distributed).
    - **Performance & scale** — behavior at the §2 baseline; hot paths, N+1s, allocations.
    - **Simplicity & maintainability** — SOLID, readability, over/under-engineering.
    - **Trade-offs & articulation** — could the user defend this in a design review? What
