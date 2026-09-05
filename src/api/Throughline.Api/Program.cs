@@ -12,7 +12,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
         resource.AddService(
-            "orders-api",
+            "throughline-api",
             serviceVersion: "1.0.0"))
     .WithTracing(tracing =>
     {
