@@ -4,7 +4,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common", "src\s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Tests", "src\shared\Throughline.Common.Tests\Throughline.Common.Tests.csproj", "{32D436D4-17B4-49EA-AAE2-0E9D283E10D6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api", "api\Throughline.Api\Throughline.Api.csproj", "{57D7860C-202F-4B14-AB12-281647607589}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api", "src\api\Throughline.Api\Throughline.Api.csproj", "{57D7860C-202F-4B14-AB12-281647607589}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Common.Presentation", "src\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj", "{1C551051-2B0B-48E0-95CF-3D98B615C14E}"
 EndProject
@@ -16,7 +16,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Tests", "src\modules\ordering\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests\Throughline.Modules.Ordering.Tests.csproj", "{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "api\Throughline.Api.Tests\Throughline.Api.Tests\Throughline.Api.Tests.csproj", "{409176FF-B155-4FD1-95C8-9EBDB7F85676}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "src\api\Throughline.Api.Tests\Throughline.Api.Tests\Throughline.Api.Tests.csproj", "{409176FF-B155-4FD1-95C8-9EBDB7F85676}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

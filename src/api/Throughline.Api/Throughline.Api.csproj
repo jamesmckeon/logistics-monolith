@@ -19,7 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\modules\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
+        <ProjectReference Include="..\..\modules\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
     </ItemGroup>
 
 </Project>
