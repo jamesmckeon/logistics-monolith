@@ -45,11 +45,13 @@ candidate — ask to add it (dedup runs first)._
 | T-032 | Authorization Models & RBAC | SEC, API, OOAD | ⬜ Not Started | High | — | 2026-08-12 | What they may do. RBAC (roles→permissions) as the entry point, then when it breaks and you reach for ABAC / ReBAC / policy-based. ASP.NET Core authorization policies, requirements + handlers, resource-based authorization. Key judgment: where authz lives (edge/gateway vs application vs domain invariant) and avoiding role explosion. |
 | T-033 | Multi-Tenant Isolation & Resource-Scoped Authorization | SEC, DATA, SYSD | ⬜ Not Started | — | STORY-0002 (light) | 2026-08-24 | Each shipper/carrier/3PL sees only its own orders/shipments. Tenant claim propagation, row-level filtering enforced at the query layer (EF global query filters), and preventing IDOR / BOLA (object-level auth on every read *and* write). Distinct from general Multi-tenancy (SYSD candidate: the isolation *architecture*) — this is the per-request enforcement. Builds on T-031/T-032. |
 | T-034 | Module Extraction & Inter-Module Integration Contracts | DDD, DIST | ⬜ Not Started | — | — | 2026-08-17 | Executing a bounded-context split in the modular monolith: moving aggregates into their own module and choosing the seam — sync in-process module API vs event-replicated read model — plus versioning that contract. Distinct from T-020 (identifies boundaries) and T-026 (places invariants); this is *doing* the decomposition and wiring the contract. Motivating example: extract a Pricing/Catalog module owning the surcharge zone-exclusivity invariant (a code resolves to 0-or-1 surcharge per merchant); Orders becomes a downstream consumer of a resolved-surcharge query. |
+| T-035 | Structured Logging | OBS | ⬜ Not Started | High | STORY-0003 | 2026-09-05 | Message templates with named, queryable properties (owner, order id, outcome, reason) — not interpolated strings. `ILogger` + `BeginScope` for ambient context; `[LoggerMessage]` source-gen on hot paths; level discipline (business rejection ≠ Error); never log PII. Judged against the Observability & Logging register in [sources.md](sources.md) (O-5). |
+| T-036 | Distributed Tracing & Correlation IDs | OBS, DIST | ⬜ Not Started | High | STORY-0003 | 2026-09-05 | One trace spanning endpoint→handler→DB via W3C Trace Context (`traceparent`); adopt inbound context, propagate to child work, join logs to the trace. Built in-process now so a module→service split needs no new correlation scheme. `System.Diagnostics.ActivitySource`/`Activity`. Alias: "OTel, tracing, spans." Register O-1/O-2/O-6. |
 
 <!--
 ADD-ITEM CHECKLIST (see CLAUDE.md §5A):
 1. Dedup against this table + categories.md alias table. If a possible match, STOP and confirm.
 2. Assign next T-### (never reuse). Confirm Categories if ambiguous.
 3. Status ⬜ Not Started, Added=today, append row, keep sorted by ID.
-Next free ID: T-035
+Next free ID: T-037
 -->

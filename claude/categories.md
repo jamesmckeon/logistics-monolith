@@ -119,11 +119,11 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Real-time push / streaming to clients at scale (SSE vs WebSockets vs gRPC-streaming; fan-out, backpressure, resume) `[backlogged: T-030]`
 
 ### OBS — Observability & Operability
-- Distributed tracing & correlation IDs (OpenTelemetry)
+- Distributed tracing & correlation IDs (OpenTelemetry) `[backlogged: T-036]`
 - Metrics (RED / USE method)
-- Structured logging
+- Structured logging `[backlogged: T-035]`
 - Health checks & readiness/liveness
-- Alerting on SLOs
+- Alerting on SLOs (part of SLIs / SLOs / Error Budgets `[backlogged: T-013]`)
 
 ### SEC — Security & Identity
 - Authentication (API & service-to-service): OAuth2 / OIDC, JWT validation, mTLS, client-credentials `[backlogged: T-031]`
@@ -154,7 +154,8 @@ confirms that a new phrasing means an existing concept.
 | Process manager, orchestrator saga, choreography saga | Saga Pattern |
 | Domain event, integration event* | Domain Events (*note: integration events are related but distinct — confirm) |
 | Optimistic locking, row versioning, `xmin`/`rowversion` | Optimistic vs pessimistic concurrency |
-| OTel, tracing, spans | Distributed tracing & correlation IDs |
+| OTel, tracing, spans, traceparent, correlation id | Distributed tracing & correlation IDs (T-036) |
+| Structured logs, semantic logging, log properties, message templates | Structured Logging (T-035) |
 | Read model vs write model separation, read/write model split | CQRS + Read Models (T-007) |
 | Access-pattern-driven storage modeling, access-pattern-first schema design | High-Write-Throughput / Access-Pattern-Driven Data Modeling (T-027) |
 | Consistency boundary placement, strong vs eventual boundary | Consistency Boundary Identification (T-026) |
