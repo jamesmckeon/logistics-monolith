@@ -120,7 +120,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 
 ### OBS — Observability & Operability
 - Distributed tracing & correlation IDs (OpenTelemetry) `[backlogged: T-036]`
-- Metrics (RED / USE method)
+- Metrics (RED / USE method) `[backlogged: T-037]`
 - Structured logging `[backlogged: T-035]`
 - Health checks & readiness/liveness
 - Alerting on SLOs (part of SLIs / SLOs / Error Budgets `[backlogged: T-013]`)
