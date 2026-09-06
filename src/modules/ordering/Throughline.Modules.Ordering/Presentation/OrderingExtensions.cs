@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System.Diagnostics;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Ordering.Application.CreateOrder;
@@ -34,6 +36,16 @@ public static class OrderingExtensions
         return services;
     }
 
+    private static IDisposable? OwnerScope(ILoggerFactory loggerFactory, int ownerId)
+    {
+        // owner attribution on the per-request span (the one record the ASP.NET Core
+        // instrumentation already emits with method/route/status/duration).
+        Activity.Current?.SetTag("owner_id", ownerId);
+
+        // owner on every log record in the request
+        return loggerFactory.CreateLogger("Ordering.Intake").BeginScope("Owner {OwnerId}", ownerId);
+    }
+
     public static IEndpointRouteBuilder MapOrdering(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(OrdersRoute).WithTags("Ordering");
@@ -42,8 +54,10 @@ public static class OrderingExtensions
             CreateOrderCommand command,
             CreateOrderHandler handler,
             RequestContext requestContext,
+            ILoggerFactory loggerFactory,
             CancellationToken token) =>
         {
+            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
             var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
             var uri = result.Succeeded ? $"{OrdersRoute}/{result.Value.OrderId}" : null;
 
@@ -54,8 +68,10 @@ public static class OrderingExtensions
             CancellationToken token,
             Guid orderId,
             RequestContext requestContext,
+            ILoggerFactory loggerFactory,
             GetOrderByIdQuery query) =>
         {
+            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
             var model = await query.GetOrderByIdAsync(orderId, requestContext.OwnerId, token);
 
             if (model is null)
