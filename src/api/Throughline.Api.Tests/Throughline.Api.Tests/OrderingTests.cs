@@ -65,7 +65,7 @@ public class OrderingTests
     }
 
     [Test]
-    public async Task Post_OrderExists_ReturnsConflict()
+    public async Task Post_OrderExists_ReturnsNotCreated()
     {
         var command = TestCommand();
         var orderRecord = TestOrder(command);
@@ -76,26 +76,24 @@ public class OrderingTests
             return Task.CompletedTask;
         });
 
-        var expectedMessage =
-            $"An order exists for owner #{orderRecord.OwnerId} with reference #{command.ReferenceNumber}";
-
         var response = await PostOrder(command, orderRecord.OwnerId);
-
-        var problemDetails = await GetFromResponse(response);
-        Assert.That(problemDetails, Is.Not.Null);
+        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
+        Assert.That(result, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-            Assert.That(problemDetails.Title, Is.EqualTo("A conflict occurred"));
-            Assert.That(problemDetails.Detail, Is.EqualTo(expectedMessage));
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(result.OwnerId, Is.EqualTo(orderRecord.OwnerId));
+            Assert.That(result.OrderId, Is.EqualTo(orderRecord.OrderId));
+            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(orderRecord.ReferenceNumber));
         });
     }
 
 
     [Test]
-    public async Task Post_NewOrder_ReturnsCreatedWithModel()
+    public async Task Post_NewOrder_ReturnsCreated()
     {
+        var ownerId = 1;
         var command = TestCommand();
 
         var expectedAddress = new DestinationModel(
@@ -108,20 +106,15 @@ public class OrderingTests
         IEnumerable<OrderLineModel> expectedLines =
             [new(command.Items.Single().Sku.ToUpper(), command.Items.Single().Quantity)];
 
-        var response = await PostOrder(command, 1);
-        var model = await response.Content.ReadFromJsonAsync<OrderModel>();
-
-        Assert.That(model, Is.Not.Null);
+        var response = await PostOrder(command, ownerId);
+        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
+        Assert.That(result, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(model.OwnerId, Is.EqualTo(1));
-            Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedAddress));
-            Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
-            Assert.That(response.Headers.Location?.ToString(), Is.EqualTo($"/orders/{model.OrderId}"));
+            Assert.That(result.OwnerId, Is.EqualTo(ownerId));
+            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(command.ReferenceNumber));
         });
     }
 

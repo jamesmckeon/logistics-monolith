@@ -12,21 +12,27 @@ internal sealed class OrdersRepository
         _dbContext = dbContext;
     }
 
-    public async Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task<Guid> SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        _dbContext.Orders.Add(order.ToOrderRecord());
+        var record = order.ToOrderRecord();
+        _dbContext.Orders.Add(record);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return record.OrderId;
     }
 
-    public async Task<bool> OrderExistsFor(int ownerId, string referenceNumber,
+    public async Task<Guid?> GetOrderId(int ownerId, string referenceNumber,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(referenceNumber);
 
-        return await _dbContext.Orders.AnyAsync(a =>
+        var order = await _dbContext.Orders.SingleOrDefaultAsync(a =>
                 a.OwnerId == ownerId && a.ReferenceNumber == referenceNumber,
             cancellationToken);
+
+        return order?.OrderId;
     }
 }

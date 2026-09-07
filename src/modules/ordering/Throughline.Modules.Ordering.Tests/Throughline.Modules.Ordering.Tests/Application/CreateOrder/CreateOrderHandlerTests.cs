@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
@@ -96,7 +95,7 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public async Task CreateOrderAsync_OrderExists_ReturnsConflictFailure()
+    public async Task CreateOrderAsync_OrderExists_ReturnsFound()
     {
         var command = new CreateOrderCommand(
             "PO1", "REF1", "Address One", null, "Portland", "OR",
@@ -106,16 +105,17 @@ public sealed class CreateOrderHandlerTests
         _dbContext.Add(existing.ToOrderRecord());
         await _dbContext.SaveChangesAsync();
 
-        var expectedError =
-            $"An order exists for owner #1 with reference #{command.ReferenceNumber}";
-
         var actual = await _sut.CreateOrderAsync(1, command);
+
+        Assert.That(actual.Value, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.Succeeded, Is.False);
-            Assert.That(actual.Errors.Single().Description, Is.EqualTo(expectedError));
-            Assert.That(actual.ErrorType, Is.EqualTo(ErrorType.Conflict));
+            Assert.That(actual.Succeeded, Is.True);
+            Assert.That(actual.Value.Created, Is.False);
+            Assert.That(actual.Value.OrderId, Is.EqualTo(existing.Id.Value));
+            Assert.That(actual.Value.OwnerId, Is.EqualTo(existing.OwnerId));
+            Assert.That(actual.Value.OwnerReferenceNumber, Is.EqualTo(existing.ReferenceNumber));
         });
     }
 
@@ -128,15 +128,18 @@ public sealed class CreateOrderHandlerTests
 
         var actual = await _sut.CreateOrderAsync(1, command);
 
-        var order = actual.Value;
-        Assert.That(order, Is.Not.Null);
+        Assert.That(actual.Value, Is.Not.Null);
+
+        var order = await _dbContext.Orders.SingleAsync(s =>
+            s.ReferenceNumber == command.ReferenceNumber);
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.True);
-            Assert.That(order.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(order.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(order.OwnerId, Is.EqualTo(1));
+            Assert.That(actual.Value.Created, Is.True);
+            Assert.That(actual.Value.OrderId, Is.EqualTo(order.OrderId));
+            Assert.That(actual.Value.OwnerId, Is.EqualTo(order.OwnerId));
+            Assert.That(actual.Value.OwnerReferenceNumber, Is.EqualTo(order.ReferenceNumber));
         });
     }
 

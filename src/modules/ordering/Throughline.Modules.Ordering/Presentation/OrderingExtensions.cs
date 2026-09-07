@@ -61,7 +61,7 @@ public static class OrderingExtensions
             var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
             var uri = result.Succeeded ? $"{OrdersRoute}/{result.Value.OrderId}" : null;
 
-            return result.Created(uri);
+            return result.Created? result.Created(uri): ;
         });
 
         group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (

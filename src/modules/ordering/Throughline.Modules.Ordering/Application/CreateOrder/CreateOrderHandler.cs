@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Throughline.Common.Results;
-using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -20,7 +19,7 @@ internal sealed class CreateOrderHandler
         _logger = logger;
     }
 
-    public async Task<Result<OrderModel>> CreateOrderAsync(
+    public async Task<Result<CreateOrderResult>> CreateOrderAsync(
         int ownerId,
         CreateOrderCommand command,
         CancellationToken cancellationToken = default)
@@ -47,16 +46,15 @@ internal sealed class CreateOrderHandler
         if (!addressResult.Succeeded)
             return RejectInvalid(addressResult.Errors, command, ownerId);
 
-        var orderExists = await _ordersRepository.OrderExistsFor(
+        var existingOrderId = await _ordersRepository.GetOrderId(
             ownerId, command.ReferenceNumber, cancellationToken);
 
-        if (orderExists)
+        if (existingOrderId.HasValue)
         {
-            _logger.LogInformation("Order for ref #{@RefNumber} already exists for owner id {@OwnerId}",
+            _logger.LogInformation("Order found for ref #{@RefNumber}, owner id {@OwnerId}",
                 command.ReferenceNumber, ownerId);
-            return
-                Result<OrderModel>.Conflict(
-                    $"An order exists for owner #{ownerId} with reference #{command.ReferenceNumber}");
+            return new CreateOrderResult(
+                false, existingOrderId.Value, ownerId, command.ReferenceNumber);
         }
 
         var orderResult = Order.Create(
@@ -74,16 +72,16 @@ internal sealed class CreateOrderHandler
             "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
             orderResult.Value.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
 
-        await _ordersRepository.SaveOrderAsync(orderResult.Value, cancellationToken);
+        var newOrderId = await _ordersRepository.SaveOrderAsync(orderResult.Value, cancellationToken);
 
-        return OrderModel.FromOrder(orderResult.Value);
+        return new CreateOrderResult(true, newOrderId, ownerId, command.ReferenceNumber);
     }
 
-    private Result<OrderModel> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
+    private Result<CreateOrderResult> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
     {
         _logger.LogInformation("Create order request for owner id {@OwnerId}, PO # {@PoNumber}, " +
                                "ref #{@refNumber} rejected as invalid: {@errors}",
             ownerId, command.PurchaseOrderNumber, command.ReferenceNumber, errors);
-        return Result<OrderModel>.Validation(errors);
+        return Result<CreateOrderResult>.Validation(errors);
     }
 }
