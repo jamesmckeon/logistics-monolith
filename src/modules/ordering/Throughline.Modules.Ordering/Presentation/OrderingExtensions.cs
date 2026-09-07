@@ -59,9 +59,14 @@ public static class OrderingExtensions
         {
             using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
             var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
-            var uri = result.Succeeded ? $"{OrdersRoute}/{result.Value.OrderId}" : null;
 
-            return result.Created? result.Created(uri): ;
+            if (!result.Succeeded)
+                return result.ToFailureResponse();
+
+            var uri = $"{OrdersRoute}/{result.Value.OrderId}";
+            var response = CreateOrderResponse.FromResult(result.Value);
+
+            return result.Value.Created ? TypedResults.Created(uri, response) : TypedResults.Ok(response);
         });
 
         group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (
