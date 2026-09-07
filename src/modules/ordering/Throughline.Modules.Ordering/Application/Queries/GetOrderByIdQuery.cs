@@ -16,7 +16,7 @@ internal sealed class GetOrderByIdQuery
     public async Task<OrderModel?> GetOrderByIdAsync(Guid orderId, int ownerId, CancellationToken token)
     {
         var order = await _dbContext.Orders
-            .Where(o => o.OrderId == orderId && o.OwnerId == ownerId) // scope!
+            .Where(o => o.OrderId == orderId && o.OwnerId == ownerId)
             .Select(o => new OrderModel(
                 o.OrderId,
                 o.OwnerId,

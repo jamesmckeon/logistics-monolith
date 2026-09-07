@@ -65,6 +65,33 @@ public class OrderingTests
     }
 
     [Test]
+    public async Task Post_OrderExistsWithDifferentContents_ReturnsConflict()
+    {
+        var existingCommand = TestCommand("Po1");
+        var existingRecord = TestOrder(existingCommand);
+
+        await SeedAsync(db =>
+        {
+            db.Orders.Add(existingRecord);
+            return Task.CompletedTask;
+        });
+
+        var newCommand = TestCommand("Po2");
+
+        var response = await PostOrder(newCommand, existingRecord.OwnerId);
+        var problemDetails = await GetFromResponse(response);
+        Assert.That(problemDetails, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(problemDetails.Detail,
+                Is.EqualTo(
+                    $"Reference #{newCommand.ReferenceNumber} already identifies an order with different contents."));
+        });
+    }
+
+    [Test]
     public async Task Post_OrderExists_ReturnsNotCreated()
     {
         var command = TestCommand();
@@ -96,16 +123,6 @@ public class OrderingTests
         var ownerId = 1;
         var command = TestCommand();
 
-        var expectedAddress = new DestinationModel(
-            command.StreetAddressOne,
-            command.StreetAddressTwo,
-            command.City,
-            command.State,
-            command.PostalCode);
-
-        IEnumerable<OrderLineModel> expectedLines =
-            [new(command.Items.Single().Sku.ToUpper(), command.Items.Single().Quantity)];
-
         var response = await PostOrder(command, ownerId);
         var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
         Assert.That(result, Is.Not.Null);
@@ -120,7 +137,7 @@ public class OrderingTests
 
 
     [Test]
-    public async Task Get_OrderExists_ReturnsModel()
+    public async Task Get_OrderExists_ReturnsOk()
     {
         var command = TestCommand();
         var orderRecord = TestOrder(command);
@@ -130,16 +147,6 @@ public class OrderingTests
             db.Orders.Add(orderRecord);
             return Task.CompletedTask;
         });
-
-        var expectedAddress = new DestinationModel(
-            command.StreetAddressOne,
-            command.StreetAddressTwo,
-            command.City,
-            command.State,
-            command.PostalCode);
-
-        var expectedLines =
-            orderRecord.OrderLines.Select(l => new OrderLineModel(l.SkuCode, l.Quantity));
 
         using var request = new HttpRequestMessage(
             HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
@@ -151,13 +158,19 @@ public class OrderingTests
 
         Assert.That(model, Is.Not.Null);
 
+        var expectedDestination = new DestinationModel(
+            orderRecord.StreetAddressOne, orderRecord.StreetAddressTwo,
+            orderRecord.City, orderRecord.State, orderRecord.Zipcode);
+        var expectedLines = orderRecord.OrderLines.Select(i => new OrderLineModel(i.SkuCode, i.Quantity));
+
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
             Assert.That(model.OwnerId, Is.EqualTo(orderRecord.OwnerId));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedAddress));
+            Assert.That(model.OrderId, Is.EqualTo(orderRecord.OrderId));
+            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(orderRecord.PurchaseOrderNumber));
+            Assert.That(model.Destination, Is.EqualTo(expectedDestination));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
         });
     }
@@ -200,9 +213,10 @@ public class OrderingTests
 
     private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
     {
+        var orderId = Guid.CreateVersion7();
         var orderRecord = new OrderRecord
         {
-            OrderId = Guid.NewGuid(),
+            OrderId = orderId,
             OwnerId = ownerId,
             PurchaseOrderNumber = command.PurchaseOrderNumber,
             ReferenceNumber = command.ReferenceNumber,
@@ -215,7 +229,7 @@ public class OrderingTests
             [
                 new OrderLineRecord
                 {
-                    OrderId = Guid.NewGuid(),
+                    OrderId = orderId,
                     SkuCode = "TestSku",
                     Quantity = 1
                 }
@@ -228,6 +242,20 @@ public class OrderingTests
     {
         return new CreateOrderCommand(
             "TESTPO",
+            "testreference",
+            "test address",
+            null,
+            "TestCity",
+            "OR",
+            "97211", [
+                new CreateOrderCommandItem("TestSku", 1)
+            ]);
+    }
+
+    private static CreateOrderCommand TestCommand(string purchaseOrderNumber)
+    {
+        return new CreateOrderCommand(
+            purchaseOrderNumber,
             "testreference",
             "test address",
             null,

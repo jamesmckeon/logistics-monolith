@@ -29,9 +29,12 @@ internal sealed class OrdersRepository
     {
         ArgumentNullException.ThrowIfNull(ownerReferenceNumber);
 
-        var orderRecord = await _dbContext.Orders.SingleOrDefaultAsync(a =>
-                a.OwnerId == ownerReferenceNumber.OwnerId && a.ReferenceNumber == ownerReferenceNumber.ReferenceNumber,
-            cancellationToken);
+        var orderRecord = await _dbContext.Orders
+            .Include(i => i.OrderLines)
+            .SingleOrDefaultAsync(a =>
+                    a.OwnerId == ownerReferenceNumber.OwnerId &&
+                    a.ReferenceNumber == ownerReferenceNumber.ReferenceNumber,
+                cancellationToken);
 
         return orderRecord?.ToOrder();
     }

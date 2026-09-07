@@ -100,7 +100,6 @@ public static class ResultProblemMapper
             .Select(e => e.Description)
             .ToArray();
 
-
         if (!fieldErrors.Any())
             return string.Join("; ", nonFieldErrors);
 
