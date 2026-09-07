@@ -1,7 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
+
+internal sealed record SaveOrderResult(OrderId OrderId, bool Created)
+{
+}
 
 internal sealed class OrdersRepository
 {
@@ -12,21 +17,47 @@ internal sealed class OrdersRepository
         _dbContext = dbContext;
     }
 
-    public async Task SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task<SaveOrderResult> SaveOrderAsync(Order order,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        _dbContext.Orders.Add(order.ToOrderRecord());
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var record = order.ToOrderRecord();
+        _dbContext.Orders.Add(record);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new SaveOrderResult(new OrderId(record.OrderId), true);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: OrderRecordConfiguration.OwnerReferenceIndexName
+            })
+        {
+            var existingOrder = await _dbContext.Orders.SingleAsync(s =>
+                    s.OwnerId == order.OwnerReferenceNumber.OwnerId &&
+                    s.ReferenceNumber == order.OwnerReferenceNumber.ReferenceNumber,
+                cancellationToken);
+
+            return new SaveOrderResult(new OrderId(existingOrder.OrderId), false);
+        }
     }
 
-    public async Task<bool> OrderExistsFor(int ownerId, string referenceNumber,
+    public async Task<Order?> GetOrderByOwnerReference(OwnerReferenceNumber ownerReferenceNumber,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(referenceNumber);
+        ArgumentNullException.ThrowIfNull(ownerReferenceNumber);
 
-        return await _dbContext.Orders.AnyAsync(a =>
-                a.OwnerId == ownerId && a.ReferenceNumber == referenceNumber,
-            cancellationToken);
+        var orderRecord = await _dbContext.Orders
+            .Include(i => i.OrderLines)
+            .SingleOrDefaultAsync(a =>
+                    a.OwnerId == ownerReferenceNumber.OwnerId &&
+                    a.ReferenceNumber == ownerReferenceNumber.ReferenceNumber,
+                cancellationToken);
+
+        return orderRecord?.ToOrder();
     }
 }

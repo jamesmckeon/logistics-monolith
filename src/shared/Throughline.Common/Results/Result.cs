@@ -35,6 +35,18 @@ public sealed class Result
         return new Result(errorArray, Results.ErrorType.Validation);
     }
 
+    public static Result Conflict(IEnumerable<Error> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        var errorArray = errors.ToArray();
+
+        if (!errorArray.Any())
+            throw new ArgumentException("errors cannot be empty", nameof(errors));
+
+        return new Result(errorArray, Results.ErrorType.Conflict);
+    }
+
     public static Result Success()
     {
         return new Result();

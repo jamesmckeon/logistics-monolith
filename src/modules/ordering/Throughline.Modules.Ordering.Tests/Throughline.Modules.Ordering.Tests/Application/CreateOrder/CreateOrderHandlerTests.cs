@@ -96,7 +96,65 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public async Task CreateOrderAsync_OrderExists_ReturnsConflictFailure()
+    public async Task CreateOrderAsync_InvalidContent_ReturnsFailure()
+    {
+        var command = new CreateOrderCommand(
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "97211", [
+                new CreateOrderCommandItem("TestSku", 1),
+                new CreateOrderCommandItem("TestSku", 1)
+            ]);
+
+        var address = new StreetAddress(
+            command.StreetAddressOne,
+            command.StreetAddressTwo,
+            command.City,
+            command.State,
+            new PostalCode(command.PostalCode));
+        var lines = command.Items.Select(i => new OrderLine(new SkuCode(i.Sku), i.Quantity));
+        var contentResult = OrderContent.Create(command.PurchaseOrderNumber, address, lines);
+
+        var actual = await _sut.CreateOrderAsync(1, command);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Succeeded, Is.False);
+            Assert.That(actual.Errors, Is.EqualTo(contentResult.Errors));
+            Assert.That(actual.ErrorType, Is.EqualTo(contentResult.ErrorType));
+        });
+    }
+
+    [Test]
+    public async Task CreateOrderAsync_OrderExistsWithDifferentContent_ReturnsConflict()
+    {
+        var command = new CreateOrderCommand(
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
+
+        // create an existing order with a different PO #
+        var existingCommand = new CreateOrderCommand(
+            "PO2", "REF1", "Address One", null, "Portland", "OR",
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
+
+        var existing = TestOrder(existingCommand);
+        _dbContext.Add(existing.ToOrderRecord());
+        await _dbContext.SaveChangesAsync();
+
+        var actual = await _sut.CreateOrderAsync(1, command);
+
+        var expectedDescription =
+            $"Reference #{command.ReferenceNumber} already identifies an order with different contents.";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Succeeded, Is.False);
+            Assert.That(actual.ErrorType, Is.EqualTo(ErrorType.Conflict));
+            Assert.That(actual.Errors.Single().Description, Is.EqualTo(expectedDescription));
+        });
+    }
+
+    [Test]
+    public async Task CreateOrderAsync_OrderExists_ReturnsFound()
     {
         var command = new CreateOrderCommand(
             "PO1", "REF1", "Address One", null, "Portland", "OR",
@@ -106,16 +164,19 @@ public sealed class CreateOrderHandlerTests
         _dbContext.Add(existing.ToOrderRecord());
         await _dbContext.SaveChangesAsync();
 
-        var expectedError =
-            $"An order exists for owner #1 with reference #{command.ReferenceNumber}";
-
         var actual = await _sut.CreateOrderAsync(1, command);
+
+        Assert.That(actual.Value, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.Succeeded, Is.False);
-            Assert.That(actual.Errors.Single().Description, Is.EqualTo(expectedError));
-            Assert.That(actual.ErrorType, Is.EqualTo(ErrorType.Conflict));
+            Assert.That(actual.Succeeded, Is.True);
+            Assert.That(actual.Value.Created, Is.False);
+            Assert.That(actual.Value.OrderId, Is.EqualTo(existing.Id.Value));
+            Assert.That(actual.Value.OwnerId,
+                Is.EqualTo(existing.OwnerReferenceNumber.OwnerId));
+            Assert.That(actual.Value.OwnerReferenceNumber,
+                Is.EqualTo(existing.OwnerReferenceNumber.ReferenceNumber));
         });
     }
 
@@ -128,15 +189,18 @@ public sealed class CreateOrderHandlerTests
 
         var actual = await _sut.CreateOrderAsync(1, command);
 
-        var order = actual.Value;
-        Assert.That(order, Is.Not.Null);
+        Assert.That(actual.Value, Is.Not.Null);
+
+        var order = await _dbContext.Orders.SingleAsync(s =>
+            s.ReferenceNumber == command.ReferenceNumber);
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.True);
-            Assert.That(order.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(order.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(order.OwnerId, Is.EqualTo(1));
+            Assert.That(actual.Value.Created, Is.True);
+            Assert.That(actual.Value.OrderId, Is.EqualTo(order.OrderId));
+            Assert.That(actual.Value.OwnerId, Is.EqualTo(order.OwnerId));
+            Assert.That(actual.Value.OwnerReferenceNumber, Is.EqualTo(order.ReferenceNumber));
         });
     }
 
@@ -149,7 +213,7 @@ public sealed class CreateOrderHandlerTests
             "@1f$4", [new CreateOrderCommandItem("TestSku", 1)]);
     }
 
-    private static Order TestOrder(CreateOrderCommand command)
+    private static Order TestOrder(CreateOrderCommand command, int ownerId = 1)
     {
         var postalCode = new PostalCode(command.PostalCode);
         var streetAddress = new StreetAddress(
@@ -159,11 +223,8 @@ public sealed class CreateOrderHandlerTests
 
         return new Order(
             new OrderId(),
-            1,
-            command.PurchaseOrderNumber,
-            command.ReferenceNumber,
-            streetAddress,
-            orderLines);
+            new OwnerReferenceNumber(ownerId, command.ReferenceNumber),
+            new OrderContent(command.PurchaseOrderNumber, streetAddress, orderLines));
     }
 
     #endregion

@@ -7,6 +7,9 @@ namespace Throughline.Common.Presentation;
 
 public static class ResultProblemMapper
 {
+    private const string ConflictType = "https://tools.ietf.org/html/rfc9110#section-15.5.10";
+    private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
+
     /// <summary>
     ///     Maps a <b>failed</b> <see cref="Result{T}" /> to an RFC 7807 <see cref="ProblemDetails" />.
     /// </summary>
@@ -49,7 +52,8 @@ public static class ResultProblemMapper
         {
             Title = TitleFor(result.ErrorType.Value),
             Status = StatusFor(result.ErrorType.Value),
-            Detail = detail
+            Detail = detail,
+            Type = TypeFor(result.ErrorType.Value)
         };
 
         return problem;
@@ -75,6 +79,16 @@ public static class ResultProblemMapper
         };
     }
 
+    private static string TypeFor(ErrorType type)
+    {
+        return type switch
+        {
+            ErrorType.Validation => BadRequestType,
+            ErrorType.Conflict => ConflictType,
+            _ => throw new UnreachableException($"No type mapping for ErrorType '{type}'.")
+        };
+    }
+
 
     private static string DetailFor(Error[] errors)
     {
@@ -85,7 +99,6 @@ public static class ResultProblemMapper
         var nonFieldErrors = errors.Where(e => e.FieldName == null)
             .Select(e => e.Description)
             .ToArray();
-
 
         if (!fieldErrors.Any())
             return string.Join("; ", nonFieldErrors);

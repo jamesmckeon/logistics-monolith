@@ -16,16 +16,11 @@ public sealed record OrderModel(
 
         return new OrderModel(
             order.Id.Value,
-            order.OwnerId,
-            order.PurchaseOrderNumber,
-            order.ReferenceNumber,
-            new DestinationModel(
-                order.Destination.StreeAddressOne,
-                order.Destination.StreetAddressTwo,
-                order.Destination.City,
-                order.Destination.State,
-                order.Destination.ZipCode.Value),
-            order.OrderLines.Select(ol =>
+            order.OwnerReferenceNumber.OwnerId,
+            order.Content.PurchaseOrderNumber,
+            order.OwnerReferenceNumber.ReferenceNumber,
+            DestinationModel.FromStreetAddress(order.Content.Destination),
+            order.Content.OrderLines.Select(ol =>
                     new OrderLineModel(
                         ol.SkuCode.Value,
                         ol.Quantity))

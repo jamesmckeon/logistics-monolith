@@ -27,8 +27,4 @@
         <ProjectReference Include="..\..\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Folder Include="Domain\Orders\"/>
-    </ItemGroup>
-
 </Project>

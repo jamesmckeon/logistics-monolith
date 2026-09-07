@@ -65,69 +65,34 @@ public class OrderingTests
     }
 
     [Test]
-    public async Task Post_OrderExists_ReturnsConflict()
+    public async Task Post_OrderExistsWithDifferentContents_ReturnsConflict()
     {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
+        var existingCommand = TestCommand("Po1");
+        var existingRecord = TestOrder(existingCommand);
 
         await SeedAsync(db =>
         {
-            db.Orders.Add(orderRecord);
+            db.Orders.Add(existingRecord);
             return Task.CompletedTask;
         });
 
-        var expectedMessage =
-            $"An order exists for owner #{orderRecord.OwnerId} with reference #{command.ReferenceNumber}";
+        var newCommand = TestCommand("Po2");
 
-        var response = await PostOrder(command, orderRecord.OwnerId);
-
+        var response = await PostOrder(newCommand, existingRecord.OwnerId);
         var problemDetails = await GetFromResponse(response);
         Assert.That(problemDetails, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-            Assert.That(problemDetails.Title, Is.EqualTo("A conflict occurred"));
-            Assert.That(problemDetails.Detail, Is.EqualTo(expectedMessage));
+            Assert.That(problemDetails.Detail,
+                Is.EqualTo(
+                    $"Reference #{newCommand.ReferenceNumber} already identifies an order with different contents."));
         });
     }
 
-
     [Test]
-    public async Task Post_NewOrder_ReturnsCreatedWithModel()
-    {
-        var command = TestCommand();
-
-        var expectedAddress = new DestinationModel(
-            command.StreetAddressOne,
-            command.StreetAddressTwo,
-            command.City,
-            command.State,
-            command.PostalCode);
-
-        IEnumerable<OrderLineModel> expectedLines =
-            [new(command.Items.Single().Sku.ToUpper(), command.Items.Single().Quantity)];
-
-        var response = await PostOrder(command, 1);
-        var model = await response.Content.ReadFromJsonAsync<OrderModel>();
-
-        Assert.That(model, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
-            Assert.That(model.OwnerId, Is.EqualTo(1));
-            Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedAddress));
-            Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
-            Assert.That(response.Headers.Location?.ToString(), Is.EqualTo($"/orders/{model.OrderId}"));
-        });
-    }
-
-
-    [Test]
-    public async Task Get_OrderExists_ReturnsModel()
+    public async Task Post_OrderExists_ReturnsNotCreated()
     {
         var command = TestCommand();
         var orderRecord = TestOrder(command);
@@ -138,15 +103,50 @@ public class OrderingTests
             return Task.CompletedTask;
         });
 
-        var expectedAddress = new DestinationModel(
-            command.StreetAddressOne,
-            command.StreetAddressTwo,
-            command.City,
-            command.State,
-            command.PostalCode);
+        var response = await PostOrder(command, orderRecord.OwnerId);
+        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
+        Assert.That(result, Is.Not.Null);
 
-        var expectedLines =
-            orderRecord.OrderLines.Select(l => new OrderLineModel(l.SkuCode, l.Quantity));
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(result.OwnerId, Is.EqualTo(orderRecord.OwnerId));
+            Assert.That(result.OrderId, Is.EqualTo(orderRecord.OrderId));
+            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(orderRecord.ReferenceNumber));
+        });
+    }
+
+
+    [Test]
+    public async Task Post_NewOrder_ReturnsCreated()
+    {
+        var ownerId = 1;
+        var command = TestCommand();
+
+        var response = await PostOrder(command, ownerId);
+        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
+        Assert.That(result, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+            Assert.That(result.OwnerId, Is.EqualTo(ownerId));
+            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(command.ReferenceNumber));
+        });
+    }
+
+
+    [Test]
+    public async Task Get_OrderExists_ReturnsOk()
+    {
+        var command = TestCommand();
+        var orderRecord = TestOrder(command);
+
+        await SeedAsync(db =>
+        {
+            db.Orders.Add(orderRecord);
+            return Task.CompletedTask;
+        });
 
         using var request = new HttpRequestMessage(
             HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
@@ -158,13 +158,19 @@ public class OrderingTests
 
         Assert.That(model, Is.Not.Null);
 
+        var expectedDestination = new DestinationModel(
+            orderRecord.StreetAddressOne, orderRecord.StreetAddressTwo,
+            orderRecord.City, orderRecord.State, orderRecord.Zipcode);
+        var expectedLines = orderRecord.OrderLines.Select(i => new OrderLineModel(i.SkuCode, i.Quantity));
+
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(command.PurchaseOrderNumber));
             Assert.That(model.OwnerId, Is.EqualTo(orderRecord.OwnerId));
             Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedAddress));
+            Assert.That(model.OrderId, Is.EqualTo(orderRecord.OrderId));
+            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(orderRecord.PurchaseOrderNumber));
+            Assert.That(model.Destination, Is.EqualTo(expectedDestination));
             Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
         });
     }
@@ -203,13 +209,61 @@ public class OrderingTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
+    [Test]
+    public async Task Post_ConcurrentEquivalentSubmissions_CreateExactlyOneRestAlreadyExist()
+    {
+        const int ownerId = 1;
+        const int concurrency = 2;
+        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
+
+        var responses = await PostConcurrently(commands, ownerId);
+
+        var bodies = await Task.WhenAll(
+            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
+        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
+        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
+            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
+            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
+        });
+    }
+
     #region Helpers
+
+    // Fires all requests "at once": every task parks on the gate, then we release together.
+    private async Task<IReadOnlyList<HttpResponseMessage>> PostConcurrently(
+        IReadOnlyList<CreateOrderCommand> commands, int ownerId)
+    {
+        var gate = new TaskCompletionSource();
+        var tasks = commands
+            .Select(async cmd =>
+            {
+                await gate.Task; // park here until released
+                return await PostOrder(cmd, ownerId); // reuses your existing helper
+            })
+            .ToArray();
+
+        gate.SetResult(); // launch together
+        return await Task.WhenAll(tasks);
+    }
+
+    private async Task<int> CountOrdersAsync(int ownerId, string reference)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        return await db.Orders.CountAsync(o => o.OwnerId == ownerId && o.ReferenceNumber == reference);
+    }
 
     private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
     {
+        var orderId = Guid.CreateVersion7();
         var orderRecord = new OrderRecord
         {
-            OrderId = Guid.NewGuid(),
+            OrderId = orderId,
             OwnerId = ownerId,
             PurchaseOrderNumber = command.PurchaseOrderNumber,
             ReferenceNumber = command.ReferenceNumber,
@@ -222,7 +276,7 @@ public class OrderingTests
             [
                 new OrderLineRecord
                 {
-                    OrderId = Guid.NewGuid(),
+                    OrderId = orderId,
                     SkuCode = "TestSku",
                     Quantity = 1
                 }
@@ -235,6 +289,20 @@ public class OrderingTests
     {
         return new CreateOrderCommand(
             "TESTPO",
+            "testreference",
+            "test address",
+            null,
+            "TestCity",
+            "OR",
+            "97211", [
+                new CreateOrderCommandItem("TestSku", 1)
+            ]);
+    }
+
+    private static CreateOrderCommand TestCommand(string purchaseOrderNumber)
+    {
+        return new CreateOrderCommand(
+            purchaseOrderNumber,
             "testreference",
             "test address",
             null,

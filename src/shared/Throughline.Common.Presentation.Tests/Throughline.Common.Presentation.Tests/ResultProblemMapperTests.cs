@@ -9,6 +9,12 @@ using TestResult = Result<object>;
 [Category("Unit")]
 public sealed class ResultProblemMapperTests
 {
+    private static void AssertFieldErrors(ValidationProblemDetails actual, Error error)
+    {
+        Assert.That(actual.Errors.Any(s => s.Key == error.FieldName &&
+                                           s.Value.Single() == error.Description), Is.True);
+    }
+
     #region ToProblemDetails
 
     [Test]
@@ -65,6 +71,7 @@ public sealed class ResultProblemMapperTests
             Assert.That(actual.Title, Is.EqualTo("One or more validation errors occurred"));
             Assert.That(actual.Status, Is.EqualTo(StatusCodes.Status400BadRequest));
             Assert.That(actual.Detail, Is.EqualTo(expectedDetail));
+            Assert.That(actual.Type, Is.EqualTo("https://tools.ietf.org/html/rfc9110#section-15.5.1"));
             Assert.That(actual.Extensions.Count, Is.EqualTo(0));
         });
     }
@@ -87,6 +94,7 @@ public sealed class ResultProblemMapperTests
             Assert.That(actual.Title, Is.EqualTo("One or more validation errors occurred"));
             Assert.That(actual.Status, Is.EqualTo(StatusCodes.Status400BadRequest));
             Assert.That(actual.Detail, Is.EqualTo(expectedDetail));
+            Assert.That(actual.Type, Is.EqualTo("https://tools.ietf.org/html/rfc9110#section-15.5.1"));
             Assert.That(actual.Extensions.Count, Is.EqualTo(0));
         });
     }
@@ -102,6 +110,7 @@ public sealed class ResultProblemMapperTests
         Assert.Multiple(() =>
         {
             Assert.That(actual.Title, Is.EqualTo("A conflict occurred"));
+            Assert.That(actual.Type, Is.EqualTo("https://tools.ietf.org/html/rfc9110#section-15.5.10"));
             Assert.That(actual.Status, Is.EqualTo(StatusCodes.Status409Conflict));
             Assert.That(actual.Detail, Is.EqualTo(expectedDetail));
             Assert.That(actual.Extensions.Count, Is.EqualTo(0));
@@ -109,10 +118,4 @@ public sealed class ResultProblemMapperTests
     }
 
     #endregion
-
-    private static void AssertFieldErrors(ValidationProblemDetails actual, Error error)
-    {
-        Assert.That(actual.Errors.Any(s => s.Key == error.FieldName &&
-                                           s.Value.Single() == error.Description), Is.True);
-    }
 }

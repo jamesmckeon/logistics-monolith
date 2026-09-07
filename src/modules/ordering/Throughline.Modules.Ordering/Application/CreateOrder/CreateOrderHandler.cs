@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Throughline.Common.Results;
-using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -20,7 +19,7 @@ internal sealed class CreateOrderHandler
         _logger = logger;
     }
 
-    public async Task<Result<OrderModel>> CreateOrderAsync(
+    public async Task<Result<CreateOrderResult>> CreateOrderAsync(
         int ownerId,
         CreateOrderCommand command,
         CancellationToken cancellationToken = default)
@@ -47,43 +46,59 @@ internal sealed class CreateOrderHandler
         if (!addressResult.Succeeded)
             return RejectInvalid(addressResult.Errors, command, ownerId);
 
-        var orderExists = await _ordersRepository.OrderExistsFor(
-            ownerId, command.ReferenceNumber, cancellationToken);
-
-        if (orderExists)
-        {
-            _logger.LogInformation("Order for ref #{@RefNumber} already exists for owner id {@OwnerId}",
-                command.ReferenceNumber, ownerId);
-            return
-                Result<OrderModel>.Conflict(
-                    $"An order exists for owner #{ownerId} with reference #{command.ReferenceNumber}");
-        }
-
-        var orderResult = Order.Create(
-            new OrderId(),
-            ownerId,
+        var contentResult = OrderContent.Create(
             command.PurchaseOrderNumber,
-            command.ReferenceNumber,
             addressResult.Value,
             command.Items.Select(i => new OrderLine(new SkuCode(i.Sku), i.Quantity)));
 
-        if (!orderResult.Succeeded)
-            return RejectInvalid(orderResult.Errors, command, ownerId);
+        if (!contentResult.Succeeded)
+            return RejectInvalid(contentResult.Errors, command, ownerId);
 
-        _logger.LogInformation(
-            "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
-            orderResult.Value.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+        var ownerReference = new OwnerReferenceNumber(ownerId, command.ReferenceNumber);
+        var existingOrder = await _ordersRepository.GetOrderByOwnerReference(
+            ownerReference,
+            cancellationToken);
 
-        await _ordersRepository.SaveOrderAsync(orderResult.Value, cancellationToken);
+        if (existingOrder != null)
+        {
+            _logger.LogInformation("Order found for ref #{@RefNumber}, owner id {@OwnerId}",
+                command.ReferenceNumber, ownerId);
 
-        return OrderModel.FromOrder(orderResult.Value);
+            if (!existingOrder.Content.Equals(contentResult.Value))
+            {
+                _logger.LogInformation("Content of existing order id {@OrderId} differs from request",
+                    existingOrder.Id);
+                return Result<CreateOrderResult>.Conflict(
+                    $"Reference #{command.ReferenceNumber} already identifies an order with different contents.");
+            }
+
+            return new CreateOrderResult(false, existingOrder.Id.Value, ownerId, command.ReferenceNumber);
+        }
+
+        var order = new Order(new OrderId(), ownerReference, contentResult.Value);
+        var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, cancellationToken);
+
+        if (saveOrderResult.Created)
+            _logger.LogInformation(
+                "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
+                order.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+        else
+            _logger.LogInformation(
+                "Order #{@OrderNumber} found for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
+                order.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+
+        // it's technically POSSIBLE that the EDI integrator could transmit the same owner id/reference number
+        // with different contents but it's very unlikely.  If this becomes a problem in the future, it can
+        // be relatively easily fixed here
+        return new CreateOrderResult(saveOrderResult.Created, saveOrderResult.OrderId.Value, ownerId,
+            command.ReferenceNumber);
     }
 
-    private Result<OrderModel> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
+    private Result<CreateOrderResult> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
     {
         _logger.LogInformation("Create order request for owner id {@OwnerId}, PO # {@PoNumber}, " +
                                "ref #{@refNumber} rejected as invalid: {@errors}",
             ownerId, command.PurchaseOrderNumber, command.ReferenceNumber, errors);
-        return Result<OrderModel>.Validation(errors);
+        return Result<CreateOrderResult>.Validation(errors);
     }
 }

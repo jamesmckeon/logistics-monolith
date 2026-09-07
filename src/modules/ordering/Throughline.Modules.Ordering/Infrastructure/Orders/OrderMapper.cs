@@ -12,15 +12,15 @@ internal static class OrderMapper
         return new OrderRecord
         {
             OrderId = order.Id.Value,
-            OwnerId = order.OwnerId,
-            PurchaseOrderNumber = order.PurchaseOrderNumber,
-            ReferenceNumber = order.ReferenceNumber,
-            StreetAddressOne = order.Destination.StreeAddressOne,
-            StreetAddressTwo = order.Destination.StreetAddressTwo,
-            City = order.Destination.City,
-            State = order.Destination.State,
-            Zipcode = order.Destination.ZipCode.Value,
-            OrderLines = order.OrderLines
+            OwnerId = order.OwnerReferenceNumber.OwnerId,
+            PurchaseOrderNumber = order.Content.PurchaseOrderNumber,
+            ReferenceNumber = order.OwnerReferenceNumber.ReferenceNumber,
+            StreetAddressOne = order.Content.Destination.StreeAddressOne,
+            StreetAddressTwo = order.Content.Destination.StreetAddressTwo,
+            City = order.Content.Destination.City,
+            State = order.Content.Destination.State,
+            Zipcode = order.Content.Destination.ZipCode.Value,
+            OrderLines = order.Content.OrderLines
                 .Select(l => new OrderLineRecord
                 {
                     OrderId = order.Id.Value,
@@ -45,14 +45,9 @@ internal static class OrderMapper
         var orderLines = record.OrderLines
             .Select(l => new OrderLine(new SkuCode(l.SkuCode), l.Quantity));
 
-        // Rehydration bypasses Order.Create: the row was validated on write, so we rebuild the
-        // aggregate directly rather than re-running (or failing) validation on read.
         return new Order(
             new OrderId(record.OrderId),
-            record.OwnerId,
-            record.PurchaseOrderNumber,
-            record.ReferenceNumber,
-            destination,
-            orderLines);
+            new OwnerReferenceNumber(record.OwnerId, record.ReferenceNumber),
+            new OrderContent(record.PurchaseOrderNumber, destination, orderLines));
     }
 }
