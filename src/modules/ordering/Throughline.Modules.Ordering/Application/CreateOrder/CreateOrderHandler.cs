@@ -76,14 +76,22 @@ internal sealed class CreateOrderHandler
         }
 
         var order = new Order(new OrderId(), ownerReference, contentResult.Value);
+        var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, cancellationToken);
 
-        _logger.LogInformation(
-            "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
-            order.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+        if (saveOrderResult.Created)
+            _logger.LogInformation(
+                "Order #{@OrderNumber} created for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
+                order.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
+        else
+            _logger.LogInformation(
+                "Order #{@OrderNumber} found for owner id {@OwnerId}, PO #{@PoNumber}, ref #{@RefNumber}",
+                order.Id, ownerId, command.PurchaseOrderNumber, command.ReferenceNumber);
 
-        var newOrderId = await _ordersRepository.SaveOrderAsync(order, cancellationToken);
-
-        return new CreateOrderResult(true, newOrderId, ownerId, command.ReferenceNumber);
+        // it's technically POSSIBLE that the EDI integrator could transmit the same owner id/reference number
+        // with different contents but it's very unlikely.  If this becomes a problem in the future, it can
+        // be relatively easily fixed here
+        return new CreateOrderResult(saveOrderResult.Created, saveOrderResult.OrderId.Value, ownerId,
+            command.ReferenceNumber);
     }
 
     private Result<CreateOrderResult> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)

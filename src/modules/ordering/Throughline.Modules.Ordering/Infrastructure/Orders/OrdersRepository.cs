@@ -1,7 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Throughline.Modules.Ordering.Domain.Orders;
 
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
+
+internal sealed record SaveOrderResult(OrderId OrderId, bool Created)
+{
+}
 
 internal sealed class OrdersRepository
 {
@@ -12,16 +17,33 @@ internal sealed class OrdersRepository
         _dbContext = dbContext;
     }
 
-    public async Task<Guid> SaveOrderAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task<SaveOrderResult> SaveOrderAsync(Order order,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
 
         var record = order.ToOrderRecord();
         _dbContext.Orders.Add(record);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new SaveOrderResult(new OrderId(record.OrderId), true);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: OrderRecordConfiguration.OwnerReferenceIndexName
+            })
+        {
+            var existingOrder = await _dbContext.Orders.SingleAsync(s =>
+                    s.OwnerId == order.OwnerReferenceNumber.OwnerId &&
+                    s.ReferenceNumber == order.OwnerReferenceNumber.ReferenceNumber,
+                cancellationToken);
 
-        return record.OrderId;
+            return new SaveOrderResult(new OrderId(existingOrder.OrderId), false);
+        }
     }
 
     public async Task<Order?> GetOrderByOwnerReference(OwnerReferenceNumber ownerReferenceNumber,

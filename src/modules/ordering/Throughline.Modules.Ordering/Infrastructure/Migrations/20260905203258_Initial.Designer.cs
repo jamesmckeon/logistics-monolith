@@ -115,7 +115,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("OwnerId", "ReferenceNumber")
                         .IsUnique()
-                        .HasDatabaseName("ix_orders_owner_id_reference_number");
+                        .HasDatabaseName("IX_Orders_UniqueOwnerReference");
 
                     b.ToTable("orders", "orders");
                 });

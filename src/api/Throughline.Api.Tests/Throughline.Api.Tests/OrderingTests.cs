@@ -209,7 +209,54 @@ public class OrderingTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
+    [Test]
+    public async Task Post_ConcurrentEquivalentSubmissions_CreateExactlyOneRestAlreadyExist()
+    {
+        const int ownerId = 1;
+        const int concurrency = 2;
+        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
+
+        var responses = await PostConcurrently(commands, ownerId);
+
+        var bodies = await Task.WhenAll(
+            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
+        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
+        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
+            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
+            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
+        });
+    }
+
     #region Helpers
+
+    // Fires all requests "at once": every task parks on the gate, then we release together.
+    private async Task<IReadOnlyList<HttpResponseMessage>> PostConcurrently(
+        IReadOnlyList<CreateOrderCommand> commands, int ownerId)
+    {
+        var gate = new TaskCompletionSource();
+        var tasks = commands
+            .Select(async cmd =>
+            {
+                await gate.Task; // park here until released
+                return await PostOrder(cmd, ownerId); // reuses your existing helper
+            })
+            .ToArray();
+
+        gate.SetResult(); // launch together
+        return await Task.WhenAll(tasks);
+    }
+
+    private async Task<int> CountOrdersAsync(int ownerId, string reference)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        return await db.Orders.CountAsync(o => o.OwnerId == ownerId && o.ReferenceNumber == reference);
+    }
 
     private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
     {

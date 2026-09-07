@@ -5,6 +5,8 @@ namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
 internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderRecord>
 {
+    public const string OwnerReferenceIndexName = "IX_Orders_UniqueOwnerReference";
+
     public void Configure(EntityTypeBuilder<OrderRecord> builder)
     {
         builder.ToTable("orders");
@@ -40,8 +42,11 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
             .WithOne()
             .HasForeignKey(l => l.OrderId);
 
-        // Backs OrderExistsFor and enforces "one order per owner + reference" at the database.
+        // Enforces "one order per owner + reference" at the database. The explicit database name
+        // is matched by OrdersRepository's duplicate-insert catch, so it must stay stable and is
+        // pinned here (not left to the snake_case naming convention, which rewrites derived names).
         builder.HasIndex(o => new { o.OwnerId, o.ReferenceNumber })
-            .IsUnique();
+            .IsUnique()
+            .HasDatabaseName(OwnerReferenceIndexName);
     }
 }

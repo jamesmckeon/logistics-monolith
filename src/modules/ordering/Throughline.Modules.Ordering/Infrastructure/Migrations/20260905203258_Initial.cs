@@ -65,7 +65,7 @@ namespace Throughline.Modules.Ordering.Infrastructure.Migrations
                 column: "order_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_orders_owner_id_reference_number",
+                name: "IX_Orders_UniqueOwnerReference",
                 schema: "orders",
                 table: "orders",
                 columns: new[] { "owner_id", "reference_number" },
