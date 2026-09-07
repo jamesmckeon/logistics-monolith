@@ -16,5 +16,6 @@ internal sealed class OrderLine : ValueObject
     protected override IEnumerable<object?> GetAtomicValues()
     {
         yield return SkuCode;
+        yield return Quantity;
     }
 }

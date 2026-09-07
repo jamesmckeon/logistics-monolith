@@ -24,15 +24,15 @@ internal sealed class OrdersRepository
         return record.OrderId;
     }
 
-    public async Task<Guid?> GetOrderId(int ownerId, string referenceNumber,
+    public async Task<Order?> GetOrderByOwnerReference(OwnerReferenceNumber ownerReferenceNumber,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(referenceNumber);
+        ArgumentNullException.ThrowIfNull(ownerReferenceNumber);
 
-        var order = await _dbContext.Orders.SingleOrDefaultAsync(a =>
-                a.OwnerId == ownerId && a.ReferenceNumber == referenceNumber,
+        var orderRecord = await _dbContext.Orders.SingleOrDefaultAsync(a =>
+                a.OwnerId == ownerReferenceNumber.OwnerId && a.ReferenceNumber == ownerReferenceNumber.ReferenceNumber,
             cancellationToken);
 
-        return order?.OrderId;
+        return orderRecord?.ToOrder();
     }
 }
