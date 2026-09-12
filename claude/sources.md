@@ -3,11 +3,16 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **two source registers under one status legend**: the **design /
-architecture / DDD** set (the table below) and an **Observability & Logging** set (at the
-end of the file). Read the latter before designing, building, or reviewing any logging,
-tracing, metrics, or correlation — the logging subsystem is not yet implemented, so these
-are the sources that govern both how it gets built and how it gets reviewed.
+This file holds **three source registers**: the **design / architecture / DDD** set (the
+table below) and an **Observability & Logging** set, both under the Confirmed/Pending status
+legend; and a **WMS Functional / Vendor Reference** register (at the end of the file) under
+its own tier legend. Read the observability register before designing, building, or reviewing
+any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
+so these are the sources that govern both how it gets built and how it gets reviewed. Read the
+**WMS Functional / Vendor Reference** register before writing any story or requirement, and
+before answering **any warehouse business-logic question** — including when the user asks you
+to act as a **business analyst / SME** fielding domain questions. It governs which vendor docs
+back a stated warehouse behavior.
 
 ## Status legend
 
@@ -134,3 +139,69 @@ measure).
 6. **One OTel-shaped pipeline.** Traces, metrics, and logs all flow through the OTel SDK with
    OTLP export and OTel semantic-convention attribute names, so a future collector/backend
    swap is config, not code. *(O-1, O-4, O-9)*
+
+---
+
+# WMS Functional / Vendor Reference (Project Canon)
+
+Governs which **published WMS product documentation** backs a stated warehouse behavior on
+Throughline. **Read this before writing any story or requirement (CLAUDE.md §4, §7B) and
+before answering any warehouse business-logic question — including when the user asks you to
+act as a business analyst / SME.** Throughline is **original and vendor-neutral**: these docs
+establish *how real WMS behave functionally* so requirements are authentic; they never dictate
+Throughline's schema, service boundaries, or proprietary internals.
+
+This register carries its **own tier legend** (not the Confirmed/Pending legend the two
+registers above use — vendor functional docs are behavioral references to ground requirements
+in, not architectural doctrine that overrides instinct).
+
+## Tier legend
+
+- **Primary** — the default functional reference. Use it to establish core warehouse behavior;
+  cite it for source-backed requirements.
+- **Targeted** — consult selectively for the specific topics named; do **not** adopt its
+  broader domain model.
+- **Supplementary** — consult to resolve specific questions or strengthen a requirement in its
+  named area; **not** a second primary specification.
+- **Deferred / awareness** — may later challenge an established model, but must **not** expand
+  the initial backlog or be treated as the behavioral standard now.
+- **Comparison-only** — usable as an implementation comparison, **not** as the enterprise
+  behavioral standard.
+
+## Sources
+
+| # | Source | Scope / use | Tier |
+|---|--------|-------------|------|
+| W-1 | **Infor WMS Cloud 2026.x** — [User & Admin Library](https://docs.infor.com/wms/2026.x/en-us/useradminlib/default.html) · [Allocation overview](https://docs.infor.com/wms/2026.09/en-us/useradminlib/sceorproug/ssj1612893899174.html) · [Allocation-strategy config](https://docs.infor.com/wms/2026.x/en-us/useradminlib/sceconfigug/allocation_strategy_header.html) | **Core warehouse behavior**: receiving & receipt expectations, putaway, inventory / LPNs / holds / availability, allocation strategies, replenishment, wave planning, picking, shipment staging & confirmation. | **Primary** |
+| W-2 | **Microsoft Dynamics 365 Warehouse Management** — [Wave allocation & parallel processing](https://learn.microsoft.com/en-us/dynamics365/supply-chain/warehousing/wave-allocation-method) · [Wave templates](https://learn.microsoft.com/en-us/dynamics365/supply-chain/warehousing/wave-templates) · [Work templates & location directives](https://learn.microsoft.com/en-us/dynamics365/supply-chain/warehousing/control-warehouse-location-directives) | **Concurrency-focused** topics only: parallel wave allocation, inventory contention & locking, timeouts, work creation, work templates / location directives, and the failure behavior of those operations. **Do not** adopt Dynamics' ERP / legal-entity domain model. | **Targeted** |
+| W-3 | **Oracle WMS Cloud 26B** — [Docs catalog](https://docs.oracle.com/en/cloud/saas/warehouse-management/26b/books.html) · [Allocation model](https://docs.oracle.com/en/cloud/saas/warehouse-management/26b/owmwr/allocation.html) · [Integration reconciliation](https://docs.oracle.com/en/cloud/saas/warehouse-management/26b/owmol/before-you-begin.html) | **Integration-focused** topics: APIs, integration reconciliation, scheduled processing, security, auditability, external-system boundaries. Supplementary — not a second primary spec. | **Supplementary** |
+| W-4 | **SAP EWM** | May later challenge an established domain model. Do **not** use it to expand the initial backlog or as the behavioral standard now. | **Deferred / awareness** |
+| W-5 | **Odoo** | Implementation comparison only; **not** the enterprise behavioral standard. | **Comparison-only** |
+
+The links above are **starting points, not proof** of a particular behavior — read the
+relevant page and cite it.
+
+## Research & reasoning rules
+
+1. **Persona first.** Start from a concrete warehouse persona, operational objective, and
+   scenario — then read docs to back it. Never invent a business need to exercise a pattern
+   (see CLAUDE.md §1, §8 and [[stories-must-be-business-honest]]).
+2. **Read, then cite.** Cite the specific page(s) supporting each source-backed requirement.
+   Record the accessed release / page-update date where behavior may vary between releases.
+3. **Paraphrase.** Never reproduce substantial vendor passages (copyright).
+4. **Separate the three voices.** Keep *documented vendor behavior*, *Throughline project
+   decisions*, and *unresolved questions* clearly distinct in stories and answers.
+5. **Reconcile conflicts deliberately.** When sources disagree, explain the alternatives and
+   choose intentionally (record the choice; an ADR if it's structural).
+6. **Stay above the implementation line.** Do **not** infer requirements for a vendor's
+   database schema, service boundaries, or proprietary internals — model the domain (CLAUDE.md
+   §4.4: "never claim to clone a specific vendor's internals").
+7. **Failures motivate architecture, not the reverse.** Use realistic business failures to
+   justify patterns; don't manufacture failures to reach a technique.
+
+## Scope guard
+
+Do not expand into **WCS, TMS, billing, multiple warehouses, or user interfaces** without an
+explicit scope decision from the user. Represent external OMS / ERP / carrier / automation
+systems through **contracts and simulators**, not by modeling their internals. (Consistent
+with the deferred-Billing and single-facility decisions in CLAUDE.md §2.)

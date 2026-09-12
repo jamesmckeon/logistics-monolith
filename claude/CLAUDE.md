@@ -127,11 +127,21 @@ technique. Ground every requirement in these sources, in priority order:
    - **GS1**: SSCC, GTIN, LPN / license-plate structure, lot/serial.
    - **EDI**: 940 (warehouse shipping order), 943/944 (transfers), 945 (shipping advice),
      846 (inventory inquiry/advice), 947 (inventory adjustment), 856 (ASN).
-4. **Reference architectures** — the _shape_ of real WMS products (Oracle WMS Cloud,
-   Manhattan Active WM, Extensiv, Körber, Infor) and warehouse-science literature, for
-   realism. **Model the domain; never claim to clone a specific vendor's internals.**
+4. **Published WMS product documentation** — for authentic functional behavior. Which vendor
+   docs to reach for, in what order, is governed by the **WMS Functional / Vendor Reference**
+   register in [sources.md](sources.md): **Infor WMS Cloud** is the *primary* functional
+   reference (receiving, putaway, inventory/LPN/holds/availability, allocation, replenishment,
+   waves, picking, staging/confirmation); **Dynamics 365 WM** is *targeted* for concurrency
+   topics (parallel wave allocation, contention/locking, work templates); **Oracle WMS Cloud**
+   is *supplementary* for integration/reconciliation/audit; **SAP EWM** is deferred-awareness
+   and **Odoo** comparison-only. Read the register's research rules (persona-first, cite the
+   page, paraphrase, separate vendor-behavior from project decisions) before using them.
+   **Model the domain; never claim to clone a specific vendor's internals.**
 5. **Current .NET 10 / library docs** via Context7 (and web search when needed) so code and
    reviews are grounded in real, current APIs.
+
+Warehouse-science literature and other reference WMS (Manhattan Active WM, Extensiv, Körber)
+remain fair background for realism, but source-backed requirements cite the register above.
 
 When a story's requirement is uncertain (a real edge case, an SLA, an exception path), say
 so and either ask the user or state the assumption explicitly in the story — don't fabricate
