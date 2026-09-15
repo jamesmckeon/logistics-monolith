@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\src\shared\Throughline.Common\Throughline.Common.csproj"/>
+    </ItemGroup>
+
 </Project>

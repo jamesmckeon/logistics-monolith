@@ -1,15 +1,17 @@
+using Throughline.Common.Events;
 using Throughline.Modules.Ordering.Contracts.Models;
 
 namespace Throughline.Modules.Ordering.Contracts.Events;
 
-public sealed class OrderConfirmedEvent
+public sealed record OrderConfirmedEvent : IntegrationEventBase
 {
     public OrderConfirmedEvent(
+        Guid eventId,
+        DateTimeOffset occurredOnUtc,
         Guid orderId,
         int ownerId,
         string ownerReferenceNumber,
-        DateTimeOffset confirmedOn,
-        IEnumerable<OrderLine> orderLines)
+        IEnumerable<OrderLine> orderLines) : base(eventId, occurredOnUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerReferenceNumber);
 
@@ -22,14 +24,12 @@ public sealed class OrderConfirmedEvent
 
         OrderId = orderId;
         OwnerId = ownerId;
-        ConfirmedOn = confirmedOn;
         OwnerReferenceNumber = ownerReferenceNumber;
         OrderLines = lines.AsReadOnly();
     }
 
     public Guid OrderId { get; }
     public int OwnerId { get; }
-    public DateTimeOffset ConfirmedOn { get; }
     public string OwnerReferenceNumber { get; }
     public IReadOnlyCollection<OrderLine> OrderLines { get; }
 }

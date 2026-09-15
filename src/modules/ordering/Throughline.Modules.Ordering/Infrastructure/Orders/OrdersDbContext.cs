@@ -17,6 +17,8 @@ internal sealed class OrdersDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("orders");
+        // TODO: register each configuration explicitly - there's another DbContext
+        // isntance now (OutboxDbContext)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersDbContext).Assembly);
     }
 }
