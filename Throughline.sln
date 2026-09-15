@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "src\api\Throughline.Api.Tests\Throughline.Api.Tests\Throughline.Api.Tests.csproj", "{409176FF-B155-4FD1-95C8-9EBDB7F85676}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Contracts", "Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj", "{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +58,10 @@ Global
 		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{409176FF-B155-4FD1-95C8-9EBDB7F85676}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,5 +69,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{07598D31-1810-4C4F-9088-EF73860E9A89} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
 		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
+		{6F0498C6-0ABA-46C1-81A2-2D701CDD575B} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
 	EndGlobalSection
 EndGlobal
