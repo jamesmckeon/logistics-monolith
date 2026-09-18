@@ -29,8 +29,11 @@ public class OrderingTests
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        await _factory.DisposeAsync();
-        _client.Dispose();
+        _client?.Dispose();
+        if (_factory is not null)
+        {
+            await _factory.DisposeAsync();
+        }
     }
 
     [TearDown]

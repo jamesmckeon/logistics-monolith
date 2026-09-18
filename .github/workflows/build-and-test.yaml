@@ -51,6 +51,10 @@ jobs:
         run: dotnet build Throughline.sln --configuration "$CONFIGURATION" --no-restore
 
       - name: Test (${{ matrix.category }})
+        # Ryuk (Testcontainers' resource reaper) is unnecessary on ephemeral CI
+        # runners and pulling it is an extra network round-trip; skip it.
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: >-
           dotnet test Throughline.sln
           --configuration "$CONFIGURATION"
@@ -58,6 +62,12 @@ jobs:
           --filter "Category=${{ matrix.category }}"
           --logger "trx;LogFileName=${{ matrix.category }}.trx"
           --results-directory ./test-results
+
+      - name: Docker diagnostics
+        if: failure() && matrix.category == 'Integration'
+        run: |
+          docker ps -a
+          docker images
 
       - name: Upload test results
         if: always()
