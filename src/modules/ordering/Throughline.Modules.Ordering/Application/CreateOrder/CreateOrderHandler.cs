@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Throughline.Common.Results;
+using Throughline.Modules.Ordering.Contracts.Events;
+using Throughline.Modules.Ordering.Contracts.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -9,10 +11,10 @@ namespace Throughline.Modules.Ordering.Application.CreateOrder;
 internal sealed class CreateOrderHandler
 {
     private readonly ILogger<CreateOrderHandler> _logger;
-    private readonly OrdersRepository _ordersRepository;
+    private readonly IOrdersRepository _ordersRepository;
 
     public CreateOrderHandler(
-        OrdersRepository ordersRepository,
+        IOrdersRepository ordersRepository,
         ILogger<CreateOrderHandler> logger)
     {
         _ordersRepository = ordersRepository;
@@ -76,7 +78,11 @@ internal sealed class CreateOrderHandler
         }
 
         var order = new Order(new OrderId(), ownerReference, contentResult.Value);
-        var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, cancellationToken);
+        var orderConfirmed =
+            new OrderConfirmedIntegrationEvent(ownerId, order.Id.Value,
+                order.Content.OrderLines.Select(ol => new OrderLineEventModel(ol.SkuCode.Value, ol.Quantity)).ToList()
+                    .AsReadOnly());
+        var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, orderConfirmed, cancellationToken);
 
         if (saveOrderResult.Created)
             _logger.LogInformation(

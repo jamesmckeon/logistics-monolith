@@ -1,23 +1,25 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Throughline.Modules.Ordering.Contracts.Events;
 using Throughline.Modules.Ordering.Domain.Orders;
+using Wolverine.EntityFrameworkCore;
 
 namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
-internal sealed record SaveOrderResult(OrderId OrderId, bool Created)
-{
-}
-
-internal sealed class OrdersRepository
+internal sealed class OrdersRepository : IOrdersRepository
 {
     private readonly OrdersDbContext _dbContext;
+    private readonly IDbContextOutbox _outbox;
 
-    public OrdersRepository(OrdersDbContext dbContext)
+    public OrdersRepository(OrdersDbContext dbContext, IDbContextOutbox outbox)
     {
         _dbContext = dbContext;
+        _outbox = outbox;
     }
 
-    public async Task<SaveOrderResult> SaveOrderAsync(Order order,
+    public async Task<SaveOrderResult> SaveOrderAsync(
+        Order order,
+        OrderConfirmedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(order);
@@ -25,9 +27,12 @@ internal sealed class OrdersRepository
         var record = order.ToOrderRecord();
         _dbContext.Orders.Add(record);
 
+        _outbox.Enroll(_dbContext);
+        await _outbox.PublishAsync(integrationEvent);
+
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _outbox.SaveChangesAndFlushMessagesAsync(cancellationToken);
             return new SaveOrderResult(new OrderId(record.OrderId), true);
         }
         catch (DbUpdateException ex) when (

@@ -7,22 +7,29 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\..\..\Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj"/>
         <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
         <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="EFCore.NamingConventions" Version="10.0.1"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+        <PackageReference Include="EFCore.NamingConventions"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
+        <!-- Pin EF Core Relational: WolverineFx.EntityFrameworkCore pulls 10.0.4, the rest of the
+             stack is on 10.0.11. Unify on 10.0.11 to resolve the version conflict (MSB3277). -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational"/>
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Throughline.Modules.Ordering.Tests"/>
         <InternalsVisibleTo Include="Throughline.Api.Tests"/>
+        <!-- lets Moq/Castle DynamicProxy create proxies for internal interfaces (e.g. IOrdersRepository) -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
     </ItemGroup>
 
 </Project>

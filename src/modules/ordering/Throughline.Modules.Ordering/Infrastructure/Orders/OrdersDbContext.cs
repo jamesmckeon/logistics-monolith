@@ -13,10 +13,10 @@ internal sealed class OrdersDbContext : DbContext
 
     public DbSet<OrderRecord> Orders => Set<OrderRecord>();
 
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("orders");
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersDbContext).Assembly);
     }
 }

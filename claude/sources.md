@@ -3,16 +3,13 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **three source registers**: the **design / architecture / DDD** set (the
-table below) and an **Observability & Logging** set, both under the Confirmed/Pending status
-legend; and a **WMS Functional / Vendor Reference** register (at the end of the file) under
-its own tier legend. Read the observability register before designing, building, or reviewing
-any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
-so these are the sources that govern both how it gets built and how it gets reviewed. Read the
-**WMS Functional / Vendor Reference** register before writing any story or requirement, and
-before answering **any warehouse business-logic question** — including when the user asks you
-to act as a **business analyst / SME** fielding domain questions. It governs which vendor docs
-back a stated warehouse behavior.
+This file holds **three source registers under one status legend**: the **design /
+architecture / DDD** set (the table below), a **Messaging & Event-Driven Architecture** set,
+and an **Observability & Logging** set (both later in the file). Read the messaging set
+before designing, building, or reviewing integration events, the outbox/inbox, idempotent
+consumers, or inter-module messaging. Read the observability set before designing, building,
+or reviewing any logging, tracing, metrics, or correlation — the logging subsystem is not yet
+implemented, so those sources govern both how it gets built and how it gets reviewed.
 
 ## Status legend
 
@@ -56,6 +53,49 @@ back a stated warehouse behavior.
   reacts against; treat layering as *a* choice with a live opposing school. Cockburn's
   Hexagonal predates and parallels Martin's formulation. *Clean Code* (craftsmanship) is
   deliberately excluded — #3 is SOLID + Clean Architecture only.
+
+---
+
+# Messaging & Event-Driven Architecture (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register (Confirmed overrides
+Claude's instinct; Pending is awareness-only; conflicts → surfaced, then an ADR). Scope:
+**integration events, the transactional outbox/inbox, idempotent consumers, the in-process
+event bus and its evolution to a broker (MOD-13), and inter-module messaging generally.**
+
+Added 2026-09-14 when the first cross-module integration event (`OrderConfirmed`,
+Ordering→Inventory) went into build; until then this topic was **ungoverned**. The anchor
+already in canon is **kgrzybek (✅, above)** — the .NET reference for the modular-monolith
+outbox/messaging shape. The sources below supply the pattern *vocabulary and rationale*
+kgrzybek demonstrates.
+
+## Sources
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| M-1 | **Chris Richardson — microservices.io**: [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html), Polling Publisher, Transaction Log Tailing, [Idempotent Consumer](https://microservices.io/patterns/communication-style/idempotent-consumer.html), Saga, Domain Event | Canonical statement of the **dual-write problem** and its resolution: outbox + message relay; consumer idempotency by tracking processed message IDs. Public/fetchable. | ✅ Confirmed |
+| M-2 | **Hohpe & Woolf — Enterprise Integration Patterns** ([catalog](https://www.enterpriseintegrationpatterns.com/patterns/messaging/)) | Foundational messaging vocabulary: Message / Document Message, Message Bus, Publish-Subscribe Channel, **Guaranteed Delivery**, **Idempotent Receiver**, Message Endpoint. Site fetchable; book cited from knowledge — flag "not verified against the text." | ✅ Confirmed |
+| M-3 | **MS Learn — .NET microservices: [Implementing event-based communication (integration events)](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/integration-event-based-microservice-communications)** (eShop e-book) | .NET rendering: `IEventBus` / `IIntegrationEventHandler<T>` abstraction, integration event as a data-holding contract, event-driven eventual consistency, "just right" payloads. **Microservices lens — see conflict note.** | ✅ Confirmed |
+| M-4 | Library docs — **Wolverine** (via Context7, verified 2026-09-14), MassTransit, NServiceBus, Brighter | Concrete outbox/inbox/bus implementations; the destination if we adopt a framework (MOD-02). Verify APIs via Context7, not memory. | ⏳ Pending |
+
+## Conflicts & notes (rule 2)
+
+- **Sharing the contract assembly — confirmed sources disagree.** M-3 (eShop) explicitly
+  advises *against* a shared integration-events library across services ("microservices must
+  be autonomous"). kgrzybek (✅) and this project instead **share a per-module `*.Contracts`
+  assembly** consumers reference. Not a contradiction to settle by picking a winner: eShop's
+  warning targets independently-deployed *microservices*, where a shared build dependency
+  recouples them; Throughline is a **modular monolith** whose modules already share a build
+  and process, so a per-module contracts assembly is the correct, lower-friction choice — and
+  it is exactly the seam MOD-13 makes swappable. **Revisit at extraction:** if a module is
+  split out, the shared assembly becomes a published package or a copied schema, honoring
+  M-3's autonomy argument. Surfaced rather than silently chosen (rule 2).
+- **"Just right" event payloads (M-3).** Design event data to be sufficient for consumers —
+  neither anemic (data-deficient messages) nor bloated. Governs what goes in
+  `OrderConfirmedIntegrationEvent`.
+- **At-least-once, not exactly-once (M-1).** The message relay guarantees at-least-once, so
+  the inbox / idempotent consumer is **mandatory, not optional**; strict ordering is not
+  guaranteed once a broker is involved — do not design on it.
 
 ---
 
