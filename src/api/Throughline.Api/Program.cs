@@ -1,8 +1,11 @@
+using JasperFx.Resources;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
 using Throughline.Modules.Ordering.Presentation;
+using Wolverine;
+using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +36,22 @@ builder.Services.AddOpenTelemetry()
 
 
 builder.Services.AddOpenApi();
+
+var cs = builder.Configuration.GetConnectionString("Throughline");
+
+if (string.IsNullOrWhiteSpace(cs))
+    throw new InvalidOperationException(
+        "Connection string 'Throughline' is missing or empty. " +
+        "Set ConnectionStrings:Throughline in configuration.");
+
+builder.Host.UseWolverine(opts =>
+{
+    opts.PersistMessagesWithPostgresql(cs, "wolverine");
+    opts.Policies.UseDurableLocalQueues();
+});
+
+// dev convenience — provisions the "wolverine" tables on boot:
+builder.Host.UseResourceSetupOnStartup();
 
 builder.Services.AddOrdering(builder.Configuration);
 

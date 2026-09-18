@@ -13,6 +13,7 @@ using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Application.Queries;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
+using Wolverine.EntityFrameworkCore;
 
 namespace Throughline.Modules.Ordering.Presentation;
 
@@ -22,11 +23,12 @@ public static class OrderingExtensions
 
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<OrdersDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("Throughline"))
+        // was: services.AddDbContext<OrdersDbContext>(...)
+        services.AddDbContextWithWolverineIntegration<OrdersDbContext>(o =>
+            o.UseNpgsql(config.GetConnectionString("Throughline"))
                 .UseSnakeCaseNamingConvention());
 
-        services.AddScoped<OrdersRepository>();
+        services.AddScoped<IOrdersRepository, OrdersRepository>();
         services.AddScoped<CreateOrderHandler>();
         services.AddScoped<GetOrderByIdQuery>();
 
@@ -36,6 +38,9 @@ public static class OrderingExtensions
         return services;
     }
 
+    /// <summary>
+    ///     Adds OwnerId to the request header and logging scope
+    /// </summary>
     private static IDisposable? OwnerScope(ILoggerFactory loggerFactory, int ownerId)
     {
         // owner attribution on the per-request span (the one record the ASP.NET Core

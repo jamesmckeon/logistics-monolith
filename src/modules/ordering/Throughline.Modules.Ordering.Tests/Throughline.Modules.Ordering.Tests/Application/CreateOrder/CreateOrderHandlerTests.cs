@@ -1,7 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
+using Throughline.Modules.Ordering.Contracts.Events;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -11,27 +12,16 @@ namespace Throughline.Modules.Ordering.Tests.Application.CreateOrder;
 [Category("Unit")]
 public sealed class CreateOrderHandlerTests
 {
-    private OrdersDbContext _dbContext;
-    private OrdersRepository _ordersRepository;
+    private Mock<IOrdersRepository> _ordersRepository;
     private CreateOrderHandler _sut;
 
     [SetUp]
     public void Setup()
     {
-        var options = new DbContextOptionsBuilder<OrdersDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _dbContext = new OrdersDbContext(options);
-        _ordersRepository = new OrdersRepository(_dbContext);
-        _sut = new CreateOrderHandler(_ordersRepository, NullLogger<CreateOrderHandler>.Instance);
+        _ordersRepository = new Mock<IOrdersRepository>();
+        _sut = new CreateOrderHandler(_ordersRepository.Object, NullLogger<CreateOrderHandler>.Instance);
     }
 
-    [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
 
     [Test]
     public async Task CreateOrderAsync_InvalidCommand_ReturnsFailure()
@@ -127,6 +117,8 @@ public sealed class CreateOrderHandlerTests
     [Test]
     public async Task CreateOrderAsync_OrderExistsWithDifferentContent_ReturnsConflict()
     {
+        var ownerId = 1;
+
         var command = new CreateOrderCommand(
             "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
@@ -137,10 +129,12 @@ public sealed class CreateOrderHandlerTests
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var existing = TestOrder(existingCommand);
-        _dbContext.Add(existing.ToOrderRecord());
-        await _dbContext.SaveChangesAsync();
+        _ordersRepository.Setup(s => s.GetOrderByOwnerReference(
+                new OwnerReferenceNumber(ownerId, existingCommand.ReferenceNumber),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var actual = await _sut.CreateOrderAsync(ownerId, command);
 
         var expectedDescription =
             $"Reference #{command.ReferenceNumber} already identifies an order with different contents.";
@@ -160,11 +154,15 @@ public sealed class CreateOrderHandlerTests
             "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
-        var existing = TestOrder(command);
-        _dbContext.Add(existing.ToOrderRecord());
-        await _dbContext.SaveChangesAsync();
+        var ownerId = 1;
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var existing = TestOrder(command);
+        _ordersRepository.Setup(s =>
+                s.GetOrderByOwnerReference(new(ownerId, command.ReferenceNumber),
+                    It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var actual = await _sut.CreateOrderAsync(ownerId, command);
 
         Assert.That(actual.Value, Is.Not.Null);
 
@@ -181,26 +179,59 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public async Task CreateOrderAsync_OrderNotFound_SavesAndReturnsSuccess()
+    public async Task CreateOrderAsync_OrderNotFound_ReturnsExpectedResult()
     {
         var command = new CreateOrderCommand(
             "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var ownerId = 1;
+        var actual = await _sut.CreateOrderAsync(ownerId, command);
 
         Assert.That(actual.Value, Is.Not.Null);
 
-        var order = await _dbContext.Orders.SingleAsync(s =>
-            s.ReferenceNumber == command.ReferenceNumber);
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.True);
             Assert.That(actual.Value.Created, Is.True);
-            Assert.That(actual.Value.OrderId, Is.EqualTo(order.OrderId));
-            Assert.That(actual.Value.OwnerId, Is.EqualTo(order.OwnerId));
-            Assert.That(actual.Value.OwnerReferenceNumber, Is.EqualTo(order.ReferenceNumber));
+            Assert.That(actual.Value.OwnerId, Is.EqualTo(ownerId));
+            Assert.That(actual.Value.OwnerReferenceNumber, Is.EqualTo(command.ReferenceNumber));
+        });
+    }
+
+    [Test]
+    public async Task CreateOrderAsync_OrderNotFound_SavesOrderAndEvent()
+    {
+        var command = new CreateOrderCommand(
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
+
+        var ownerId = 1;
+
+        Order? order = null;
+        OrderConfirmedIntegrationEvent? integrationEvent = null;
+
+        _ordersRepository.Setup(s => s.SaveOrderAsync(
+                It.IsAny<Order>(),
+                It.IsAny<OrderConfirmedIntegrationEvent>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((Order o, OrderConfirmedIntegrationEvent ev, CancellationToken _) =>
+            {
+                order = o;
+                integrationEvent = ev;
+            });
+
+        await _sut.CreateOrderAsync(ownerId, command);
+
+        Assert.That(order, Is.Not.Null);
+        Assert.That(integrationEvent, Is.Not.Null);
+
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.OwnerReferenceNumber,
+                Is.EqualTo(new OwnerReferenceNumber(ownerId, command.ReferenceNumber)));
         });
     }
 

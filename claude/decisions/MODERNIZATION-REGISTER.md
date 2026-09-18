@@ -46,7 +46,7 @@ Q1 2026; v8 Apache-2.0 maintained only through end of 2026). A copy-me reference
 | ID | Decision | Status | Becomes live when |
 |----|----------|--------|-------------------|
 | MOD-01 | License-clean library posture (no commercial MediatR/AutoMapper/MassTransit deps) | 🧭 Leaning | Reaching for any of these packages |
-| MOD-02 | Mediation + messaging + outbox strategy (Wolverine vs no-mediator vs source-gen dispatcher) | 🔷 Open | First cross-module integration event / outbox (Phase 2) |
+| MOD-02 | Mediation + messaging + outbox strategy → **adopt Wolverine** | ✅ Decided | Decided 2026-09-16 (ADR pending) |
 | MOD-03 | Object mapping: explicit / Mapperly (drop AutoMapper) | 🧭 Leaning | First DTO / read-model mapping |
 | MOD-04 | Module internal structure: layered vs vertical slice (plan: do **both**, as a comparison) | 🔷 Open | Building the 2nd module (target: Inventory) — see ADR-0006 |
 | MOD-05 | Value-object persistence: EF Core complex types vs owned entities | 🧭 Leaning | First EF persistence of the Ordering aggregate |
@@ -80,7 +80,7 @@ Feeds MOD-02, MOD-03, MOD-16.
 **Becomes live when:** any time one of these packages is the reflexive choice.
 **Lands in:** a short ADR stating the posture (or folded into MOD-02's ADR).
 
-### MOD-02 — Mediation + messaging + outbox strategy · 🔷 Open
+### MOD-02 — Mediation + messaging + outbox strategy · ✅ Decided (adopt Wolverine · 2026-09-16 · ADR pending)
 **Question:** What plays the role MediatR + a hand-rolled outbox played in the original?
 **Options:**
 - **(a) Wolverine for everything** — one handler model for in-process dispatch *and* async
@@ -100,6 +100,20 @@ or not?"** The user has no prior experience with (a)/(b)/(c) — evaluating them
 until we build the first cross-module flow and can feel the trade-off.
 **Becomes live when:** first integration event / outbox need (roadmap Phase 2).
 **Lands in:** ADR "Mediation & messaging without MediatR/MassTransit." Depends on MOD-01, MOD-13.
+
+**Decision (2026-09-16):** Adopt **(a) Wolverine** (WolverineFx, MIT — license-clean, satisfies
+MOD-01). Rationale: the distributed-evolution story is the centerpiece, and Wolverine unifies
+in-proc dispatch + async messaging + a first-class EF Core **transactional outbox/inbox**, so it
+provides the MOD-13 seam natively and **supersedes the hand-rolled `BackgroundService` outbox
+processor** considered under MOD-16 (for the messaging outbox specifically). **How we got here:**
+we began hand-rolling the outbox for `OrderConfirmed` (Ordering→Inventory) to *learn the mechanics*
+— dual-write, outbox, idempotent consumer, at-least-once. Having internalized those, continuing to
+hand-roll the plumbing (name↔type registry, JSON envelope, drainer loop) was judged low-ROI
+incidental complexity: the concepts are the durable skill, the plumbing is what a mature library
+should own. The hand-rolled analysis is retained as the ADR's before/after. **Still to do:** write
+the ADR (concepts → what Wolverine replaces); decide endpoint integration under MOD-08
+(Wolverine.HTTP vs Minimal API + `IMessageBus`) when wiring the producer. Wolverine APIs verified
+via Context7 2026-09-16.
 
 ### MOD-03 — Object mapping · 🧭 Leaning
 **Question:** How do we map domain ↔ DTO / read models without AutoMapper?
@@ -165,6 +179,11 @@ extractability contract (MOD-20 / ADR-0008).
 the fallback if we want more structure without controllers.
 **Becomes live when:** first HTTP endpoint.
 **Lands in:** ADR "API surface: Minimal APIs + native OpenAPI."
+**Note (2026-09-18):** staying with Minimal APIs for now. The Wolverine messaging adoption
+does **not** require Wolverine.HTTP — the intake endpoint publishes its integration event via
+`IDbContextOutbox<OrdersDbContext>` (Wolverine's documented outbox-from-a-plain-endpoint path),
+keeping the endpoint style unchanged. Plan: **trial Wolverine.HTTP in a future story** as a
+deliberate side-by-side comparison, then decide whether to migrate the API surface.
 
 ### MOD-09 — Observability (OpenTelemetry) · 🧭 Leaning
 **Lean:** OTel as first-class — `ActivitySource` traces, `System.Diagnostics.Metrics`, OTLP export;
