@@ -145,6 +145,11 @@ public sealed class CreateOrderHandlerTests
             Assert.That(actual.Succeeded, Is.False);
             Assert.That(actual.ErrorType, Is.EqualTo(ErrorType.Conflict));
             Assert.That(actual.Errors.Single().Description, Is.EqualTo(expectedDescription));
+
+            _ordersRepository.Verify(v => v.SaveOrderAsync(
+                It.IsAny<Order>(),
+                It.IsAny<OrderConfirmedIntegrationEvent>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         });
     }
 
@@ -176,6 +181,11 @@ public sealed class CreateOrderHandlerTests
                 Is.EqualTo(existing.OwnerReferenceNumber.OwnerId));
             Assert.That(actual.Value.OwnerReferenceNumber,
                 Is.EqualTo(existing.OwnerReferenceNumber.ReferenceNumber));
+
+            _ordersRepository.Verify(v => v.SaveOrderAsync(
+                It.IsAny<Order>(),
+                It.IsAny<OrderConfirmedIntegrationEvent>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         });
     }
 
@@ -242,7 +252,7 @@ public sealed class CreateOrderHandlerTests
                 order = o;
                 integrationEvent = ev;
             })
-            .ReturnsAsync(() => new SaveOrderResult(order!.Id, Created: true));
+            .ReturnsAsync(() => new SaveOrderResult(order!.Id, true));
 
         await _sut.CreateOrderAsync(ownerId, command);
 
