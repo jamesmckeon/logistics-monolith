@@ -1,0 +1,68 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch/PR cancels an in-flight run.
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  CONFIGURATION: Release
+
+jobs:
+  test:
+    name: ${{ matrix.category }} tests
+    runs-on: ubuntu-latest
+    strategy:
+      # Report both categories even if one fails, and run them concurrently.
+      fail-fast: false
+      matrix:
+        # Unit needs no external deps; Integration spins up Postgres via
+        # Testcontainers (Docker is preinstalled on ubuntu-latest runners).
+        category: [Unit, Integration]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Throughline.sln
+
+      - name: Build
+        run: dotnet build Throughline.sln --configuration "$CONFIGURATION" --no-restore
+
+      - name: Test (${{ matrix.category }})
+        run: >-
+          dotnet test Throughline.sln
+          --configuration "$CONFIGURATION"
+          --no-build
+          --filter "Category=${{ matrix.category }}"
+          --logger "trx;LogFileName=${{ matrix.category }}.trx"
+          --results-directory ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.category }}
+          path: ./test-results/*.trx
+          if-no-files-found: warn
