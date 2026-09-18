@@ -23,7 +23,6 @@ public static class OrderingExtensions
 
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
-        // was: services.AddDbContext<OrdersDbContext>(...)
         services.AddDbContextWithWolverineIntegration<OrdersDbContext>(o =>
             o.UseNpgsql(config.GetConnectionString("Throughline"))
                 .UseSnakeCaseNamingConvention());
