@@ -39,6 +39,8 @@ public class OrderingTests
         await ResetAsync();
     }
 
+    #region Post
+
     [Test]
     public async Task Post_InvalidRequest_ReturnsProblemDetails()
     {
@@ -118,7 +120,7 @@ public class OrderingTests
 
 
     [Test]
-    public async Task Post_NewOrder_ReturnsCreated()
+    public async Task Post_NewOrder_ReturnsCreatedAndFiresEvent()
     {
         var ownerId = 1;
         var command = TestCommand();
@@ -135,6 +137,34 @@ public class OrderingTests
         });
     }
 
+
+    [Test]
+    public async Task Post_ConcurrentSubmissions_CreatesOneResult()
+    {
+        const int ownerId = 1;
+        const int concurrency = 2;
+        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
+
+        var responses = await PostConcurrently(commands, ownerId);
+
+        var bodies = await Task.WhenAll(
+            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
+        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
+        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
+            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
+            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
+        });
+    }
+
+    #endregion
+
+
+    #region Get
 
     [Test]
     public async Task Get_OrderExists_ReturnsOk()
@@ -209,28 +239,7 @@ public class OrderingTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
-    [Test]
-    public async Task Post_ConcurrentEquivalentSubmissions_CreateExactlyOneRestAlreadyExist()
-    {
-        const int ownerId = 1;
-        const int concurrency = 2;
-        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
-
-        var responses = await PostConcurrently(commands, ownerId);
-
-        var bodies = await Task.WhenAll(
-            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
-        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
-        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
-            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
-            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
-        });
-    }
+    #endregion
 
     #region Helpers
 
