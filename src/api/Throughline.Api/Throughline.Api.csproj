@@ -7,18 +7,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3"/>
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0"/>
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0"/>
-        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0"/>
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0"/>
-        <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="6.39.0"/>
-        <PackageReference Include="WolverineFx.Postgresql" Version="6.39.0"/>
+        <PackageReference Include="Npgsql.OpenTelemetry"/>
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"/>
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http"/>
+        <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
+        <PackageReference Include="WolverineFx.Postgresql"/>
     </ItemGroup>
 
     <ItemGroup>
