@@ -3,6 +3,7 @@ using Moq;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Contracts.Events;
+using Throughline.Modules.Ordering.Contracts.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -179,17 +180,37 @@ public sealed class CreateOrderHandlerTests
     }
 
     [Test]
-    public async Task CreateOrderAsync_OrderNotFound_ReturnsExpectedResult()
+    public async Task CreateOrderAsync_OrderCreated_ReturnsExpectedResult()
     {
         var command = new CreateOrderCommand(
             "PO1", "REF1", "Address One", null, "Portland", "OR",
             "97211", [new CreateOrderCommandItem("TestSku", 1)]);
 
         var ownerId = 1;
+        var ownerReference = new OwnerReferenceNumber(ownerId, command.ReferenceNumber);
+        var orderId = new OrderId();
+        var result = new SaveOrderResult(orderId, true);
+
+        var expectedOrderLines = command.Items
+            .Select(i => new OrderLine(new SkuCode(i.Sku), i.Quantity))
+            .ToList();
+        var expectedEventLines = command.Items
+            .Select(i => new OrderLineEventModel(new SkuCode(i.Sku).Value, i.Quantity))
+            .ToList();
+
+        _ordersRepository.Setup(s =>
+                s.SaveOrderAsync(
+                    It.Is<Order>(o => o.OwnerReferenceNumber == ownerReference &&
+                                      o.Content.OrderLines.SequenceEqual(expectedOrderLines)),
+                    It.Is<OrderConfirmedIntegrationEvent>(e => e.OwnerId == ownerId &&
+                                                               e.Lines.SequenceEqual(expectedEventLines)),
+                    It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+
         var actual = await _sut.CreateOrderAsync(ownerId, command);
 
         Assert.That(actual.Value, Is.Not.Null);
-
 
         Assert.Multiple(() =>
         {
@@ -220,7 +241,8 @@ public sealed class CreateOrderHandlerTests
             {
                 order = o;
                 integrationEvent = ev;
-            });
+            })
+            .ReturnsAsync(() => new SaveOrderResult(order!.Id, Created: true));
 
         await _sut.CreateOrderAsync(ownerId, command);
 

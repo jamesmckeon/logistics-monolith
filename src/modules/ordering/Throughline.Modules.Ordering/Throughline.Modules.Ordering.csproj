@@ -20,6 +20,9 @@
         </PackageReference>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3"/>
         <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="6.39.0"/>
+        <!-- Pin EF Core Relational: WolverineFx.EntityFrameworkCore pulls 10.0.4, the rest of the
+             stack is on 10.0.11. Unify on 10.0.11 to resolve the version conflict (MSB3277). -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11"/>
     </ItemGroup>
 
     <ItemGroup>
