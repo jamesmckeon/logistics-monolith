@@ -51,7 +51,8 @@ builder.Host.UseWolverine(opts =>
 });
 
 // dev convenience — provisions the "wolverine" tables on boot:
-builder.Host.UseResourceSetupOnStartup();
+if (builder.Environment.IsDevelopment())
+    builder.Host.UseResourceSetupOnStartup();
 
 builder.Services.AddOrdering(builder.Configuration);
 
