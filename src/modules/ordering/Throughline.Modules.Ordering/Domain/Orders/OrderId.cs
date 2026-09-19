@@ -6,6 +6,8 @@ internal sealed class OrderId : ValueObject
 {
     public OrderId(Guid value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+
         Value = value;
     }
 

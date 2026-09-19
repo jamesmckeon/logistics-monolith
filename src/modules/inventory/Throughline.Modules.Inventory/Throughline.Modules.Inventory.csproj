@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\src\modules\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
+        <ProjectReference Include="..\..\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -20,9 +20,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "sr
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inventory", "Inventory", "{7C4D07F6-47D8-4E95-8F02-8FC9FA637B25}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Inventory", "Throughline.Modules.Inventory\Throughline.Modules.Inventory.csproj", "{0F2BC9A0-F103-471E-9CDE-3A0E5EBDF6F4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Inventory", "src\modules\inventory\Throughline.Modules.Inventory\Throughline.Modules.Inventory.csproj", "{0F2BC9A0-F103-471E-9CDE-3A0E5EBDF6F4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Inventory.Tests", "Throughline.Modules.Inventory.Tests\Throughline.Modules.Inventory.Tests.csproj", "{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Inventory.Tests", "src\modules\inventory\Throughline.Modules.Inventory.Tests\Throughline.Modules.Inventory.Tests.csproj", "{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
