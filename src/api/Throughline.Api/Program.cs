@@ -3,6 +3,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
+using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine;
 using Wolverine.Postgresql;
@@ -55,6 +56,7 @@ if (builder.Environment.IsDevelopment())
     builder.Host.UseResourceSetupOnStartup();
 
 builder.Services.AddOrdering(builder.Configuration);
+builder.Services.AddInventory(builder.Configuration);
 
 var app = builder.Build();
 
