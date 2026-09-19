@@ -10,8 +10,12 @@ namespace Throughline.Api.Tests;
 
 internal sealed class TestFactory : WebApplicationFactory<Program>
 {
-    // Fail fast instead of hanging when Docker or Postgres is unresponsive.
-    private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(15);
+    // Pulling the image (cold) and booting the container can take a while on a fresh
+    // CI runner, so startup gets a generous budget of its own.
+    private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(5);
+
+    // Fail fast instead of hanging when Postgres is unresponsive mid-test.
+    private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(15);
 
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:15-alpine")
         .WithName(Guid.NewGuid().ToString())
@@ -19,14 +23,14 @@ internal sealed class TestFactory : WebApplicationFactory<Program>
 
     public async Task InitializeAsync()
     {
-        using var cts = new CancellationTokenSource(ResponseTimeout);
+        using var cts = new CancellationTokenSource(StartupTimeout);
         await _dbContainer.StartAsync(cts.Token);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Timeout = connection establishment; Command Timeout = per-query wait. Both in seconds.
-        var seconds = (int)ResponseTimeout.TotalSeconds;
+        var seconds = (int)QueryTimeout.TotalSeconds;
         var connectionString =
             $"{_dbContainer.GetConnectionString()};Timeout={seconds};Command Timeout={seconds}";
         builder.UseSetting("ConnectionStrings:Throughline", connectionString);
@@ -41,7 +45,9 @@ internal sealed class TestFactory : WebApplicationFactory<Program>
 
     public new async Task DisposeAsync()
     {
-        await _dbContainer.StopAsync();
+        // DisposeAsync (not StopAsync) is safe even when startup failed before the
+        // container was created, so teardown never masks the real setup error.
+        await _dbContainer.DisposeAsync();
     }
 
     public async Task ApplyMigrationsAsync()

@@ -18,7 +18,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Orderin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Api.Tests", "src\api\Throughline.Api.Tests\Throughline.Api.Tests\Throughline.Api.Tests.csproj", "{409176FF-B155-4FD1-95C8-9EBDB7F85676}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Contracts", "Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj", "{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Contracts", "src\modules\ordering\Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj", "{6F0498C6-0ABA-46C1-81A2-2D701CDD575B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
