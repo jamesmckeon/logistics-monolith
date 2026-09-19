@@ -1,14 +1,11 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
-using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Api.Tests;
 
-internal sealed class TestFactory : WebApplicationFactory<Program>
+internal abstract class TestFactoryBase : WebApplicationFactory<Program>
 {
     // Pulling the image (cold) and booting the container can take a while on a fresh
     // CI runner, so startup gets a generous budget of its own.
@@ -50,10 +47,13 @@ internal sealed class TestFactory : WebApplicationFactory<Program>
         await _dbContainer.DisposeAsync();
     }
 
+    /*
     public async Task ApplyMigrationsAsync()
     {
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         await dbContext.Database.MigrateAsync();
     }
+    */
+    public abstract Task ApplyMigrationsAsync();
 }

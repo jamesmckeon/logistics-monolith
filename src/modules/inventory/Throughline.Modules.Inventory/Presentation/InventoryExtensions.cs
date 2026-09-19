@@ -19,6 +19,7 @@ public static class InventoryExtensions
         services.AddModuleDbContext<OrdersDbContext>(configuration);
 
         services.AddScoped<IOrdersRepository, OrdersDbContext>();
+        services.AddScoped<GetOrderQuery>();
 
         return services;
     }

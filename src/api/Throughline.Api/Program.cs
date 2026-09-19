@@ -49,6 +49,10 @@ builder.Host.UseWolverine(opts =>
 {
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
     opts.Policies.UseDurableLocalQueues();
+
+    // Discover message handlers in the module assemblies;
+    // Wolverine only scans the entry assembly by default.
+    opts.Discovery.IncludeAssembly(typeof(InventoryExtensions).Assembly);
 });
 
 // dev convenience — provisions the "wolverine" tables on boot:
@@ -66,5 +70,6 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler();
 
 app.MapOrdering();
+app.MapInventory();
 
 app.Run();

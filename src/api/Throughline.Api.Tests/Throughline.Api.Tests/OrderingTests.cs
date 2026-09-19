@@ -14,26 +14,22 @@ namespace Throughline.Api.Tests;
 public class OrderingTests
 {
     private HttpClient _client;
-
-    private TestFactory _factory;
+    private OrderingTestFactory _testFactory;
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
-        _factory = new TestFactory();
-        await _factory.InitializeAsync();
-        _client = _factory.CreateClient();
-        await _factory.ApplyMigrationsAsync();
+        _testFactory = new OrderingTestFactory();
+        await _testFactory.InitializeAsync();
+        _client = _testFactory.CreateClient();
+        await _testFactory.ApplyMigrationsAsync();
     }
 
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
         _client?.Dispose();
-        if (_factory is not null)
-        {
-            await _factory.DisposeAsync();
-        }
+        if (_testFactory is not null) await _testFactory.DisposeAsync();
     }
 
     [TearDown]
@@ -265,7 +261,7 @@ public class OrderingTests
 
     private async Task<int> CountOrdersAsync(int ownerId, string reference)
     {
-        await using var scope = _factory.Services.CreateAsyncScope();
+        await using var scope = _testFactory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         return await db.Orders.CountAsync(o => o.OwnerId == ownerId && o.ReferenceNumber == reference);
     }
@@ -334,7 +330,7 @@ public class OrderingTests
 
     private async Task SeedAsync(Func<OrdersDbContext, Task> seed)
     {
-        await using var scope = _factory.Services.CreateAsyncScope();
+        await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         await seed(dbContext);
         await dbContext.SaveChangesAsync();
@@ -342,7 +338,7 @@ public class OrderingTests
 
     private async Task ResetAsync()
     {
-        await using var scope = _factory.Services.CreateAsyncScope();
+        await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
     }
