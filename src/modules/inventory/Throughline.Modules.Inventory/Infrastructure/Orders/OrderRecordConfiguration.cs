@@ -18,6 +18,8 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
 
         builder.Property(o => o.OwnerId).HasColumnName("owner_id");
         builder.Property(o => o.OrderId).HasColumnName("order_id").HasColumnType("uuid");
+        builder.Property(p => p.AllocationStatus).HasColumnName("allocation_status")
+            .HasConversion<string>();
 
         builder.HasMany(o => o.OrderLines)
             .WithOne()

@@ -1,6 +1,6 @@
 using Throughline.Common.Models;
 
-namespace Throughline.Modules.Inventory.Orders;
+namespace Throughline.Modules.Inventory.Domain.Orders;
 
 public sealed class OrderLine : ValueObject
 {

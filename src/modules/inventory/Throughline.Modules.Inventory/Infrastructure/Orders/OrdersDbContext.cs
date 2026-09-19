@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
-using Throughline.Modules.Inventory.Orders;
+using Throughline.Modules.Inventory.Domain.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
@@ -16,9 +16,7 @@ public sealed class OrdersDbContext : DbContext, IOrdersRepository
         _logger = logger;
     }
 
-    // Internal: the persistence record is an implementation detail, so it isn't exposed on
-    // the public context surface. Callers go through the IOrdersRepository methods below,
-    // which speak the domain Order.
+
     internal DbSet<OrderRecord> Orders => Set<OrderRecord>();
 
     public async Task SaveConfirmedOrder(Order order, CancellationToken token)
@@ -40,7 +38,6 @@ public sealed class OrdersDbContext : DbContext, IOrdersRepository
             if (pg.ConstraintName != OrderRecordConfiguration.PrimaryKeyName)
                 throw;
 
-            // Duplicate delivery of an already-recorded confirmed order — an idempotent no-op.
             _logger.LogDebug(
                 "Duplicate OrderConfirmed ignored for owner {OwnerId}, order {OrderId}",
                 order.OwnerOrderId.OwnerId,

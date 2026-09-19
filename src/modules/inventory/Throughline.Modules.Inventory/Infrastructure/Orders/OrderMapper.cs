@@ -1,4 +1,4 @@
-using Throughline.Modules.Inventory.Orders;
+using Throughline.Modules.Inventory.Domain.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
@@ -15,6 +15,7 @@ internal static class OrderMapper
         {
             OwnerId = ownerId,
             OrderId = orderId,
+            AllocationStatus = order.AllocationStatus,
             OrderLines = order.OrderLines
                 .Select(l => new OrderLineRecord
                 {
@@ -34,6 +35,9 @@ internal static class OrderMapper
         var lines = record.OrderLines
             .Select(l => new OrderLine(l.SkuCode, l.QuantityRequested));
 
-        return new Order(new OwnerOrderId(record.OwnerId, record.OrderId), lines);
+        return new Order(
+            new OwnerOrderId(record.OwnerId, record.OrderId),
+            lines,
+            record.AllocationStatus);
     }
 }

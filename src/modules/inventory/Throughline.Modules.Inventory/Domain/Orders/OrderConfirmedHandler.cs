@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Throughline.Modules.Inventory.Infrastructure.Orders;
 using Throughline.Modules.Ordering.Contracts.Events;
 
-namespace Throughline.Modules.Inventory.Orders;
+namespace Throughline.Modules.Inventory.Domain.Orders;
 
 public sealed class OrderConfirmedHandler
 {
@@ -16,10 +17,9 @@ public sealed class OrderConfirmedHandler
             message.OwnerId, message.OrderId);
 
         var id = new OwnerOrderId(message.OwnerId, message.OrderId);
-        var existing = await ordersRepository.GetByOwnerOrderIdAsync(id, token);
-        var lines = message.Lines.Select(l => new OrderLine(l.SkuCode, l.QuantityRequested));
-        await ordersRepository.SaveConfirmedOrder(new(id, lines), token);
 
+        var lines = message.Lines.Select(l => new OrderLine(l.SkuCode, l.QuantityRequested));
+        await ordersRepository.SaveConfirmedOrder(new(id, lines, OrderAllocationStatus.NotAllocated), token);
 
         logger.LogInformation(
             "Saved new confirmed order for owner {OwnerId}, order {OrderId}",
