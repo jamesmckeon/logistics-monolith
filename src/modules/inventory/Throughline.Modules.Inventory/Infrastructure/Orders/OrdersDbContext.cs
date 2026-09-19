@@ -40,8 +40,8 @@ public sealed class OrdersDbContext : DbContext, IOrdersRepository
 
             _logger.LogDebug(
                 "Duplicate OrderConfirmed ignored for owner {OwnerId}, order {OrderId}",
-                order.OwnerOrderId.OwnerId,
-                order.OwnerOrderId.OrderId);
+                order.Id.OwnerId,
+                order.Id.OrderId);
         }
     }
 

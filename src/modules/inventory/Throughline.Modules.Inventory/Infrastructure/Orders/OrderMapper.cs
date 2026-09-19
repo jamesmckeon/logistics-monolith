@@ -8,8 +8,8 @@ internal static class OrderMapper
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        var ownerId = order.OwnerOrderId.OwnerId;
-        var orderId = order.OwnerOrderId.OrderId;
+        var ownerId = order.Id.OwnerId;
+        var orderId = order.Id.OrderId;
 
         return new OrderRecord
         {

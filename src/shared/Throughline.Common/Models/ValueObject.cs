@@ -1,5 +1,15 @@
-﻿namespace Throughline.Common.Models;
+namespace Throughline.Common.Models;
 
+/// <summary>
+/// Base that derives equality (<see cref="Equals(object?)"/>, <c>==</c>, <c>!=</c> and
+/// <see cref="GetHashCode"/>) from a set of components supplied by the derived type via
+/// <see cref="GetAtomicValues"/>.
+/// <para>
+/// A DDD value object yields <b>all</b> of its attributes (value equality). Its subclass
+/// <see cref="Entity{TId}"/> yields only its id (identity equality that survives state
+/// changes). The name reflects the common case; the mechanism is shared by both.
+/// </para>
+/// </summary>
 public abstract class ValueObject : IEquatable<ValueObject>
 {
     public virtual bool Equals(ValueObject? other)
@@ -23,7 +33,7 @@ public abstract class ValueObject : IEquatable<ValueObject>
 
     public override bool Equals(object? obj)
     {
-        return obj is ValueObject valueObject && ValuesAreEqual(valueObject);
+        return obj is ValueObject other && ValuesAreEqual(other);
     }
 
     public override int GetHashCode()
@@ -36,8 +46,8 @@ public abstract class ValueObject : IEquatable<ValueObject>
 
     protected abstract IEnumerable<object?> GetAtomicValues();
 
-    private bool ValuesAreEqual(ValueObject valueObject)
+    private bool ValuesAreEqual(ValueObject other)
     {
-        return GetAtomicValues().SequenceEqual(valueObject.GetAtomicValues());
+        return GetAtomicValues().SequenceEqual(other.GetAtomicValues());
     }
 }

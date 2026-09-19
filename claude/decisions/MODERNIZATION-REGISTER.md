@@ -21,7 +21,7 @@ Status legend: 🔷 Open (genuinely undecided) · 🧭 Leaning (a recommended di
 ✅ Decided (ratified → ADR).
 
 _Created 2026-08-16. Update the `Updated` line on any change._
-Updated: 2026-08-19
+Updated: 2026-09-19
 
 ---
 
@@ -65,6 +65,7 @@ Q1 2026; v8 Apache-2.0 maintained only through end of 2026). A copy-me reference
 | MOD-18 | Container publish via .NET SDK (no Dockerfile) | 🧭 Leaning | First deployable artifact |
 | MOD-19 | Source generators: `[LoggerMessage]`, System.Text.Json source-gen | 🧭 Leaning | Hot-path / performance pass |
 | MOD-20 | Module extractability contract & deployment posture (host-agnostic; OCI/ACA target, IIS non-goal) | 🧭 Leaning | Anchor for extraction/deploy decisions — see ADR-0008 |
+| MOD-21 | Domain base types: shared equality base `ValueObject` + `Entity<TId> : ValueObject` (kgrzybek keeps two unrelated bases) | ✅ Decided | Decided 2026-09-19 (no ADR; folded here) |
 
 ---
 
@@ -283,6 +284,23 @@ bind the target late. The lowest common denominator is an **OCI (linux) containe
 extracted or the first cross-module event is built and the contract is tested against reality.
 **Binds:** MOD-13, MOD-07, MOD-09, MOD-18, MOD-10, MOD-16, MOD-02, MOD-12; relies on MOD-08.
 **Lands in:** [ADR-0008](../../docs/decisions/ADR-0008-module-extractability-contract-and-deployment-posture.md) (Proposed).
+
+### MOD-21 — Domain base types · ✅ Decided (2026-09-19)
+**Decision:** One shared equality base, **`ValueObject`** (the `GetAtomicValues`-driven
+`Equals`/`==`/`!=`/`GetHashCode` this repo already had), with **`Entity<TId> : ValueObject`** as its
+subtype. A value object yields **all** its attributes (value equality); `Entity<TId>` yields **only**
+`Id` via a **sealed** `GetAtomicValues`, so identity can't be diluted and equality survives state
+changes. The base's name reflects the common case; entities reuse the mechanism.
+**Considered and dropped:** a neutral third base (`EquatableByValues`) sitting under both. Cut to keep
+the DDD `ValueObject` name on the ~15 value objects rather than renaming them; accepted cost is that
+`Entity<TId>` is-a `ValueObject` at the type level (naming, not behavior).
+**Divergence from kgrzybek:** the original keeps two *unrelated* bases — its `ValueObject` compares all
+properties, its `Entity` implements no equality (reference/Id only). Here the mechanism is shared and
+`Entity` is a subtype; entities get value-based identity equality by design, which the original lacks.
+**Why it came up:** Inventory's `Order` gained a mutable `AllocationStatus` (Confirmed → Partially →
+Fully Allocated) yet needed `==`/`Equals`; it had been sitting on `ValueObject` while comparing on id
+alone — i.e. it was an entity all along. `Order : Entity<OwnerOrderId>`.
+**No ADR** — folded here per its size; base classes carry `<summary>` docs stating the intent.
 
 ---
 
