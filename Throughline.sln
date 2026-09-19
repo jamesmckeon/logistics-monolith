@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Invento
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Inventory.Tests", "src\modules\inventory\Throughline.Modules.Inventory.Tests\Throughline.Modules.Inventory.Tests.csproj", "{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Ordering.Contracts", "src\modules\ordering\Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj", "{55A1ED78-0E3D-4879-B88F-E2F8137F76D1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +72,10 @@ Global
 		{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A87748D-7EFB-48F8-8B52-277E55BFC5A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{55A1ED78-0E3D-4879-B88F-E2F8137F76D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55A1ED78-0E3D-4879-B88F-E2F8137F76D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55A1ED78-0E3D-4879-B88F-E2F8137F76D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55A1ED78-0E3D-4879-B88F-E2F8137F76D1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -79,5 +85,6 @@ Global
 		{95BA3BA9-C59C-4160-9DF2-5DAC0E97ED5B} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
 		{0F2BC9A0-F103-471E-9CDE-3A0E5EBDF6F4} = {7C4D07F6-47D8-4E95-8F02-8FC9FA637B25}
 		{8A87748D-7EFB-48F8-8B52-277E55BFC5A3} = {7C4D07F6-47D8-4E95-8F02-8FC9FA637B25}
+		{55A1ED78-0E3D-4879-B88F-E2F8137F76D1} = {9D66648D-8127-4455-B8AF-E6EBEE480B98}
 	EndGlobalSection
 EndGlobal
