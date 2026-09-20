@@ -1,21 +1,23 @@
 using Throughline.Modules.Inventory.Application.Models;
+using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Orders;
 
 namespace Throughline.Modules.Inventory.Application.Queries;
 
 internal sealed class GetOrderQuery
 {
-    private readonly IOrdersRepository _ordersRepository;
+    private readonly IOrderAllocationsRepository _orderAllocationsRepository;
 
-    public GetOrderQuery(IOrdersRepository ordersRepository)
+    public GetOrderQuery(IOrderAllocationsRepository orderAllocationsRepository)
     {
-        _ordersRepository = ordersRepository;
+        _orderAllocationsRepository = orderAllocationsRepository;
     }
 
-    public async Task<OrderModel?> GetOrderByOwnerOrderIdAsync(int ownerId, Guid orderId, CancellationToken token)
+    public async Task<OrderAllocationModel?> GetOrderByOwnerOrderIdAsync(int ownerId, Guid orderId,
+        CancellationToken token)
     {
-        var order = await _ordersRepository.GetByOwnerOrderIdAsync(new OwnerOrderId(ownerId, orderId), token);
+        var order = await _orderAllocationsRepository.GetByOwnerOrderIdAsync(new OwnerOrderId(ownerId, orderId), token);
 
-        return order == null ? null : OrderModel.FromOrder(order);
+        return order == null ? null : OrderAllocationModel.FromOrder(order);
     }
 }

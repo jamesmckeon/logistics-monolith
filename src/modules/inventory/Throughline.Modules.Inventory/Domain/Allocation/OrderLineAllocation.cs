@@ -1,10 +1,10 @@
 using Throughline.Common.Models;
 
-namespace Throughline.Modules.Inventory.Domain.Orders;
+namespace Throughline.Modules.Inventory.Domain.Allocation;
 
-public sealed class OrderLine : ValueObject
+public sealed class OrderLineAllocation : ValueObject
 {
-    public OrderLine(string skuCode, int quantityRequested)
+    public OrderLineAllocation(string skuCode, int quantityRequested)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(skuCode);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantityRequested);

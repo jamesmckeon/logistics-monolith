@@ -1,17 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
-public sealed class OrdersDbContext : DbContext, IOrdersRepository
+public sealed class OrderAllocationsDbContext : DbContext, IOrderAllocationsRepository
 {
-    private readonly ILogger<OrdersDbContext> _logger;
+    private readonly ILogger<OrderAllocationsDbContext> _logger;
 
-    public OrdersDbContext(
-        DbContextOptions<OrdersDbContext> options,
-        ILogger<OrdersDbContext> logger) : base(options)
+    public OrderAllocationsDbContext(
+        DbContextOptions<OrderAllocationsDbContext> options,
+        ILogger<OrderAllocationsDbContext> logger) : base(options)
     {
         _logger = logger;
     }
@@ -60,6 +61,6 @@ public sealed class OrdersDbContext : DbContext, IOrdersRepository
     {
         modelBuilder.HasDefaultSchema("inventory");
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderAllocationsDbContext).Assembly);
     }
 }

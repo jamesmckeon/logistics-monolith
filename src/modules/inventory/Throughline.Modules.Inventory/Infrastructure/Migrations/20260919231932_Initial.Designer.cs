@@ -11,7 +11,7 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
-    [DbContext(typeof(OrdersDbContext))]
+    [DbContext(typeof(OrderAllocationsDbContext))]
     [Migration("20260919231932_Initial")]
     partial class Initial
     {

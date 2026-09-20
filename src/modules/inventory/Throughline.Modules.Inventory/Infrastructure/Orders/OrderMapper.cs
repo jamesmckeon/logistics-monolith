@@ -1,3 +1,4 @@
+using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
@@ -33,7 +34,7 @@ internal static class OrderMapper
         ArgumentNullException.ThrowIfNull(record);
 
         var lines = record.OrderLines
-            .Select(l => new OrderLine(l.SkuCode, l.QuantityRequested));
+            .Select(l => new OrderLineAllocation(l.SkuCode, l.QuantityRequested));
 
         return new Order(
             new OwnerOrderId(record.OwnerId, record.OrderId),

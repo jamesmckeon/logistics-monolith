@@ -1,10 +1,10 @@
-using Throughline.Modules.Inventory.Domain.Orders;
+using Throughline.Modules.Inventory.Domain.Allocation;
 
 namespace Throughline.Modules.Inventory.Application.Models;
 
-internal sealed class OrderModel
+internal sealed class OrderAllocationModel
 {
-    public OrderModel(
+    public OrderAllocationModel(
         int ownerId,
         Guid orderId,
         string allocationStatus,
@@ -26,7 +26,7 @@ internal sealed class OrderModel
     public string AllocationStatus { get; }
     public IReadOnlyCollection<OrderLineModel> Lines { get; }
 
-    public static OrderModel FromOrder(Order order)
+    public static OrderAllocationModel FromOrder(Order order)
     {
         ArgumentNullException.ThrowIfNull(order);
 

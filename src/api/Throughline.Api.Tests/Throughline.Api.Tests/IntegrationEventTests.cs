@@ -1,11 +1,11 @@
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Infrastructure.Orders;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine.Tracking;
-using InventoryOrder = Throughline.Modules.Inventory.Application.Models.OrderModel;
 
 namespace Throughline.Api.Tests;
 
@@ -48,7 +48,7 @@ public sealed class IntegrationEventTests
 
         Assert.That(result, Is.Not.Null);
 
-        var inventoryOrder = await _client.GetFromJsonAsync<InventoryOrder>
+        var inventoryOrder = await _client.GetFromJsonAsync<OrderAllocationModel>
             ($"/inventory/orders?ownerId={ownerId}&orderId={result.OrderId}");
 
         Assert.That(inventoryOrder, Is.Not.Null);
@@ -70,7 +70,7 @@ public sealed class IntegrationEventTests
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OrderAllocationsDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
     }
 

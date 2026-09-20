@@ -10,7 +10,7 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
-    [DbContext(typeof(OrdersDbContext))]
+    [DbContext(typeof(OrderAllocationsDbContext))]
     partial class OrdersDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

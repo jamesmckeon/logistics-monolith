@@ -1,6 +1,8 @@
-namespace Throughline.Modules.Inventory.Domain.Orders;
+using Throughline.Modules.Inventory.Domain.Orders;
 
-public interface IOrdersRepository
+namespace Throughline.Modules.Inventory.Domain.Allocation;
+
+public interface IOrderAllocationsRepository
 {
     Task SaveConfirmedOrder(
         Order order, CancellationToken token);

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using InventoryOrdersDbContext = Throughline.Modules.Inventory.Infrastructure.Orders.OrdersDbContext;
+using Throughline.Modules.Inventory.Infrastructure.Orders;
 using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orders.OrdersDbContext;
 
 namespace Throughline.Api.Tests;
@@ -15,7 +15,7 @@ internal sealed class IntegrationEventsTestFactory : TestFactoryBase
 
         await scope.ServiceProvider.GetRequiredService<OrderingOrdersDbContext>()
             .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<InventoryOrdersDbContext>()
+        await scope.ServiceProvider.GetRequiredService<OrderAllocationsDbContext>()
             .Database.MigrateAsync();
     }
 }

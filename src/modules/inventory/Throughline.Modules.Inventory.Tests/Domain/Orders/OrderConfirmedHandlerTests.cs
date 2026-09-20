@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Orders;
 using Throughline.Modules.Inventory.Infrastructure.Orders;
 using Throughline.Modules.Ordering.Contracts.Events;
@@ -26,7 +27,7 @@ internal sealed class OrderConfirmedHandlerTests
         var message = new OrderConfirmedIntegrationEvent(1, Guid.NewGuid(), [eventLine]);
 
         var token = CancellationToken.None;
-        var repository = new Mock<IOrdersRepository>();
+        var repository = new Mock<IOrderAllocationsRepository>();
 
         await _sut.Handle(
             message,
@@ -37,7 +38,7 @@ internal sealed class OrderConfirmedHandlerTests
         var id = new OwnerOrderId(message.OwnerId, message.OrderId);
         var expectedOrder = new Order(
             id,
-            message.Lines.Select(l => new OrderLine(l.SkuCode, l.QuantityRequested)),
+            message.Lines.Select(l => new OrderLineAllocation(l.SkuCode, l.QuantityRequested)),
             OrderAllocationStatus.NotAllocated);
 
 
