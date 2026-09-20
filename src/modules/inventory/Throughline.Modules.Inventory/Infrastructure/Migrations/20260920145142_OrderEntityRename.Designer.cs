@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Throughline.Modules.Inventory.Infrastructure.Orders;
@@ -11,9 +12,11 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
     [DbContext(typeof(OrderAllocationsDbContext))]
-    partial class OrdersDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920145142_OrderEntityRename")]
+    partial class OrderEntityRename
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

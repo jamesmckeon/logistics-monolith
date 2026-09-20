@@ -4,6 +4,8 @@ namespace Throughline.Modules.Ordering.Infrastructure.Orders;
 
 internal sealed class OrdersDbContext : DbContext
 {
+    public const string SchemaName = "orders";
+
     // Public ctor is required by AddDbContext (EF resolves the context through DI); the type
     // itself stays internal, so the module boundary is unaffected.
     public OrdersDbContext(
@@ -15,8 +17,7 @@ internal sealed class OrdersDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("orders");
-
+        modelBuilder.HasDefaultSchema(SchemaName);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersDbContext).Assembly);
     }
 }

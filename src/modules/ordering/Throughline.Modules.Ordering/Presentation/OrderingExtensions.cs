@@ -6,12 +6,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Throughline.Common.Infrastructure;
 using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Application.Queries;
-using Throughline.Common.Infrastructure;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Modules.Ordering.Presentation;
@@ -22,7 +22,7 @@ public static class OrderingExtensions
 
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
-        services.AddModuleDbContext<OrdersDbContext>(config);
+        services.AddModuleDbContext<OrdersDbContext>(config, OrdersDbContext.SchemaName);
 
         services.AddScoped<IOrdersRepository, OrdersRepository>();
         services.AddScoped<CreateOrderHandler>();

@@ -12,7 +12,7 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
 
     public void Configure(EntityTypeBuilder<OrderRecord> builder)
     {
-        builder.ToTable("orders");
+        builder.ToTable("order_allocations");
 
         builder.HasKey(o => new { o.OwnerId, o.OrderId }).HasName(PrimaryKeyName);
 
