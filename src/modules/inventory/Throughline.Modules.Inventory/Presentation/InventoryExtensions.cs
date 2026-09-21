@@ -17,9 +17,9 @@ public static class InventoryExtensions
 
     public static IServiceCollection AddInventory(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<OrderAllocationsDbContext>(configuration, InfrastructureSettings.SchemaName);
+        services.AddModuleDbContext<OrderAllocationDbContext>(configuration, InfrastructureSettings.SchemaName);
 
-        services.AddScoped<IOrderAllocationsRepository, OrderAllocationsDbContext>();
+        services.AddScoped<IOrderAllocationRepository, OrderAllocationDbContext>();
         services.AddScoped<GetOrderQuery>();
 
         return services;
@@ -30,8 +30,8 @@ public static class InventoryExtensions
         var group = app.MapGroup(InventoryRoute).WithTags("Inventory");
 
         group.MapGet("/orders",
-            async (int ownerId, Guid orderId, GetOrderQuery query, CancellationToken token) =>
-                await query.GetOrderByOwnerOrderIdAsync(ownerId, orderId, token));
+            async (Guid orderId, GetOrderQuery query, CancellationToken token) =>
+                await query.GetOrderByIdAsync(orderId, token));
 
         return app;
     }

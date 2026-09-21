@@ -70,7 +70,7 @@ public sealed class IntegrationEventTests
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrderAllocationsDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OrderAllocationDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
     }
 

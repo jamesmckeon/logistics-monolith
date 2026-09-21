@@ -15,7 +15,7 @@ internal sealed class IntegrationEventsTestFactory : TestFactoryBase
 
         await scope.ServiceProvider.GetRequiredService<OrderingOrdersDbContext>()
             .Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<OrderAllocationsDbContext>()
+        await scope.ServiceProvider.GetRequiredService<OrderAllocationDbContext>()
             .Database.MigrateAsync();
     }
 }

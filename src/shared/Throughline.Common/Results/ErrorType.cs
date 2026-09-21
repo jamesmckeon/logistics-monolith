@@ -3,5 +3,6 @@ namespace Throughline.Common.Results;
 public enum ErrorType
 {
     Validation,
-    Conflict
+    Conflict,
+    NotFound
 }

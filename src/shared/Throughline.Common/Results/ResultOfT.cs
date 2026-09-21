@@ -55,6 +55,11 @@ public sealed record Result<T>
         return Failure(errors.Select(e => new Error(e)), Results.ErrorType.Validation);
     }
 
+    public static Result<T> NotFound(string errorMessage)
+    {
+        return Failure([new Error(errorMessage)], Results.ErrorType.NotFound);
+    }
+
     public static Result<T> Conflict(params string[] errors)
     {
         // conflict result shouldn't carry errors with field names

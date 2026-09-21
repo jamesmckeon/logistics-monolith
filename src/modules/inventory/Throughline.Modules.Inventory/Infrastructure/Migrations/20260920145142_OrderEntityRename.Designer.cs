@@ -11,7 +11,7 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
-    [DbContext(typeof(OrderAllocationsDbContext))]
+    [DbContext(typeof(OrderAllocationDbContext))]
     [Migration("20260920145142_OrderEntityRename")]
     partial class OrderEntityRename
     {

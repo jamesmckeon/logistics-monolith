@@ -26,13 +26,13 @@ internal sealed class OrderAllocationModel
     public string AllocationStatus { get; }
     public IReadOnlyCollection<OrderLineModel> Lines { get; }
 
-    public static OrderAllocationModel FromOrder(Order order)
+    public static OrderAllocationModel FromOrder(OrderAllocation order)
     {
         ArgumentNullException.ThrowIfNull(order);
 
         return new(
-            order.Id.OwnerId,
-            order.Id.OrderId,
+            order.OwnerId,
+            order.Id,
             order.AllocationStatus.ToString(),
             order.OrderLines.Select(ol => new OrderLineModel(
                 ol.SkuCode, ol.QuantityRequested)).ToList().AsReadOnly());

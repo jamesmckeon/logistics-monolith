@@ -47,6 +47,12 @@ public sealed class Result
         return new Result(errorArray, Results.ErrorType.Conflict);
     }
 
+    public static Result Conflict(string errorMessage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        return Conflict([new Error(errorMessage)]);
+    }
+
     public static Result Success()
     {
         return new Result();

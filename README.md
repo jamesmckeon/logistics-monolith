@@ -19,3 +19,9 @@ on has **gone commercial** — MediatR & AutoMapper (Lucky Penny, 2025) and Mass
 
 Architecture and tooling decisions are tracked in
 [docs/decisions/](docs/decisions/) (product & engineering ADRs).
+
+# Modelling
+
+I'm not a purist.  If an approach or framework isn't immediately appropriate for a scenario, I most likely will find one that's better suited.  While consistency is crucial for making code navigable, forcing a pattern can actually make it less readable and understandable.  
+
+I strongly prefer allowing business logic that is written in natural logic and modelled intuitively; limiting its expressiveness so it can integrate with a specific ORM or service framework is never an option for me.

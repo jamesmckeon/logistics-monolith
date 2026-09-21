@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Orders;
-using Throughline.Modules.Inventory.Infrastructure.Orders;
+using Throughline.Modules.Inventory.Infrastructure.Common;
 using Throughline.Modules.Ordering.Contracts.Events;
 using Throughline.Modules.Ordering.Contracts.Models;
 
@@ -27,22 +27,27 @@ internal sealed class OrderConfirmedHandlerTests
         var message = new OrderConfirmedIntegrationEvent(1, Guid.NewGuid(), [eventLine]);
 
         var token = CancellationToken.None;
-        var repository = new Mock<IOrderAllocationsRepository>();
+        var repository = new Mock<IOrderAllocationRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
 
         await _sut.Handle(
             message,
             repository.Object,
             NullLogger<OrderConfirmedHandler>.Instance,
+            unitOfWork.Object,
             token);
 
-        var id = new OwnerOrderId(message.OwnerId, message.OrderId);
-        var expectedOrder = new Order(
-            id,
+        var expectedOrder = new OrderAllocation(
+            message.OwnerId,
+            message.OrderId,
             message.Lines.Select(l => new OrderLineAllocation(l.SkuCode, l.QuantityRequested)),
             OrderAllocationStatus.NotAllocated);
 
 
-        repository.Verify(v => v.SaveConfirmedOrder(
-            It.Is<Order>(o => o.Equals(expectedOrder)), token), Times.Once);
+        repository.Verify(v => v.Add(
+                It.Is<OrderAllocation>(o => o.Equals(expectedOrder))),
+            Times.Once);
+
+        unitOfWork.Verify(v => v.SaveChangesAsync(), Times.Once);
     }
 }

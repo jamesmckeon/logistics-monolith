@@ -10,7 +10,7 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
-    [DbContext(typeof(OrderAllocationsDbContext))]
+    [DbContext(typeof(OrderAllocationDbContext))]
     partial class OrdersDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
@@ -24,49 +24,10 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Throughline.Modules.Inventory.Infrastructure.Orders.OrderLineRecord", b =>
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Allocation.OrderAllocation", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("order_id");
-
-                    b.Property<int>("OwnerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("owner_id");
-
-                    b.Property<int>("QuantityRequested")
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity_requested");
-
-                    b.Property<string>("SkuCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("sku_code");
-
-                    b.HasKey("Id")
-                        .HasName("pk_orderline_allocations");
-
-                    b.HasIndex("OwnerId", "OrderId")
-                        .HasDatabaseName("ix_orderline_allocations_owner_id_order_id");
-
-                    b.ToTable("orderline_allocations", "inventory");
-                });
-
-            modelBuilder.Entity("Throughline.Modules.Inventory.Infrastructure.Orders.OrderRecord", b =>
-                {
-                    b.Property<int>("OwnerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("owner_id");
-
-                    b.Property<Guid>("OrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
 
@@ -75,8 +36,25 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("allocation_status");
 
-                    b.HasKey("OwnerId", "OrderId")
-                        .HasName("pk_orders");
+                    b.Property<DateTimeOffset?>("AllocationStatusUpdated")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("allocation_status_updated");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_order_allocations");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_order_allocations_owner_id");
 
                     b.ToTable("order_allocations", "inventory");
                 });
@@ -175,18 +153,41 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Throughline.Modules.Inventory.Infrastructure.Orders.OrderLineRecord", b =>
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Allocation.OrderAllocation", b =>
                 {
-                    b.HasOne("Throughline.Modules.Inventory.Infrastructure.Orders.OrderRecord", null)
-                        .WithMany("OrderLines")
-                        .HasForeignKey("OwnerId", "OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_orderline_allocations_order_allocations_owner_id_order_id");
-                });
+                    b.OwnsMany("Throughline.Modules.Inventory.Domain.Allocation.OrderLineAllocation", "OrderLines", b1 =>
+                        {
+                            b1.Property<Guid>("order_id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("order_id");
 
-            modelBuilder.Entity("Throughline.Modules.Inventory.Infrastructure.Orders.OrderRecord", b =>
-                {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasColumnName("id");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<int>("QuantityRequested")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity_requested");
+
+                            b1.Property<string>("SkuCode")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("character varying(50)")
+                                .HasColumnName("sku_code");
+
+                            b1.HasKey("order_id", "Id")
+                                .HasName("pk_orderline_allocations");
+
+                            b1.ToTable("orderline_allocations", "inventory");
+
+                            b1.WithOwner()
+                                .HasForeignKey("order_id")
+                                .HasConstraintName("fk_orderline_allocations_order_allocations_order_id");
+                        });
+
                     b.Navigation("OrderLines");
                 });
 #pragma warning restore 612, 618
