@@ -5,7 +5,7 @@ using Throughline.Modules.Inventory.Domain.Allocation;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
-public sealed class OrderAllocationDbContext : DbContext, IOrderAllocationRepository
+internal sealed class OrderAllocationDbContext : DbContext, IOrderAllocationRepository
 {
     private readonly ILogger<OrderAllocationDbContext> _logger;
 

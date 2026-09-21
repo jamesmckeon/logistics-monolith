@@ -37,11 +37,12 @@ internal sealed class OrderConfirmedHandlerTests
             unitOfWork.Object,
             token);
 
-        var expectedOrder = new OrderAllocation(
-            message.OwnerId,
-            message.OrderId,
-            message.Lines.Select(l => new OrderLineAllocation(l.SkuCode, l.QuantityRequested)),
-            OrderAllocationStatus.NotAllocated);
+        var expectedOrder = OrderAllocation.Create(
+                message.OwnerId,
+                message.OrderId,
+                // null forgiving ok here, we know the result is valid
+                message.Lines.Select(l => OrderLineAllocation.Create(l.SkuCode, l.QuantityRequested).Value!))
+            .Value;
 
 
         repository.Verify(v => v.Add(

@@ -2,7 +2,7 @@ using Throughline.Modules.Inventory.Infrastructure.Orders;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Common;
 
-public sealed class UnitOfWork : IUnitOfWork
+internal sealed class UnitOfWork : IUnitOfWork
 {
     private readonly OrderAllocationDbContext _dbContext;
 

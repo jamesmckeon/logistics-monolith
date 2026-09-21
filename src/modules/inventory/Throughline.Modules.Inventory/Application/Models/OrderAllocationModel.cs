@@ -35,6 +35,7 @@ internal sealed class OrderAllocationModel
             order.Id,
             order.AllocationStatus.ToString(),
             order.OrderLines.Select(ol => new OrderLineModel(
-                ol.SkuCode, ol.QuantityRequested)).ToList().AsReadOnly());
+                ol.Sku.SkuCode,
+                ol.QuantityRequested)).ToList().AsReadOnly());
     }
 }

@@ -3,9 +3,11 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
+using Throughline.Common.Events;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine;
+using Wolverine.ErrorHandling;
 using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,6 +51,10 @@ builder.Host.UseWolverine(opts =>
 {
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
     opts.Policies.UseDurableLocalQueues();
+
+    // Poison messages (permanent/contract-violating failures) skip retries and go straight
+    // to the dead-letter queue. Transient faults are left to throw normally so they retry.
+    opts.OnException<UnrecoverableMessageException>().MoveToErrorQueue();
 
     // Discover message handlers in the module assemblies;
     // Wolverine only scans the entry assembly by default.
