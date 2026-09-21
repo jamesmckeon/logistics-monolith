@@ -5,46 +5,44 @@ namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal sealed class OrderLineAllocationService : IOrderlineAllocationService
 {
-    public OrderLineAllocationResult AllocateOrderLine(
-        OrderLineAllocation orderLine, IEnumerable<SkuReceipt> skuReceipts)
+    public void AllocateOrderLine(
+        Guid orderId,
+        OrderLineAllocation orderLine,
+        IEnumerable<SkuReceipt> skuReceipts)
     {
         ArgumentNullException.ThrowIfNull(orderLine);
         ArgumentNullException.ThrowIfNull(skuReceipts);
 
-        if (orderLine.QuantityAllocated == orderLine.QuantityRequested)
-            return NotChanged(orderLine);
+        if (orderLine.AllocationStatus == AllocationStatus.Allocated)
+            return;
 
-        if (!skuReceipts.Any())
-            return NotChanged(orderLine);
+        var receipts = skuReceipts.ToArray();
 
-        if (!skuReceipts.Any(a => a.Sku == orderLine.Sku))
+        if (!receipts.Any())
+            return;
+
+        if (receipts.All(a => a.SkuId != orderLine.SkuId))
             throw new ArgumentException("skuReceipts must contain only receipts for the sku being allocated",
                 nameof(skuReceipts));
 
-        var quantity = orderLine.QuantityAllocated;
-        var allocations = new List<InventoryAllocation>();
-
-        foreach (var skuReceipt in skuReceipts.OrderByDescending(o => o.ReceivedOn))
+        foreach (var skuReceipt in receipts.OrderByDescending(o => o.ReceivedOn))
         {
-            var difference = orderLine.QuantityRequested - quantity;
-            var allocated = Math.Min(difference, skuReceipt.QuantityReceived);
-            quantity = quantity + allocated;
+            if (skuReceipt.QuantityAvailable >= orderLine.QuantityUnallocated)
+            {
+                var quantityAllocated = skuReceipt.AllocateToOrder(
+                    orderId, orderLine.QuantityUnallocated, AppDateTime.Now);
 
-            allocations.Add(new(skuReceipt, allocated, AppDateTime.Now));
-            if (quantity == orderLine.QuantityRequested)
+                if (quantityAllocated > 0)
+                    orderLine.IncreaseQuantityAllocated(quantityAllocated, AppDateTime.Now);
+            }
+
+            if (orderLine.QuantityUnallocated == 0)
                 break;
         }
 
-        var status = quantity == orderLine.QuantityRequested
-            ? AllocationStatus.Allocated
-            : AllocationStatus.PartiallyAllocated;
-
-        return new(orderLine, allocations, quantity, status);
-    }
-
-    private static OrderLineAllocationResult NotChanged(OrderLineAllocation orderLine)
-    {
-        return new OrderLineAllocationResult(
-            orderLine, [], orderLine.QuantityAllocated, orderLine.AllocationStatus);
+        if (orderLine.QuantityUnallocated == 0)
+            orderLine.SetAllocated(AppDateTime.Now);
+        else
+            orderLine.SetPartiallyAllocated(AppDateTime.Now);
     }
 }

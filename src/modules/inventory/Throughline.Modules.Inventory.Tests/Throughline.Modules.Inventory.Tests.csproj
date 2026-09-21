@@ -24,8 +24,4 @@
         <ProjectReference Include="..\Throughline.Modules.Inventory\Throughline.Modules.Inventory.csproj"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Folder Include="Domain\"/>
-    </ItemGroup>
-
 </Project>

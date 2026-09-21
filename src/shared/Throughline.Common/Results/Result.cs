@@ -35,6 +35,12 @@ public sealed class Result
         return new Result(errorArray, Results.ErrorType.Validation);
     }
 
+    public static Result Validation(string errorMessage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        return Validation([new(errorMessage)]);
+    }
+
     public static Result Conflict(IEnumerable<Error> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Throughline.Modules.Inventory.Domain.Allocation;
+using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
@@ -57,10 +59,19 @@ internal sealed class OrderAllocationDbContext : DbContext, IOrderAllocationRepo
         }
     }
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<EntityId>().HaveConversion<EntityIdValueConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("inventory");
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderAllocationDbContext).Assembly);
+        // Scope to this context's own configurations — the assembly also holds the
+        // Inventory context's Sku/SkuReceipt configs, which must not be pulled into this model.
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(OrderAllocationDbContext).Assembly,
+            t => t.Namespace == typeof(OrderAllocationDbContext).Namespace);
     }
 }

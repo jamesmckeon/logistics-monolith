@@ -1,3 +1,4 @@
+using JasperFx.Core;
 using JasperFx.Resources;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
@@ -55,6 +56,13 @@ builder.Host.UseWolverine(opts =>
     // Poison messages (permanent/contract-violating failures) skip retries and go straight
     // to the dead-letter queue. Transient faults are left to throw normally so they retry.
     opts.OnException<UnrecoverableMessageException>().MoveToErrorQueue();
+
+    // A referenced dependency isn't present locally yet — very likely an eventual-consistency
+    // gap (the reference-data event hasn't arrived). Schedule durable, delayed retries so the
+    // reference has time to replicate; dead-letter only after the backoff is exhausted.
+    opts.OnException<MissingDependencyException>()
+        .ScheduleRetry(1.Minutes(), 5.Minutes(), 15.Minutes())
+        .Then.MoveToErrorQueue();
 
     // Discover message handlers in the module assemblies;
     // Wolverine only scans the entry assembly by default.

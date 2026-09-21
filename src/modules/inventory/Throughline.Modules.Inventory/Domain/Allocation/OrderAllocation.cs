@@ -1,9 +1,12 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
-using Throughline.Modules.Inventory.Domain.Skus;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
+/// <summary>
+///     OrderAllocation has its Id property typed as <c>Guid</c> rather than <c>EntityId</c> because OrderId is passed
+///     by the Ordering module; Inventory can't ensure it matches the GUID spec it uses
+/// </summary>
 internal sealed class OrderAllocation : Entity<Guid>
 {
     private readonly List<OrderLineAllocation> _orderLines;
@@ -60,33 +63,16 @@ internal sealed class OrderAllocation : Entity<Guid>
 
     public void SetAllocating(AppDateTime started)
     {
-        if (Allocating)
-            throw new InvalidOperationException("Order is already allocating");
-
         if (AllocationStatus == AllocationStatus.Allocated)
             throw new InvalidOperationException("An order can only be allocated once");
 
-        Allocating = true;
+        if (!Allocating)
+            Allocating = true;
     }
 
     public void StopAllocating()
     {
-        if (!Allocating)
-            throw new InvalidOperationException("Order isn't allocating");
-
-        Allocating = false;
-    }
-
-    public void UpdateLine(Sku sku, int quantityAllocated, AppDateTime updatedOn)
-    {
-        ArgumentNullException.ThrowIfNull(sku);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantityAllocated);
-
-        var line = OrderLines.SingleOrDefault(s => s.Sku == sku);
-
-        if (line == null)
-            throw new ArgumentException($"Order doesn't contain a line for sku {sku}");
-
-        line.UpdateAllocatedQuantity(quantityAllocated, updatedOn);
+        if (Allocating)
+            Allocating = false;
     }
 }

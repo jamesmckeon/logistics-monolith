@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
@@ -8,7 +7,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Orders;
 
 internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<OrderAllocation>
 {
-    // Pinned so the DB constraint name is a stable contract, not an EF-generated default.
     // SaveConfirmedOrder matches on this to distinguish a duplicate order (safe to swallow)
     // from any other unique violation (a real error worth rethrowing).
     public const string PrimaryKeyName = "pk_order_allocations";
@@ -33,10 +31,7 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
                 v => v!.Value,
                 v => new AppDateTime(v));
 
-        // Optimistic concurrency via PostgreSQL's xmin system column, mapped as a SHADOW property
-        // so the concurrency token stays off the domain aggregate. This relies on the order being
-        // loaded and saved on the SAME DbContext instance (repository and unit of work share the
-        // scoped context) — a detached/reattached entity loses the shadow value and the check no-ops.
+        // Optimistic concurrency via PostgreSQL's xmin system column
         builder.Property<uint>("Version")
             .HasColumnName("xmin")
             .HasColumnType("xid")
@@ -48,11 +43,12 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
             line.ToTable("orderline_allocations");
             line.WithOwner().HasForeignKey("order_id");
             line.Property<Guid>("order_id").HasColumnType("uuid");
-            line.Property(l => l.SkuCode).HasColumnName("sku_code").HasMaxLength(50);
+            line.Property(l => l.SkuId).HasColumnName("sku_id").HasColumnType("uuid");
             line.Property(l => l.QuantityRequested).HasColumnName("quantity_requested");
         });
 
         // OrderLines is an encapsulated read-only view over the _orderLines backing field.
-        builder.Navigation(o => o.OrderLines).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(o => o.OrderLines)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

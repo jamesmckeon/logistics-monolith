@@ -1,11 +1,10 @@
+using Throughline.Modules.Inventory.Domain.Inventory;
+
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal sealed record OrderLineAllocationResult(
     OrderLineAllocation OrderLine,
-    IEnumerable<InventoryAllocation> InventoryAllocations,
-    int QuantityAllocated,
-    AllocationStatus AllocationStatus
+    IEnumerable<SkuReceipt> SkuReceipts
 )
 {
-    public bool AllocatedQuantityChanged => OrderLine.QuantityRequested != QuantityAllocated;
 }

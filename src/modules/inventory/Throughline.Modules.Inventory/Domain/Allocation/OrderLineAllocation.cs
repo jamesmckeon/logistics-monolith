@@ -1,60 +1,89 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
-using Throughline.Modules.Inventory.Domain.Skus;
+using Throughline.Modules.Inventory.Domain.Common;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
-internal sealed class OrderLineAllocation : ValueObject
+internal sealed class OrderLineAllocation : Entity<EntityId>
 {
     private OrderLineAllocation(
-        Sku sku, int quantityRequested, AllocationStatus allocationStatus, int quantityAllocated)
+        EntityId id,
+        EntityId skuId,
+        int quantityRequested,
+        AllocationStatus allocationStatus,
+        int quantityAllocated) : base(id)
     {
-        ArgumentNullException.ThrowIfNull(sku);
+        ArgumentNullException.ThrowIfNull(skuId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantityRequested);
 
-        Sku = sku;
+        SkuId = skuId;
         QuantityRequested = quantityRequested;
         AllocationStatus = allocationStatus;
+        QuantityAllocated = quantityAllocated;
     }
 
-    public Sku Sku { get; }
+    public EntityId SkuId { get; }
     public int QuantityRequested { get; }
     public int QuantityAllocated { get; private set; }
-    public AppDateTime? LastAllocated { get; private set; }
+    public int QuantityUnallocated => QuantityRequested - QuantityAllocated;
+    public AppDateTime? LastUpdated { get; private set; }
     public AllocationStatus AllocationStatus { get; private set; }
     public bool IsAllocatable => AllocationStatus != AllocationStatus.Allocated;
 
-    protected override IEnumerable<object?> GetAtomicValues()
+    public static Result<OrderLineAllocation> Create(EntityId id, EntityId skuId, int quantityRequested)
     {
-        yield return Sku;
-        yield return QuantityRequested;
-    }
-
-    public static Result<OrderLineAllocation> Create(Sku sku, int quantityRequested)
-    {
-        ArgumentNullException.ThrowIfNull(sku);
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(skuId);
 
         if (quantityRequested <= 0)
             return Result<OrderLineAllocation>.Validation("quantityRequested must be greater than zero");
 
-        return new OrderLineAllocation(sku, quantityRequested, AllocationStatus.Confirmed, 0);
+        return new OrderLineAllocation(id, skuId, quantityRequested, AllocationStatus.Confirmed, 0);
     }
 
-    public void UpdateAllocatedQuantity(int allocatedQuantity, AppDateTime updatedOn)
+    public void IncreaseQuantityAllocated(int quantity, AppDateTime updatedOn)
     {
         ArgumentNullException.ThrowIfNull(updatedOn);
 
         if (!IsAllocatable)
             throw new InvalidOperationException("line isn't allocatable");
 
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(allocatedQuantity);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(allocatedQuantity, QuantityRequested);
+        if (QuantityUnallocated + quantity > QuantityRequested)
+            throw new InvalidOperationException(
+                $"Increasing the allocated quantity by {quantity} " +
+                "would exceed the requested quantity for this order line");
 
-        QuantityAllocated = allocatedQuantity;
-        AllocationStatus = QuantityAllocated == QuantityRequested
-            ? AllocationStatus.Allocated
-            : AllocationStatus.PartiallyAllocated;
+        QuantityAllocated += quantity;
+        LastUpdated = updatedOn;
+    }
 
-        LastAllocated = updatedOn;
+    public void SetAllocated(AppDateTime updatedOn)
+    {
+        ArgumentNullException.ThrowIfNull(updatedOn);
+
+        if (QuantityAllocated != QuantityRequested)
+            throw new InvalidOperationException(
+                "AllocationStatus cannot be changed to Allocated if QuantityRequested <> QuantityAllocated");
+
+        if (AllocationStatus != AllocationStatus.Allocated)
+        {
+            AllocationStatus = AllocationStatus.Allocated;
+            LastUpdated = updatedOn;
+        }
+    }
+
+    public void SetPartiallyAllocated(AppDateTime updatedOn)
+    {
+        ArgumentNullException.ThrowIfNull(updatedOn);
+
+        if (AllocationStatus == AllocationStatus.Allocated)
+            throw new InvalidOperationException(
+                "A fully allocated order line cannot be reverted to partially allocated");
+
+        if (AllocationStatus != AllocationStatus.PartiallyAllocated)
+        {
+            AllocationStatus = AllocationStatus.PartiallyAllocated;
+            LastUpdated = updatedOn;
+        }
     }
 }
