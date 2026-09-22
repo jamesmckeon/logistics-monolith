@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Inventory.Domain.Owners;
+namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal enum AllocationPolicies
 {

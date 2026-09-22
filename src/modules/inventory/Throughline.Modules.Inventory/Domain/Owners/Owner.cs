@@ -1,4 +1,5 @@
 using Throughline.Common.Models;
+using Throughline.Modules.Inventory.Domain.Allocation;
 
 namespace Throughline.Modules.Inventory.Domain.Owners;
 

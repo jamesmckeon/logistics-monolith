@@ -2,19 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
+using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
-using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 
 internal sealed class OrderAllocationService
 {
+    private readonly ISpecification<OrderAllocation> _allocationSpec;
     private readonly IInventoryRepository _inventoryRespository;
     private readonly ILogger<OrderAllocationService> _logger;
     private readonly IOrderAllocationRepository _orderAllocationRepository;
     private readonly IOrderlineAllocationService _orderlineAllocationService;
-    private readonly IOwnerProvider _ownerProvider;
     private readonly IUnitOfWork _unitOfWork;
 
     public OrderAllocationService(
@@ -22,14 +22,14 @@ internal sealed class OrderAllocationService
         IUnitOfWork unitOfWork,
         IOrderlineAllocationService orderlineAllocationService,
         IInventoryRepository inventoryRepository,
-        IOwnerProvider ownerProvider,
+        ISpecification<OrderAllocation> allocationSpec,
         ILogger<OrderAllocationService> logger)
     {
         _orderAllocationRepository = repository;
         _unitOfWork = unitOfWork;
         _orderlineAllocationService = orderlineAllocationService;
         _inventoryRespository = inventoryRepository;
-        _ownerProvider = ownerProvider;
+        _allocationSpec = allocationSpec;
         _logger = logger;
     }
 
@@ -48,11 +48,6 @@ internal sealed class OrderAllocationService
         // if order isn't allocatable there's nothing to do
         if (!order.IsAllocatable)
             return order;
-
-        var owner = await _ownerProvider.GetOwnerByIdAsync(order.OwnerId);
-        if (owner == null)
-            return Result<OrderAllocation>.NotFound(
-                $"No owner found for id {order.OwnerId}");
 
         order.SetAllocating(AppDateTime.Now);
 
@@ -76,8 +71,7 @@ internal sealed class OrderAllocationService
             // if the owner doesn't allow for partial allocations and this allocation run produced
             // at least one partially allocated line, it shouldn't be committed
 
-            if (line.AllocationStatus != AllocationStatus.Allocated &&
-                owner.AllocationPolicy == AllocationPolicies.Partial)
+            if (!_allocationSpec.IsSatisfiedBy(order))
             {
                 _logger.LogWarning("Canceling allocation for owner id {OwnerId} because the " +
                                    "owner's configured allocation policy doesnt allow for partial allocation",
