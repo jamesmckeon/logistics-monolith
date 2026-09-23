@@ -17,11 +17,6 @@ internal sealed class UnitOfWork : IUnitOfWork
         await _dbContext.SaveChangesAsync();
     }
 
-    public Task<IDbContextTransaction> RollbackTransactionAsync(CancellationToken token)
-    {
-        throw new NotImplementedException();
-    }
-
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken token)
     {
         return _dbContext.Database.BeginTransactionAsync(token);
