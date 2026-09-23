@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Modules.Inventory.Application.Models;
-using Throughline.Modules.Inventory.Infrastructure.Orders;
+using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine.Tracking;
@@ -70,7 +70,7 @@ public sealed class IntegrationEventTests
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrderAllocationDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
     }
 

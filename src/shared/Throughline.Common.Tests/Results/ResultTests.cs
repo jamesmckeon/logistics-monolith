@@ -40,7 +40,7 @@ public sealed class ResultTests
     [Test]
     public void Validation_WithErrors_SetsValidationFailureState()
     {
-        var errors = new[] { new Error("First", "fieldA"), new Error("Second") };
+        var errors = new[] { new FieldError("First", "fieldA"), new FieldError("Second") };
 
         var actual = TestResult.Validation(errors);
 
@@ -56,7 +56,7 @@ public sealed class ResultTests
     [Test]
     public void Validation_WithErrorEnumerable_SetsValidationFailureState()
     {
-        IEnumerable<Error> errors = new List<Error> { new("First") };
+        IEnumerable<FieldError> errors = new List<FieldError> { new("First") };
 
         var actual = TestResult.Validation(errors);
 
@@ -85,14 +85,14 @@ public sealed class ResultTests
     [Test]
     public void Validation_EmptyErrors_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _ = TestResult.Validation(Array.Empty<Error>()));
+        var ex = Assert.Throws<ArgumentException>(() => _ = TestResult.Validation(Array.Empty<FieldError>()));
         Assert.That(ex.ParamName, Is.EqualTo("errors"));
     }
 
     [Test]
     public void Validation_NullErrors_ThrowsArgumentNullException()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => _ = TestResult.Validation((Error[])null!));
+        var ex = Assert.Throws<ArgumentNullException>(() => _ = TestResult.Validation((FieldError[])null!));
         Assert.That(ex.ParamName, Is.EqualTo("errors"));
     }
 

@@ -9,10 +9,10 @@ using TestResult = Result<object>;
 [Category("Unit")]
 public sealed class ResultProblemMapperTests
 {
-    private static void AssertFieldErrors(ValidationProblemDetails actual, Error error)
+    private static void AssertFieldErrors(ValidationProblemDetails actual, FieldError fieldError)
     {
-        Assert.That(actual.Errors.Any(s => s.Key == error.FieldName &&
-                                           s.Value.Single() == error.Description), Is.True);
+        Assert.That(actual.Errors.Any(s => s.Key == fieldError.FieldName &&
+                                           s.Value.Single() == fieldError.Description), Is.True);
     }
 
     #region ToProblemDetails
@@ -38,7 +38,7 @@ public sealed class ResultProblemMapperTests
     [Test]
     public void ToProblemDetails_ValidationWithFieldErrors_ReturnsValidationProblemDetail()
     {
-        var errors = new Error[]
+        var errors = new FieldError[]
         {
             new("Test Error 1", "Field 1"),
             new("Test Error 2", "Field 2")
@@ -79,7 +79,7 @@ public sealed class ResultProblemMapperTests
     [Test]
     public void ToProblemDetails_ValidationMixedFieldAndNonFieldErrors_ReturnsExpected()
     {
-        Error[] errors =
+        FieldError[] errors =
         [
             new("Test Error 1"),
             new("Test Error 2", "TestField")

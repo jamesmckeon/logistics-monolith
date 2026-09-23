@@ -33,17 +33,11 @@ internal sealed class OrderAllocationService
         _logger = logger;
     }
 
-    public async Task<Result<OrderAllocation>> AllocateOrderAsync(Guid orderId, CancellationToken token)
+    public async Task<Result<OrderAllocation>> AllocateOrderAsync(OrderAllocation order, CancellationToken token)
     {
-        var order = await _orderAllocationRepository.GetByOrderId(orderId, token);
-
-        if (order == null)
-            return Result<OrderAllocation>.NotFound(
-                $"Confirmed order for order id {orderId} not found");
-
         if (order.Allocating)
             return Result<OrderAllocation>.Conflict(
-                $"Order id {orderId} is currently allocating");
+                $"Order id {order.Id} is currently allocating");
 
         // if order isn't allocatable there's nothing to do
         if (!order.IsAllocatable)
@@ -58,7 +52,7 @@ internal sealed class OrderAllocationService
         catch (DbUpdateConcurrencyException ex)
         {
             return Result<OrderAllocation>.Conflict(
-                $"Order id {orderId} is currently allocating");
+                $"Order id {order.Id} is currently allocating");
         }
 
         var unallocatedLines = order.OrderLines.Where(w => w.IsAllocatable);

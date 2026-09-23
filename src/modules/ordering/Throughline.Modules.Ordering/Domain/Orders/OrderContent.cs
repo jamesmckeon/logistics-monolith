@@ -42,13 +42,13 @@ internal sealed class OrderContent : ValueObject
         StreetAddress destination,
         IEnumerable<OrderLine> orderLines)
     {
-        var errors = new List<Error>();
+        var errors = new List<FieldError>();
         if (purchaseOrderNumber.Trim() == "")
             errors.Add(new("purchaseOrderNumber is required"));
 
         var linesArray = orderLines.ToArray();
         if (!linesArray.Any())
-            errors.Add(new Error("An order must have at least one line"));
+            errors.Add(new FieldError("An order must have at least one line"));
 
         var duplicates = linesArray
             .GroupBy(grp => grp.SkuCode)

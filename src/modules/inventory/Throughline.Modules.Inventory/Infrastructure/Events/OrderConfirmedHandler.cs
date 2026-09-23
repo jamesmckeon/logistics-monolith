@@ -1,6 +1,6 @@
 using Throughline.Modules.Ordering.Contracts.Events;
 
-namespace Throughline.Modules.Inventory.Infrastructure.Orders;
+namespace Throughline.Modules.Inventory.Infrastructure.Events;
 
 public sealed class OrderConfirmedHandler
 {

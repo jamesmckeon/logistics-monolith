@@ -14,7 +14,7 @@ public sealed record CreateOrderCommand(
 {
     public Result Validate()
     {
-        var errors = new List<Error>();
+        var errors = new List<FieldError>();
 
         if (string.IsNullOrWhiteSpace(PurchaseOrderNumber))
             AddRequiredError("PurchaseOrderNumber", errors);
@@ -40,8 +40,8 @@ public sealed record CreateOrderCommand(
         return errors.Any() ? Result.Validation(errors) : Result.Success();
     }
 
-    private static void AddRequiredError(string paramName, List<Error> errors)
+    private static void AddRequiredError(string paramName, List<FieldError> errors)
     {
-        errors.Add(Error.IsRequired(paramName));
+        errors.Add(FieldError.IsRequired(paramName));
     }
 }

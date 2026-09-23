@@ -4,7 +4,7 @@ using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Skus;
 
-namespace Throughline.Modules.Inventory.Infrastructure.Inventory;
+namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
 internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuReceipt>
 {

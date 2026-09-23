@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 
-namespace Throughline.Modules.Inventory.Infrastructure.Orders;
+namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
 internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<OrderAllocation>
 {

@@ -5,7 +5,7 @@ using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 using Throughline.Modules.Ordering.Contracts.Events;
 
-namespace Throughline.Modules.Inventory.Infrastructure.Orders;
+namespace Throughline.Modules.Inventory.Infrastructure.Events;
 
 internal class OrderConfirmedEventService : IOrderConfirmedEventService
 {

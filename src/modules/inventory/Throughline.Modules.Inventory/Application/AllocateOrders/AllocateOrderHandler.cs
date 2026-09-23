@@ -13,22 +13,25 @@ public sealed class AllocateOrderHandler
     private readonly IOwnerProvider _ownerProvider;
     private readonly AllocationSpecFactory _specFactory;
 
-    public async Task<IEnumerable<AllocatedOrder>> AllocateOrdersAsync(
+    public async Task<AllocateOrdersResult> AllocateOrdersAsync(
         AllocateOrdersCommand command, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         if (!command.OrderIds.Any())
-            throw new ArgumentException("command.OrderIds must contain at least one item");
+            throw new InvalidOperationException("command.OrderIds must contain at least one item");
 
         var orders = await _orderRepository.GetAllByOrderId(command.OrderIds);
 
         if (!orders.Any())
-            return command.OrderIds.Select(s => AllocatedOrder.Failed(s, "ORDER_NOT_FOUND"));
+            return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
 
         foreach (var order in orders)
         {
-            var result = await _orderAllocationService.AllocateOrderAsync(order.Id, token);
+            var result = await _orderAllocationService.AllocateOrderAsync(order, token);
+
+            if (!result.Succeeded)
+                if (result.Errors.)
             throw new NotImplementedException();
         }
     }

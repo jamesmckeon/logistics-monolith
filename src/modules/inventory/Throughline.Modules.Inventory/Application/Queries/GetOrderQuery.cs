@@ -1,14 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Throughline.Modules.Inventory.Application.Models;
-using Throughline.Modules.Inventory.Infrastructure.Orders;
+using Throughline.Modules.Inventory.Infrastructure.Db;
 
 namespace Throughline.Modules.Inventory.Application.Queries;
 
 internal sealed class GetOrderQuery
 {
-    private readonly OrderAllocationDbContext _dbContext;
+    private readonly InventoryDbContext _dbContext;
 
-    public GetOrderQuery(OrderAllocationDbContext dbContext)
+    public GetOrderQuery(InventoryDbContext dbContext)
     {
         _dbContext = dbContext;
     }

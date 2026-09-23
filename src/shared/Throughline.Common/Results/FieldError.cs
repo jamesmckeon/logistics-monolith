@@ -1,8 +1,8 @@
 namespace Throughline.Common.Results;
 
-public sealed record Error
+public sealed record FieldError
 {
-    public Error(string description, string? fieldName = null)
+    public FieldError(string description, string? fieldName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
 
@@ -13,9 +13,9 @@ public sealed record Error
     public string Description { get; }
     public string? FieldName { get; }
 
-    public static Error IsRequired(string paramName)
+    public static FieldError IsRequired(string paramName)
     {
-        return new Error(
+        return new FieldError(
             $"{paramName} is required.",
             paramName
         );

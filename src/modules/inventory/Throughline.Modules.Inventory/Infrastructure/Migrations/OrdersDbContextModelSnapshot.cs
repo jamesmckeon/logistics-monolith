@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Throughline.Modules.Inventory.Infrastructure.Orders;
+using Throughline.Modules.Inventory.Infrastructure.Db;
 
 #nullable disable
 
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
-    [DbContext(typeof(OrderAllocationDbContext))]
+    [DbContext(typeof(InventoryDbContext))]
     partial class OrdersDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

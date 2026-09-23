@@ -3,7 +3,7 @@ using Throughline.Common.Results;
 namespace Throughline.Common.Tests.Results;
 
 [Category("Unit")]
-public sealed class ErrorTests
+public sealed class FieldErrorTests
 {
     #region Constructor
 
@@ -11,21 +11,21 @@ public sealed class ErrorTests
     [TestCase(" ")]
     public void Constructor_DescriptionMissing_ThrowsArgumentException(string val)
     {
-        var ex = Assert.Throws<ArgumentException>(() => _ = new Error(val));
+        var ex = Assert.Throws<ArgumentException>(() => _ = new FieldError(val));
         Assert.That(ex.ParamName, Is.EqualTo("description"));
     }
 
     [Test]
     public void Constructor_NullDescription_ThrowsArgumentNullException()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => _ = new Error(null!));
+        var ex = Assert.Throws<ArgumentNullException>(() => _ = new FieldError(null!));
         Assert.That(ex.ParamName, Is.EqualTo("description"));
     }
 
     [Test]
     public void Constructor_WithFieldName_SetsDescriptionAndFieldName()
     {
-        var sut = new Error("Quantity must be positive", "quantity");
+        var sut = new FieldError("Quantity must be positive", "quantity");
 
         Assert.Multiple(() =>
         {
@@ -37,7 +37,7 @@ public sealed class ErrorTests
     [Test]
     public void Constructor_WithoutFieldName_LeavesFieldNameNull()
     {
-        var sut = new Error("Something went wrong");
+        var sut = new FieldError("Something went wrong");
 
         Assert.Multiple(() =>
         {
@@ -51,7 +51,7 @@ public sealed class ErrorTests
     [Test]
     public void IsRequired_Always_SetsFieldNameAndDescription()
     {
-        var sut = Error.IsRequired("test");
+        var sut = FieldError.IsRequired("test");
 
         Assert.Multiple(() =>
         {

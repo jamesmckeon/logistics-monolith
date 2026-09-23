@@ -7,7 +7,7 @@ using Throughline.Common.Infrastructure;
 using Throughline.Modules.Inventory.Application.Queries;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Infrastructure.Common;
-using Throughline.Modules.Inventory.Infrastructure.Orders;
+using Throughline.Modules.Inventory.Infrastructure.Db;
 
 namespace Throughline.Modules.Inventory.Presentation;
 
@@ -17,9 +17,9 @@ public static class InventoryExtensions
 
     public static IServiceCollection AddInventory(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<OrderAllocationDbContext>(configuration, InfrastructureSettings.SchemaName);
+        services.AddModuleDbContext<InventoryDbContext>(configuration, InfrastructureSettings.SchemaName);
 
-        services.AddScoped<IOrderAllocationRepository, OrderAllocationDbContext>();
+        services.AddScoped<IOrderAllocationRepository, InventoryDbContext>();
         services.AddScoped<GetOrderQuery>();
 
         return services;

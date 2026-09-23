@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Modules.Inventory.Domain.Skus;
 
-namespace Throughline.Modules.Inventory.Infrastructure.Inventory;
+namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
 internal sealed class SkuConfiguration : IEntityTypeConfiguration<Sku>
 {
