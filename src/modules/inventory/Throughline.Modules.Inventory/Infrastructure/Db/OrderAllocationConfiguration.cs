@@ -22,11 +22,8 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
         builder.Property(o => o.OwnerId).HasColumnName("owner_id");
         builder.HasIndex(o => o.OwnerId);
 
-        builder.Property(o => o.AllocationStatus).HasColumnName("allocation_status")
-            .HasConversion<string>();
-
-        builder.Property(o => o.AllocationStatusUpdated)
-            .HasColumnName("allocation_status_updated")
+        builder.Property(o => o.LastUpdated)
+            .HasColumnName("last_updated")
             .HasConversion(
                 v => v!.Value,
                 v => new AppDateTime(v));

@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Throughline.Common.Models;
-using Throughline.Common.Results;
+using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -33,15 +34,15 @@ internal sealed class OrderAllocationService
         _logger = logger;
     }
 
-    public async Task<Result<OrderAllocation>> AllocateOrderAsync(OrderAllocation order, CancellationToken token)
+    public async Task<AllocatedOrder> AllocateOrderAsync(OrderAllocation order, CancellationToken token)
     {
         if (order.Allocating)
-            return Result<OrderAllocation>.Conflict(
-                $"Order id {order.Id} is currently allocating");
+            return AllocatedOrder.Failed(
+                order.Id, AllocationError.OrderAllocating(order.Id));
 
         // if order isn't allocatable there's nothing to do
         if (!order.IsAllocatable)
-            return order;
+            return AllocatedOrder.FullyAllocated(order.Id);
 
         order.SetAllocating(AppDateTime.Now);
 
@@ -49,35 +50,60 @@ internal sealed class OrderAllocationService
         {
             await _unitOfWork.SaveChangesAsync();
         }
-        catch (DbUpdateConcurrencyException ex)
+        catch (DbUpdateConcurrencyException)
         {
-            return Result<OrderAllocation>.Conflict(
-                $"Order id {order.Id} is currently allocating");
+            return AllocatedOrder.Failed(
+                order.Id, AllocationError.OrderAllocating(order.Id));
         }
 
-        var unallocatedLines = order.OrderLines.Where(w => w.IsAllocatable);
+        var skus = await _inventoryRespository.GetSkusByIdAsync(
+            order.OrderLines.Select(ol => ol.SkuId), token);
+        var transaction = await _unitOfWork.BeginTransactionAsync(token);
+
+        var unallocatedLines = order.OrderLines.Where(w => w.IsAllocatable)
+            .ToList();
+        var receipts =
+            await _inventoryRespository.GetAvailableInventoryAsync(unallocatedLines.Select(ul => ul.SkuId), token);
 
         foreach (var line in unallocatedLines)
-        {
-            var receipts = await _inventoryRespository.GetAvailableInventoryBySkuIdAsync(line.SkuId, token);
             _orderlineAllocationService.AllocateOrderLine(order.Id, line, receipts);
 
-            // if the owner doesn't allow for partial allocations and this allocation run produced
-            // at least one partially allocated line, it shouldn't be committed
+        // capture result before changes are rolled back due to
+        // owner's allocation policy
+        var result = ToAllocatedOrder(order, skus);
 
-            if (!_allocationSpec.IsSatisfiedBy(order))
-            {
-                _logger.LogWarning("Canceling allocation for owner id {OwnerId} because the " +
-                                   "owner's configured allocation policy doesnt allow for partial allocation",
-                    order.OwnerId);
-                throw new NotImplementedException("how to rollback changes to order lines?");
-                // then early return
-            }
+        if (!_allocationSpec.IsSatisfiedBy(order))
+            await transaction.RollbackAsync(token);
+        else
+            await transaction.CommitAsync(token);
 
-            await _unitOfWork.SaveChangesAsync();
+        order.StopAllocating(AppDateTime.Now);
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return result;
+    }
+
+    private static AllocatedOrder ToAllocatedOrder(OrderAllocation order, IEnumerable<Sku> allSkus)
+    {
+        if (order.AllocationStatus == AllocationStatus.Allocated)
+            return AllocatedOrder.FullyAllocated(order.Id);
+
+        var shortages = order.OrderLines.Where(ol => ol.IsAllocatable)
+            .Select(s => new AllocationShortage(
+                allSkus.Single(sk => sk.Id == s.Id).Code,
+                s.QuantityRequested,
+                s.QuantityAllocated,
+                s.QuantityShort));
+
+        switch (order.AllocationStatus)
+        {
+            case AllocationStatus.Allocated:
+                return AllocatedOrder.FullyAllocated(order.Id);
+            case AllocationStatus.PartiallyAllocated:
+                return AllocatedOrder.PartiallyAllocated(order.Id, shortages);
+            default:
+                return AllocatedOrder.AllShort(order.Id, shortages);
         }
-
-// set allocating to false and update order allocation status
-        throw new NotImplementedException();
     }
 }

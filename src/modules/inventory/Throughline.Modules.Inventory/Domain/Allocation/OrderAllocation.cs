@@ -15,26 +15,23 @@ internal sealed class OrderAllocation : Entity<Guid>
         int ownerId,
         Guid orderId,
         IEnumerable<OrderLineAllocation> orderLines,
-        AllocationStatus allocationStatus,
         bool allocating)
         : base(orderId)
     {
         ArgumentNullException.ThrowIfNull(orderLines);
 
         _orderLines = orderLines.ToList();
-        AllocationStatus = allocationStatus;
         OwnerId = ownerId;
         Allocating = allocating;
     }
 
     // EF materialization constructor
     private OrderAllocation(
-        Guid id, int ownerId, AllocationStatus allocationStatus, bool allocating)
+        Guid id, int ownerId, bool allocating)
         : base(id)
     {
         _orderLines = [];
         OwnerId = ownerId;
-        AllocationStatus = allocationStatus;
         Allocating = allocating;
     }
 
@@ -42,8 +39,22 @@ internal sealed class OrderAllocation : Entity<Guid>
 
     public IReadOnlyCollection<OrderLineAllocation> OrderLines => _orderLines.AsReadOnly();
 
-    public AllocationStatus AllocationStatus { get; }
-    public AppDateTime? AllocationStatusUpdated { get; private set; }
+    public AllocationStatus AllocationStatus
+    {
+        get
+        {
+            if (OrderLines.All(a => a.AllocationStatus == AllocationStatus.Confirmed))
+                return AllocationStatus.Confirmed;
+
+            if (OrderLines.Any(a => a.AllocationStatus == AllocationStatus.PartiallyAllocated ||
+                                    a.AllocationStatus == AllocationStatus.Confirmed))
+                return AllocationStatus.PartiallyAllocated;
+
+            return AllocationStatus.Allocated;
+        }
+    }
+
+    public AppDateTime? LastUpdated { get; private set; }
     public bool Allocating { get; private set; }
     public bool IsAllocatable => !Allocating && AllocationStatus != AllocationStatus.Allocated;
 
@@ -57,7 +68,7 @@ internal sealed class OrderAllocation : Entity<Guid>
         if (!linesArray.Any())
             return Result<OrderAllocation>.Validation("lines must contain one or more items");
 
-        return new OrderAllocation(ownerId, orderId, linesArray, AllocationStatus.Confirmed, false);
+        return new OrderAllocation(ownerId, orderId, linesArray, false);
     }
 
 
@@ -67,12 +78,18 @@ internal sealed class OrderAllocation : Entity<Guid>
             throw new InvalidOperationException("An order can only be allocated once");
 
         if (!Allocating)
+        {
             Allocating = true;
+            LastUpdated = started;
+        }
     }
 
-    public void StopAllocating()
+    public void StopAllocating(AppDateTime stopped)
     {
         if (Allocating)
+        {
             Allocating = false;
+            LastUpdated = stopped;
+        }
     }
 }

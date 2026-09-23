@@ -27,22 +27,17 @@ internal sealed class OrderLineAllocationService : IOrderlineAllocationService
 
         foreach (var skuReceipt in receipts.OrderByDescending(o => o.ReceivedOn))
         {
-            if (skuReceipt.QuantityAvailable >= orderLine.QuantityUnallocated)
+            if (skuReceipt.QuantityAvailable >= orderLine.QuantityShort)
             {
                 var quantityAllocated = skuReceipt.AllocateToOrder(
-                    orderId, orderLine.QuantityUnallocated, AppDateTime.Now);
+                    orderId, orderLine.QuantityShort, AppDateTime.Now);
 
                 if (quantityAllocated > 0)
                     orderLine.IncreaseQuantityAllocated(quantityAllocated, AppDateTime.Now);
             }
 
-            if (orderLine.QuantityUnallocated == 0)
+            if (orderLine.QuantityShort == 0)
                 break;
         }
-
-        if (orderLine.QuantityUnallocated == 0)
-            orderLine.SetAllocated(AppDateTime.Now);
-        else
-            orderLine.SetPartiallyAllocated(AppDateTime.Now);
     }
 }

@@ -6,4 +6,9 @@ public sealed record AllocationError(string Code, string Description)
     {
         return new AllocationError("ORDER_NOT_FOUND", $"An order for id {orderId} was not found");
     }
+
+    public static AllocationError OrderAllocating(Guid orderId)
+    {
+        return new AllocationError("ORDER_ALLOCATING", $"Order id {orderId} is currently being allocated");
+    }
 }

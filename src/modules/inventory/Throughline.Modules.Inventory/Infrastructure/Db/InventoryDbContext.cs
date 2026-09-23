@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
-internal sealed class InventoryDbContext : DbContext, IOrderAllocationRepository, IInventoryRepository
+internal sealed class InventoryDbContext :
+    DbContext, IOrderAllocationRepository, IInventoryRepository, IOwnerProvider
 {
     private readonly ILogger<InventoryDbContext> _logger;
 
@@ -22,31 +23,43 @@ internal sealed class InventoryDbContext : DbContext, IOrderAllocationRepository
     internal DbSet<OrderAllocation> Orders => Set<OrderAllocation>();
     internal DbSet<Sku> Skus => Set<Sku>();
     internal DbSet<SkuReceipt> SkuReceipts => Set<SkuReceipt>();
+    internal DbSet<Owner> Owners => Set<Owner>();
 
-    public async Task<IReadOnlyCollection<SkuReceipt>> GetAvailableInventoryBySkuIdAsync(
-        EntityId skuId, CancellationToken token)
+    public async Task<IReadOnlyCollection<SkuReceipt>> GetAvailableInventoryAsync(
+        IEnumerable<EntityId> skuIds, CancellationToken token)
     {
-        ArgumentNullException.ThrowIfNull(skuId);
+        ArgumentNullException.ThrowIfNull(skuIds);
 
-        return await SkuReceipts.FromSql(
-                $"""
-                 SELECT r.* FROM inventory.sku_receipts AS r
-                 WHERE r.sku_id = {skuId.Value}
-                   AND r.quantity_received > (
-                       SELECT COALESCE(SUM(a.quantity_allocated), 0)
-                       FROM inventory.receipt_allocations AS a
-                       WHERE a.sku_receipt_id = r.sku_receipt_id)
-                 ORDER BY r.received_on
-                 FOR UPDATE
-                 """)
+        var ids = skuIds.ToArray();
+        if (!ids.Any())
+            return Array.Empty<SkuReceipt>().ToList().AsReadOnly();
+
+        return await SkuReceipts.Where(sr => ids.Any(a => a == sr.Id))
             .ToListAsync(token);
     }
 
-    public async Task<IReadOnlyCollection<Sku>> GetSkusByOwnerIdAsync(int ownerId, IEnumerable<string> skuCodes)
+    public async Task<IReadOnlyCollection<Sku>> GetSkusByOwnerIdAsync(
+        int ownerId, IEnumerable<string> skuCodes, CancellationToken token)
     {
-        return await Skus
-            .Where(s => s.OwnerId == ownerId && skuCodes.Any(a => a == s.Code))
-            .ToListAsync();
+        var codes = skuCodes.ToArray();
+        if (!codes.Any())
+            return Array.Empty<Sku>().ToList().AsReadOnly();
+
+        return await Skus.Where(s => s.OwnerId == ownerId && codes.Any(a => a == s.Code))
+            .ToListAsync(token);
+    }
+
+    public async Task<IReadOnlyCollection<Sku>> GetSkusByIdAsync(IEnumerable<EntityId> skuIds, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(skuIds);
+
+        var skuIdsArray = skuIds.ToArray();
+
+        if (!skuIdsArray.Any())
+            return [];
+
+        return await Skus.Where(s => skuIdsArray.Any(a => s.Id.Value == a.Value))
+            .ToListAsync(token);
     }
 
     public void Add(OrderAllocation order)
@@ -74,30 +87,36 @@ internal sealed class InventoryDbContext : DbContext, IOrderAllocationRepository
         return orders.AsReadOnly();
     }
 
-    public async Task SaveConfirmedOrder(OrderAllocation order, CancellationToken token)
+    public async Task<Owner?> GetOwnerByIdAsync(int ownerId, CancellationToken token)
     {
-        ArgumentNullException.ThrowIfNull(order);
+        return await Owners.SingleOrDefaultAsync(o => o.Id == ownerId, token);
+    }
 
-        Orders.Add(order);
 
-        try
-        {
-            await SaveChangesAsync(token);
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
-                                           {
-                                               SqlState: PostgresErrorCodes.UniqueViolation
-                                           } pg)
-        {
-            // Any unique violation other than the composite PK is unexpected — let it surface.
-            if (pg.ConstraintName != OrderAllocationConfiguration.PrimaryKeyName)
-                throw;
+    public async Task<IReadOnlyCollection<SkuReceipt>> GetAvailableInventoryBySkuIdAsync(
+        EntityId skuId, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(skuId);
 
-            _logger.LogDebug(
-                "Duplicate OrderConfirmed ignored for owner {OwnerId}, order {OrderId}",
-                order.OwnerId,
-                order.Id);
-        }
+        return await SkuReceipts.FromSql(
+                $"""
+                 SELECT r.* FROM inventory.sku_receipts AS r
+                 WHERE r.sku_id = {skuId.Value}
+                   AND r.quantity_received > (
+                       SELECT COALESCE(SUM(a.quantity_allocated), 0)
+                       FROM inventory.receipt_allocations AS a
+                       WHERE a.sku_receipt_id = r.sku_receipt_id)
+                 ORDER BY r.received_on
+                 FOR UPDATE
+                 """)
+            .ToListAsync(token);
+    }
+
+    public async Task<IReadOnlyCollection<Sku>> GetSkusByOwnerIdAsync(int ownerId, IEnumerable<string> skuCodes)
+    {
+        return await Skus
+            .Where(s => s.OwnerId == ownerId && skuCodes.Any(a => a == s.Code))
+            .ToListAsync();
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -109,10 +128,7 @@ internal sealed class InventoryDbContext : DbContext, IOrderAllocationRepository
     {
         modelBuilder.HasDefaultSchema("inventory");
 
-        // Scope to this context's own configurations — the assembly also holds the
-        // Inventory context's Sku/SkuReceipt configs, which must not be pulled into this model.
         modelBuilder.ApplyConfigurationsFromAssembly(
-            typeof(InventoryDbContext).Assembly,
-            t => t.Namespace == typeof(InventoryDbContext).Namespace);
+            typeof(InventoryDbContext).Assembly);
     }
 }

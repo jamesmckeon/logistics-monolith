@@ -2,7 +2,7 @@ using Throughline.Modules.Inventory.Domain.Common;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
-internal sealed class AllocationSpecFactory
+internal sealed class AllocationSpecContext
 {
     private ISpecification<OrderAllocation> GetSpecification(AllocationPolicies policy)
     {

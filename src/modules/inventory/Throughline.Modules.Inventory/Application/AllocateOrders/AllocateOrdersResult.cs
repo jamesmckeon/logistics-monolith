@@ -11,6 +11,15 @@ public sealed record AllocateOrdersResult
         Errors = [];
     }
 
+    internal AllocateOrdersResult(IEnumerable<AllocatedOrder> orders, IEnumerable<AllocationError> errors)
+    {
+        var errorsList = errors.ToList();
+
+        Success = errorsList.Count == 0;
+        Orders = orders.ToList().AsReadOnly();
+        Errors = errorsList.AsReadOnly();
+    }
+
     internal AllocateOrdersResult(IEnumerable<AllocationError> errors)
     {
         Errors = errors.ToList().AsReadOnly();

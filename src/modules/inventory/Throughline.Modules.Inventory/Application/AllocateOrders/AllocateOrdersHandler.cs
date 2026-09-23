@@ -5,13 +5,27 @@ using Throughline.Modules.Inventory.Domain.Owners;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 
-public sealed class AllocateOrderHandler
+public sealed class AllocateOrdersHandler
 {
-    private readonly Logger<AllocateOrderHandler> _logger;
+    private readonly ILogger<AllocateOrdersHandler> _logger;
     private readonly OrderAllocationService _orderAllocationService;
     private readonly IOrderAllocationRepository _orderRepository;
     private readonly IOwnerProvider _ownerProvider;
-    private readonly AllocationSpecFactory _specFactory;
+    private readonly AllocationSpecContext _specContext;
+
+    internal AllocateOrdersHandler(
+        ILogger<AllocateOrdersHandler> logger,
+        OrderAllocationService orderAllocationService,
+        IOrderAllocationRepository orderAllocationRepository,
+        IOwnerProvider ownerProvider,
+        AllocationSpecContext allocationSpecContext)
+    {
+        _logger = logger;
+        _orderAllocationService = orderAllocationService;
+        _orderRepository = orderAllocationRepository;
+        _ownerProvider = ownerProvider;
+        _specContext = allocationSpecContext;
+    }
 
     public async Task<AllocateOrdersResult> AllocateOrdersAsync(
         AllocateOrdersCommand command, CancellationToken token)
@@ -26,14 +40,17 @@ public sealed class AllocateOrderHandler
         if (!orders.Any())
             return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
 
+        var allocatedOrders = new List<AllocatedOrder>();
         foreach (var order in orders)
         {
-            var result = await _orderAllocationService.AllocateOrderAsync(order, token);
-
-            if (!result.Succeeded)
-                if (result.Errors.)
-            throw new NotImplementedException();
+            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(order, token);
+            allocatedOrders.Add(allocatedOrder);
         }
+
+        var missingOrders = command.OrderIds.Except(orders.Select(o => o.Id))
+            .Select(AllocationError.OrderNotFound);
+
+        return new AllocateOrdersResult(allocatedOrders, missingOrders);
     }
 
     private static Result<IReadOnlyCollection<AllocatedOrder>> Validation(

@@ -36,8 +36,8 @@ internal class OrderConfirmedEventService : IOrderConfirmedEventService
 
         var messageSkus = message.Lines.Select(l => l.SkuCode)
             .ToList();
-        var validSkus = await _inventoryRepository.GetSkusByOwnerIdAsync(message.OwnerId,
-            messageSkus);
+        var validSkus = await _inventoryRepository.GetSkusByOwnerIdAsync(
+            message.OwnerId, messageSkus, token);
 
         if (validSkus.Count != messageSkus.Count)
         {
