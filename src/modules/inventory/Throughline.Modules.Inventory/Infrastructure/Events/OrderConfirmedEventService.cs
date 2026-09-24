@@ -2,7 +2,6 @@ using Throughline.Common.Events;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
-using Throughline.Modules.Inventory.Infrastructure.Common;
 using Throughline.Modules.Ordering.Contracts.Events;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Events;
@@ -12,18 +11,15 @@ internal class OrderConfirmedEventService : IOrderConfirmedEventService
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ILogger<OrderConfirmedEventService> _logger;
     private readonly IOrderAllocationRepository _orderAllocationRepository;
-    private readonly IUnitOfWork _unitOfWork;
 
     public OrderConfirmedEventService(
         IOrderAllocationRepository orderAllocationRepository,
         IInventoryRepository inventoryRepository,
-        ILogger<OrderConfirmedEventService> logger,
-        IUnitOfWork unitOfWork)
+        ILogger<OrderConfirmedEventService> logger)
     {
         _orderAllocationRepository = orderAllocationRepository;
         _inventoryRepository = inventoryRepository;
         _logger = logger;
-        _unitOfWork = unitOfWork;
     }
 
     public async Task HandleMessageAsync(OrderConfirmedIntegrationEvent message, CancellationToken token)
@@ -71,12 +67,12 @@ internal class OrderConfirmedEventService : IOrderConfirmedEventService
         if (!orderResult.Succeeded)
             throw Poison(message, _logger, orderResult.Errors.Select(e => e.Description));
 
+        // Saved by Wolverine's EF Core transactional middleware ([Transactional] on OrderConfirmedHandler),
+        // in the same transaction that marks the incoming message as handled.
         _orderAllocationRepository.Add(orderResult.Value);
 
-        await _unitOfWork.SaveChangesAsync();
-
         _logger.LogInformation(
-            "Saved new confirmed order for owner {OwnerId}, order {OrderId}",
+            "Added new confirmed order for owner {OwnerId}, order {OrderId}; committed by the transactional middleware",
             message.OwnerId, message.OrderId);
     }
 

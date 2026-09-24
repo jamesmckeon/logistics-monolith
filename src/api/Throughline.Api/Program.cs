@@ -8,6 +8,7 @@ using Throughline.Common.Events;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine;
+using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
 using Wolverine.Postgresql;
 
@@ -51,6 +52,10 @@ if (string.IsNullOrWhiteSpace(cs))
 builder.Host.UseWolverine(opts =>
 {
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
+
+    // EF Core transactional middleware: [Transactional] handlers commit their DbContext changes
+    // and the incoming message's Handled status in one transaction.
+    opts.UseEntityFrameworkCoreTransactions();
     opts.Policies.UseDurableLocalQueues();
 
     // Poison messages (permanent/contract-violating failures) skip retries and go straight
