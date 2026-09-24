@@ -11,7 +11,6 @@ namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 
 internal sealed class OrderAllocationService
 {
-    private readonly ISpecification<OrderAllocation> _allocationSpec;
     private readonly IInventoryRepository _inventoryRespository;
     private readonly ILogger<OrderAllocationService> _logger;
     private readonly IOrderAllocationRepository _orderAllocationRepository;
@@ -23,19 +22,23 @@ internal sealed class OrderAllocationService
         IUnitOfWork unitOfWork,
         IOrderlineAllocationService orderlineAllocationService,
         IInventoryRepository inventoryRepository,
-        ISpecification<OrderAllocation> allocationSpec,
         ILogger<OrderAllocationService> logger)
     {
         _orderAllocationRepository = repository;
         _unitOfWork = unitOfWork;
         _orderlineAllocationService = orderlineAllocationService;
         _inventoryRespository = inventoryRepository;
-        _allocationSpec = allocationSpec;
         _logger = logger;
     }
 
-    public async Task<AllocatedOrder> AllocateOrderAsync(OrderAllocation order, CancellationToken token)
+    public async Task<AllocatedOrder> AllocateOrderAsync(
+        OrderAllocation order,
+        ISpecification<OrderAllocation> allocationSpec,
+        CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(order);
+        ArgumentNullException.ThrowIfNull(allocationSpec);
+
         if (order.Allocating)
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
@@ -72,7 +75,7 @@ internal sealed class OrderAllocationService
         // owner's allocation policy
         var result = ToAllocatedOrder(order, skus);
 
-        if (!_allocationSpec.IsSatisfiedBy(order))
+        if (!allocationSpec.IsSatisfiedBy(order))
             await transaction.RollbackAsync(token);
         else
             await transaction.CommitAsync(token);

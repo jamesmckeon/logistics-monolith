@@ -4,7 +4,7 @@ namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal sealed class AllocationSpecContext
 {
-    private ISpecification<OrderAllocation> GetSpecification(AllocationPolicies policy)
+    public ISpecification<OrderAllocation> GetSpecification(AllocationPolicies policy)
     {
         switch (policy)
         {
