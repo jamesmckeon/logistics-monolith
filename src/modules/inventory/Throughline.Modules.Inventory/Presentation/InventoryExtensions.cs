@@ -6,8 +6,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
 using Throughline.Modules.Inventory.Application.Queries;
 using Throughline.Modules.Inventory.Domain.Allocation;
+using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 using Throughline.Modules.Inventory.Infrastructure.Db;
+using Throughline.Modules.Inventory.Infrastructure.Events;
 
 namespace Throughline.Modules.Inventory.Presentation;
 
@@ -19,7 +22,17 @@ public static class InventoryExtensions
     {
         services.AddModuleDbContext<InventoryDbContext>(configuration, InfrastructureSettings.SchemaName);
 
-        services.AddScoped<IOrderAllocationRepository, InventoryDbContext>();
+        // Forward each interface the context implements to the same scoped instance.
+        // AddScoped<TInterface, InventoryDbContext>() would build a separate context per
+        // interface, so repositories and the unit of work would track changes in different contexts.
+        services.AddScoped<IOrderAllocationRepository>(sp => sp.GetRequiredService<InventoryDbContext>());
+        services.AddScoped<IInventoryRepository>(sp => sp.GetRequiredService<InventoryDbContext>());
+        services.AddScoped<IOwnerProvider>(sp => sp.GetRequiredService<InventoryDbContext>());
+
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IOrderConfirmedEventService, OrderConfirmedEventService>();
+        services.AddScoped<IOrderlineAllocationService, OrderLineAllocationService>();
+        services.AddScoped<AllocationSpecContext>();
         services.AddScoped<GetOrderQuery>();
 
         return services;
