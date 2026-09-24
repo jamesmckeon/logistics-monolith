@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
+using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
@@ -40,8 +41,19 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
             line.ToTable("orderline_allocations");
             line.WithOwner().HasForeignKey("order_id");
             line.Property<Guid>("order_id").HasColumnType("uuid");
+
+            // EntityId is a globally-unique UUIDv7 assigned by the domain, so it is the key on its own.
+            line.HasKey(l => l.Id).HasName("pk_orderline_allocations");
+            line.Property(l => l.Id)
+                .HasColumnName("orderline_allocation_id")
+                .HasColumnType("uuid")
+                .ValueGeneratedNever();
+
             line.Property(l => l.SkuId).HasColumnName("sku_id").HasColumnType("uuid");
             line.Property(l => l.QuantityRequested).HasColumnName("quantity_requested");
+            line.Property(l => l.LastUpdated)
+                .HasColumnName("last_updated")
+                .HasConversion<AppDateTimeValueConverter>();
         });
 
         // OrderLines is an encapsulated read-only view over the _orderLines backing field.

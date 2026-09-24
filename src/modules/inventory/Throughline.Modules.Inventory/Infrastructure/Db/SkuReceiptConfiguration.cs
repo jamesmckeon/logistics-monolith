@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
+using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Skus;
 
@@ -43,7 +44,7 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
         {
             a.ToTable("receipt_allocations");
             a.WithOwner().HasForeignKey("sku_receipt_id");
-            a.Property<Guid>("sku_receipt_id").HasColumnType("uuid");
+            a.Property<EntityId>("sku_receipt_id").HasColumnType("uuid");
             a.Property(x => x.OrderId).HasColumnName("order_id").HasColumnType("uuid");
             a.Property(x => x.QuantityAllocated).HasColumnName("quantity_allocated");
             a.Property(x => x.AllocatedOn)

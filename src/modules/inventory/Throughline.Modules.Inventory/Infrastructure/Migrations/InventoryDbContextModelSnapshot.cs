@@ -11,7 +11,7 @@ using Throughline.Modules.Inventory.Infrastructure.Db;
 namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    partial class OrdersDbContextModelSnapshot : ModelSnapshot
+    partial class InventoryDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
@@ -31,14 +31,13 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
 
-                    b.Property<string>("AllocationStatus")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("allocation_status");
+                    b.Property<bool>("Allocating")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allocating");
 
-                    b.Property<DateTimeOffset?>("AllocationStatusUpdated")
+                    b.Property<DateTimeOffset?>("LastUpdated")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("allocation_status_updated");
+                        .HasColumnName("last_updated");
 
                     b.Property<int>("OwnerId")
                         .HasColumnType("integer")
@@ -57,6 +56,83 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasDatabaseName("ix_order_allocations_owner_id");
 
                     b.ToTable("order_allocations", "inventory");
+                });
+
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Inventory.SkuReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sku_receipt_id");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.Property<int>("QuantityReceived")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity_received");
+
+                    b.Property<DateTimeOffset>("ReceivedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_on");
+
+                    b.Property<Guid>("SkuId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sku_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sku_receipts");
+
+                    b.HasIndex("SkuId")
+                        .HasDatabaseName("ix_sku_receipts_sku_id");
+
+                    b.HasIndex("OwnerId", "SkuId")
+                        .HasDatabaseName("ix_sku_receipts_owner_id_sku_id");
+
+                    b.ToTable("sku_receipts", "inventory");
+                });
+
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Owners.Owner", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AllocationPolicy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("allocation_policy");
+
+                    b.HasKey("Id")
+                        .HasName("pk_owners");
+
+                    b.ToTable("owners", "inventory");
+                });
+
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Skus.Sku", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sku_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_skus");
+
+                    b.HasIndex("OwnerId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_skus_owner_id_code");
+
+                    b.ToTable("skus", "inventory");
                 });
 
             modelBuilder.Entity("Wolverine.EntityFrameworkCore.Internals.IncomingMessage", b =>
@@ -157,29 +233,39 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                 {
                     b.OwnsMany("Throughline.Modules.Inventory.Domain.Allocation.OrderLineAllocation", "OrderLines", b1 =>
                         {
-                            b1.Property<Guid>("order_id")
+                            b1.Property<Guid>("Id")
                                 .HasColumnType("uuid")
-                                .HasColumnName("order_id");
+                                .HasColumnName("orderline_allocation_id");
 
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
+                            b1.Property<int>("AllocationStatus")
                                 .HasColumnType("integer")
-                                .HasColumnName("id");
+                                .HasColumnName("allocation_status");
 
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+                            b1.Property<DateTimeOffset?>("LastUpdated")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("last_updated");
+
+                            b1.Property<int>("QuantityAllocated")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity_allocated");
 
                             b1.Property<int>("QuantityRequested")
                                 .HasColumnType("integer")
                                 .HasColumnName("quantity_requested");
 
-                            b1.Property<string>("SkuCode")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("character varying(50)")
-                                .HasColumnName("sku_code");
+                            b1.Property<Guid>("SkuId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("sku_id");
 
-                            b1.HasKey("order_id", "Id")
+                            b1.Property<Guid>("order_id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("order_id");
+
+                            b1.HasKey("Id")
                                 .HasName("pk_orderline_allocations");
+
+                            b1.HasIndex("order_id")
+                                .HasDatabaseName("ix_orderline_allocations_order_id");
 
                             b1.ToTable("orderline_allocations", "inventory");
 
@@ -189,6 +275,53 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         });
 
                     b.Navigation("OrderLines");
+                });
+
+            modelBuilder.Entity("Throughline.Modules.Inventory.Domain.Inventory.SkuReceipt", b =>
+                {
+                    b.HasOne("Throughline.Modules.Inventory.Domain.Skus.Sku", null)
+                        .WithMany()
+                        .HasForeignKey("SkuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sku_receipts_skus_sku_id");
+
+                    b.OwnsMany("Throughline.Modules.Inventory.Domain.Inventory.ReceiptAllocation", "Allocations", b1 =>
+                        {
+                            b1.Property<Guid>("sku_receipt_id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("sku_receipt_id");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasColumnName("id");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<DateTimeOffset>("AllocatedOn")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("allocated_on");
+
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("order_id");
+
+                            b1.Property<int>("QuantityAllocated")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity_allocated");
+
+                            b1.HasKey("sku_receipt_id", "Id")
+                                .HasName("pk_receipt_allocations");
+
+                            b1.ToTable("receipt_allocations", "inventory");
+
+                            b1.WithOwner()
+                                .HasForeignKey("sku_receipt_id")
+                                .HasConstraintName("fk_receipt_allocations_sku_receipts_sku_receipt_id");
+                        });
+
+                    b.Navigation("Allocations");
                 });
 #pragma warning restore 612, 618
         }

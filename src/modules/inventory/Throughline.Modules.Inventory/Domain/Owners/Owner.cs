@@ -5,10 +5,10 @@ namespace Throughline.Modules.Inventory.Domain.Owners;
 
 internal sealed class Owner : ValueObject
 {
-    public Owner(int id, AllocationPolicies policy)
+    public Owner(int id, AllocationPolicies allocationPolicy)
     {
         Id = id;
-        AllocationPolicy = policy;
+        AllocationPolicy = allocationPolicy;
     }
 
     public int Id { get; }
