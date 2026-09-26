@@ -30,11 +30,22 @@ public sealed class InventoryDbContext :
     {
         ArgumentNullException.ThrowIfNull(skuIds);
 
-        var ids = skuIds.ToArray();
+        var ids = skuIds.Select(s => s.Value).ToArray();
         if (!ids.Any())
             return Array.Empty<SkuReceipt>().ToList().AsReadOnly();
 
-        return await SkuReceipts.Where(sr => ids.Any(a => a == sr.Id))
+        return await SkuReceipts.FromSql(
+                $"""
+                 SELECT r.* FROM inventory.sku_receipts AS r
+                 WHERE r.sku_id = ANY({ids})
+                   AND r.quantity_received > (
+                       SELECT COALESCE(SUM(a.quantity_allocated), 0)
+                       FROM inventory.receipt_allocations AS a
+                       WHERE a.sku_receipt_id = r.sku_receipt_id)
+                 ORDER BY r.received_on
+                 FOR UPDATE
+                 """)
+            .OrderBy(r => r.ReceivedOn)
             .ToListAsync(token);
     }
 
