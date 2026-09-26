@@ -28,9 +28,6 @@ public static class OrderingExtensions
         services.AddScoped<CreateOrderHandler>();
         services.AddScoped<GetOrderByIdQuery>();
 
-        services.AddHttpContextAccessor();
-        services.AddScoped<RequestContext>();
-
         return services;
     }
 

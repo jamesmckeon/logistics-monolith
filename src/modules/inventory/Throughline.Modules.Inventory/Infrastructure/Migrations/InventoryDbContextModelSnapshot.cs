@@ -237,10 +237,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                                 .HasColumnType("uuid")
                                 .HasColumnName("orderline_allocation_id");
 
-                            b1.Property<int>("AllocationStatus")
-                                .HasColumnType("integer")
-                                .HasColumnName("allocation_status");
-
                             b1.Property<DateTimeOffset?>("LastUpdated")
                                 .HasColumnType("timestamp with time zone")
                                 .HasColumnName("last_updated");

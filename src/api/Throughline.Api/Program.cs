@@ -5,6 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
 using Throughline.Common.Events;
+using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine;
@@ -78,6 +79,8 @@ builder.Host.UseWolverine(opts =>
 if (builder.Environment.IsDevelopment())
     builder.Host.UseResourceSetupOnStartup();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<RequestContext>();
 builder.Services.AddOrdering(builder.Configuration);
 builder.Services.AddInventory(builder.Configuration);
 

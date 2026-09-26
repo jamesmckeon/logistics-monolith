@@ -10,7 +10,6 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         EntityId id,
         EntityId skuId,
         int quantityRequested,
-        AllocationStatus allocationStatus,
         int quantityAllocated) : base(id)
     {
         ArgumentNullException.ThrowIfNull(skuId);
@@ -18,7 +17,6 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
 
         SkuId = skuId;
         QuantityRequested = quantityRequested;
-        AllocationStatus = allocationStatus;
         QuantityAllocated = quantityAllocated;
     }
 
@@ -27,7 +25,20 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
     public int QuantityAllocated { get; private set; }
     public int QuantityShort => QuantityRequested - QuantityAllocated;
     public AppDateTime? LastUpdated { get; private set; }
-    public AllocationStatus AllocationStatus { get; private set; }
+
+    public AllocationStatus AllocationStatus
+    {
+        get
+        {
+            if (QuantityAllocated == 0)
+                return AllocationStatus.Confirmed;
+            if (QuantityAllocated < QuantityRequested)
+                return AllocationStatus.PartiallyAllocated;
+
+            return AllocationStatus.Allocated;
+        }
+    }
+
     public bool IsAllocatable => AllocationStatus != AllocationStatus.Allocated;
 
     public static Result<OrderLineAllocation> Create(EntityId id, EntityId skuId, int quantityRequested)
@@ -38,7 +49,7 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         if (quantityRequested <= 0)
             return Result<OrderLineAllocation>.Validation("quantityRequested must be greater than zero");
 
-        return new OrderLineAllocation(id, skuId, quantityRequested, AllocationStatus.Confirmed, 0);
+        return new OrderLineAllocation(id, skuId, quantityRequested, 0);
     }
 
     public void IncreaseQuantityAllocated(int quantity, AppDateTime updatedOn)
@@ -51,21 +62,12 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         if (quantity == 0)
             return;
 
-        if (QuantityShort + quantity > QuantityRequested)
+        if (QuantityAllocated + quantity > QuantityRequested)
             throw new InvalidOperationException(
                 $"Increasing the allocated quantity by {quantity} " +
                 "would exceed the requested quantity for this order line");
 
         QuantityAllocated += quantity;
         LastUpdated = updatedOn;
-
-        if (QuantityAllocated == QuantityRequested)
-            AllocationStatus = AllocationStatus.Allocated;
-
-        if (QuantityAllocated < QuantityRequested)
-            AllocationStatus = AllocationStatus.PartiallyAllocated;
-
-        // if requested quantity is increased, it can never be status "Confirmed"
-        // which is the baseline/start status
     }
 }

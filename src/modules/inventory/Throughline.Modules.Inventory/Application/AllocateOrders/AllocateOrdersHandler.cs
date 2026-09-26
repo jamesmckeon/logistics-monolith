@@ -37,7 +37,7 @@ public sealed class AllocateOrdersHandler
                 "command.OrderIds must contain at least one item",
                 nameof(command.OrderIds));
 
-        var orders = await _orderRepository.GetAllByOrderId(command.OrderIds);
+        var orders = await _orderRepository.GetAllByOrderIdAsync(command.OrderIds);
         if (!orders.Any())
             return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
 

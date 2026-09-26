@@ -2,7 +2,10 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Modules.Inventory.Application.Models;
+using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
+using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine.Tracking;
@@ -38,6 +41,8 @@ public sealed class IntegrationEventTests
         var ownerId = 1;
         var createOrderCommand = TestCreateOrderCommand();
 
+        await SeedSkus(createOrderCommand, ownerId);
+
         CreateOrderResponse? result = null;
 
         await _testFactory.Services.ExecuteAndWaitAsync(async _ =>
@@ -48,8 +53,7 @@ public sealed class IntegrationEventTests
 
         Assert.That(result, Is.Not.Null);
 
-        var inventoryOrder = await _client.GetFromJsonAsync<OrderAllocationModel>
-            ($"/inventory/orders?ownerId={ownerId}&orderId={result.OrderId}");
+        var inventoryOrder = await GetInventoryOrder(result.OrderId, ownerId);
 
         Assert.That(inventoryOrder, Is.Not.Null);
 
@@ -57,7 +61,7 @@ public sealed class IntegrationEventTests
         {
             Assert.That(inventoryOrder.OrderId, Is.EqualTo(result.OrderId));
             Assert.That(inventoryOrder.OwnerId, Is.EqualTo(result.OwnerId));
-            Assert.That(inventoryOrder.AllocationStatus, Is.EqualTo("NotAllocated"));
+            Assert.That(inventoryOrder.AllocationStatus, Is.EqualTo("Confirmed"));
         });
     }
 
@@ -76,6 +80,12 @@ public sealed class IntegrationEventTests
 
     #region Helpers
 
+    private async Task<InventoryDbContext> GetDbContext()
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        return scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+    }
+
     private static CreateOrderCommand TestCreateOrderCommand()
     {
         return new CreateOrderCommand(
@@ -86,8 +96,28 @@ public sealed class IntegrationEventTests
             "TestCity",
             "OR",
             "97211", [
-                new CreateOrderCommandItem("TestSku", 1)
+                new CreateOrderCommandItem("TESTSKU", 1)
             ]);
+    }
+
+    private async Task SeedSkus(CreateOrderCommand command, int ownerId)
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await dbContext.Skus.AddAsync(new Sku(EntityId.Create(), ownerId, command.Items.Single().Sku));
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<OrderAllocationModel?> GetInventoryOrder(Guid orderId, int ownerId)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, $"{InventoryExtensions.InventoryRoute}/orders/{orderId}");
+        request.Headers.Add("owner_id", ownerId.ToString());
+
+        using var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<OrderAllocationModel>();
     }
 
     private async Task<HttpResponseMessage> PostOrder(CreateOrderCommand command, int ownerId)

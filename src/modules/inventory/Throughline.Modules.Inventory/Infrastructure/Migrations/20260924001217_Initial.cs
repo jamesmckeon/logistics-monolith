@@ -68,7 +68,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                     quantity_requested = table.Column<int>(type: "integer", nullable: false),
                     quantity_allocated = table.Column<int>(type: "integer", nullable: false),
                     last_updated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    allocation_status = table.Column<int>(type: "integer", nullable: false),
                     order_id = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>

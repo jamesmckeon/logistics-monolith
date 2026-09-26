@@ -4,13 +4,13 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
+using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Application.Queries;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 using Throughline.Modules.Inventory.Infrastructure.Db;
-using Throughline.Modules.Inventory.Infrastructure.Events;
 
 namespace Throughline.Modules.Inventory.Presentation;
 
@@ -30,7 +30,6 @@ public static class InventoryExtensions
         services.AddScoped<IOwnerProvider>(sp => sp.GetRequiredService<InventoryDbContext>());
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<IOrderConfirmedEventService, OrderConfirmedEventService>();
         services.AddScoped<IOrderlineAllocationService, OrderLineAllocationService>();
         services.AddScoped<AllocationSpecContext>();
         services.AddScoped<GetOrderQuery>();
@@ -42,9 +41,11 @@ public static class InventoryExtensions
     {
         var group = app.MapGroup(InventoryRoute).WithTags("Inventory");
 
-        group.MapGet("/orders",
-            async (Guid orderId, GetOrderQuery query, CancellationToken token) =>
-                await query.GetOrderByIdAsync(orderId, token));
+        group.MapGet("/orders/{orderId}",
+            async (Guid orderId, RequestContext requestContext, GetOrderQuery query, CancellationToken token) =>
+                await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
+                    ? Results.Ok(order)
+                    : Results.NotFound());
 
         return app;
     }

@@ -7,8 +7,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
+        <ProjectReference Include="..\..\ordering\Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
         <ProjectReference Include="..\..\..\shared\Throughline.Common.Infrastructure\Throughline.Common.Infrastructure.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
