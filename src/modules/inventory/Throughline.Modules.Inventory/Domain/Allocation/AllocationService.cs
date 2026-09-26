@@ -97,6 +97,46 @@ internal sealed class AllocationService : IAllocationService
 
     public AllocationStatus DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(order);
+        ArgumentNullException.ThrowIfNull(shortages);
+
+        if (order.AllocationStatus == AllocationStatus.Allocated)
+            return AllocationStatus.Allocated;
+
+        var shortagesArray = shortages.ToArray();
+
+        var lineStatuses = order.OrderLines
+            .Select(line => DeriveLineStatus(line, shortagesArray))
+            .ToArray();
+
+        if (lineStatuses.All(a => a == AllocationStatus.Confirmed))
+            return AllocationStatus.Confirmed;
+
+        if (lineStatuses.All(a => a == AllocationStatus.Allocated))
+            return AllocationStatus.Allocated;
+
+        return AllocationStatus.PartiallyAllocated;
+    }
+
+    private static AllocationStatus DeriveLineStatus(OrderLineAllocation line, SkuIdShortage[] shortages)
+    {
+        if (!line.IsAllocatable)
+            return AllocationStatus.Allocated;
+
+        // a line without a matching shortage keeps its current allocated quantity
+        var quantityAllocated = shortages.SingleOrDefault(s => s.SkuId == line.SkuId)?.QuantityAllocated
+                                ?? line.QuantityAllocated;
+
+        if (quantityAllocated > line.QuantityRequested)
+            throw new InvalidOperationException("At least one shortage contains a QuantityAllocated that would " +
+                                                "exceed a line's QuantityRequested");
+
+        if (quantityAllocated == 0)
+            return AllocationStatus.Confirmed;
+
+        if (quantityAllocated < line.QuantityRequested)
+            return AllocationStatus.PartiallyAllocated;
+
+        return AllocationStatus.Allocated;
     }
 }
