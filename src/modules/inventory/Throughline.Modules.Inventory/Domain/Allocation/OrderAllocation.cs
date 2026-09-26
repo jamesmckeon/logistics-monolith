@@ -60,7 +60,6 @@ internal sealed class OrderAllocation : Entity<Guid>
 
     public AppDateTime? LastUpdated { get; private set; }
     public bool Allocating { get; private set; }
-    public bool IsAllocatable => !Allocating && AllocationStatus != AllocationStatus.Allocated;
 
     public static Result<OrderAllocation> Create(
         int ownerId, Guid orderId, IEnumerable<OrderLineAllocation> lines)

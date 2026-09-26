@@ -3,7 +3,7 @@ namespace Throughline.Modules.Inventory.Application.Models;
 public sealed record AllocatedOrder(
     Guid OrderId,
     string Status,
-    IReadOnlyCollection<AllocationShortage> Shortages,
+    IReadOnlyCollection<SkuCodeShortage> Shortages,
     IEnumerable<AllocationError> Errors)
 {
     private const string FullyAllocatedStatus = "fullyAllocated";
@@ -22,13 +22,13 @@ public sealed record AllocatedOrder(
     }
 
     internal static AllocatedOrder AllShort(Guid orderId,
-        IEnumerable<AllocationShortage> shortages)
+        IEnumerable<SkuCodeShortage> shortages)
     {
         return new AllocatedOrder(orderId, AllShortStatus, shortages.ToList().AsReadOnly(), []);
     }
 
     internal static AllocatedOrder PartiallyAllocated(Guid orderId,
-        IEnumerable<AllocationShortage> shortages)
+        IEnumerable<SkuCodeShortage> shortages)
     {
         return new AllocatedOrder(orderId, PartiallyAllocatedStatus, shortages.ToList().AsReadOnly(), []);
     }

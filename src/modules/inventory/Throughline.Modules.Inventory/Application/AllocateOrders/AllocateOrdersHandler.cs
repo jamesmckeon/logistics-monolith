@@ -54,7 +54,8 @@ public sealed class AllocateOrdersHandler
         var allocatedOrders = new List<AllocatedOrder>();
         foreach (var order in orders)
         {
-            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(order, token);
+            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
+                order, owner.AllocationPolicy, token);
             allocatedOrders.Add(allocatedOrder);
         }
 

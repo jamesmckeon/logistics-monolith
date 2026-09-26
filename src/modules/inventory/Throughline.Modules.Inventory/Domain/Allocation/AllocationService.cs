@@ -71,4 +71,32 @@ internal sealed class AllocationService : IAllocationService
         return unallocatedLines.All(all =>
             skuQuantities.Single(s => s.SkuId == all.SkuId).QuantityAvailable >= all.QuantityShort);
     }
+
+    public IEnumerable<SkuIdShortage> GetShortedSkus(
+        OrderAllocation order, IEnumerable<SkuReceipt> receipts)
+    {
+        var shortages = new List<SkuIdShortage>();
+
+        var skuQuantities = receipts.GroupBy(s => s.SkuId)
+            .Select(grp => new { SkuId = grp.Key, Quantity = grp.Sum(sm => sm.QuantityAvailable) })
+            .ToList();
+
+        foreach (var line in order.UnallocatedLines)
+        {
+            var availableQuantity = skuQuantities.SingleOrDefault(s => s.SkuId == line.SkuId)?.Quantity ?? 0;
+            if (availableQuantity < line.QuantityShort)
+            {
+                var quantityAllocated = line.QuantityAllocated + availableQuantity;
+                shortages.Add(new(line.SkuId, line.QuantityRequested, quantityAllocated,
+                    line.QuantityRequested - quantityAllocated));
+            }
+        }
+
+        return shortages;
+    }
+
+    public AllocationStatus DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages)
+    {
+        throw new NotImplementedException();
+    }
 }

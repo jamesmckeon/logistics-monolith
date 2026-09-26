@@ -12,9 +12,9 @@ internal sealed class UnitOfWork : IUnitOfWork
         _dbContext = dbContext;
     }
 
-    public async Task SaveChangesAsync()
+    public async Task SaveChangesAsync(CancellationToken token)
     {
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(token);
     }
 
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken token)
