@@ -64,10 +64,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("sku_receipt_id");
 
-                    b.Property<int>("OwnerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("owner_id");
-
                     b.Property<int>("QuantityReceived")
                         .HasColumnType("integer")
                         .HasColumnName("quantity_received");
@@ -86,8 +82,8 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                     b.HasIndex("SkuId")
                         .HasDatabaseName("ix_sku_receipts_sku_id");
 
-                    b.HasIndex("OwnerId", "SkuId")
-                        .HasDatabaseName("ix_sku_receipts_owner_id_sku_id");
+                    b.HasIndex(new[] { "ReceivedOn" }, "ix_skureceipts_receivedon")
+                        .HasDatabaseName("ix_sku_receipts_received_on");
 
                     b.ToTable("sku_receipts", "inventory");
                 });

@@ -40,21 +40,21 @@ internal sealed class OrderAllocation : Entity<Guid>
     public IReadOnlyCollection<OrderLineAllocation> OrderLines => _orderLines.AsReadOnly();
 
     public IReadOnlyCollection<OrderLineAllocation> UnallocatedLines =>
-        _orderLines.Where(ol => ol.AllocationStatus != AllocationStatus.Allocated)
+        _orderLines.Where(ol => ol.AllocationStatuses != AllocationStatuses.Allocated)
             .ToList().AsReadOnly();
 
-    public AllocationStatus AllocationStatus
+    public AllocationStatuses AllocationStatus
     {
         get
         {
-            if (OrderLines.All(a => a.AllocationStatus == AllocationStatus.Confirmed))
-                return AllocationStatus.Confirmed;
+            if (OrderLines.All(a => a.AllocationStatuses == AllocationStatuses.Confirmed))
+                return AllocationStatuses.Confirmed;
 
-            if (OrderLines.Any(a => a.AllocationStatus == AllocationStatus.PartiallyAllocated ||
-                                    a.AllocationStatus == AllocationStatus.Confirmed))
-                return AllocationStatus.PartiallyAllocated;
+            if (OrderLines.Any(a => a.AllocationStatuses == AllocationStatuses.PartiallyAllocated ||
+                                    a.AllocationStatuses == AllocationStatuses.Confirmed))
+                return AllocationStatuses.PartiallyAllocated;
 
-            return AllocationStatus.Allocated;
+            return AllocationStatuses.Allocated;
         }
     }
 
@@ -71,13 +71,20 @@ internal sealed class OrderAllocation : Entity<Guid>
         if (!linesArray.Any())
             return Result<OrderAllocation>.Validation("lines must contain one or more items");
 
+        var duplicates = linesArray.GroupBy(l => l.SkuId)
+            .Select(l => new { SkuId = l.Key, Count = l.Count() })
+            .Where(grp => grp.Count > 1);
+
+        if (duplicates.Any())
+            return Result<OrderAllocation>.Validation("lines must contain unique Sku IDs");
+
         return new OrderAllocation(ownerId, orderId, linesArray, false);
     }
 
 
-    public void SetAllocating(AppDateTime started)
+    public void StartAllocating(AppDateTime started)
     {
-        if (AllocationStatus == AllocationStatus.Allocated)
+        if (AllocationStatus == AllocationStatuses.Allocated)
             throw new InvalidOperationException("An order can only be allocated once");
 
         if (!Allocating)

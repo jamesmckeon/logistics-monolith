@@ -33,5 +33,5 @@ internal interface IAllocationService
     ///     the order would have after applying the identified shortages. This allows the response
     ///     to distinguish between a partially allocated order and one that remains confirmed/unallocated.
     /// </remarks>
-    AllocationStatus DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages);
+    AllocationStatuses DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages);
 }

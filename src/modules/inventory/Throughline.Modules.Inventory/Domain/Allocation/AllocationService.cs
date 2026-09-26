@@ -13,7 +13,7 @@ internal sealed class AllocationService : IAllocationService
         ArgumentNullException.ThrowIfNull(orderLine);
         ArgumentNullException.ThrowIfNull(skuReceipts);
 
-        if (orderLine.AllocationStatus == AllocationStatus.Allocated)
+        if (orderLine.AllocationStatuses == AllocationStatuses.Allocated)
             return;
 
         var receipts = skuReceipts.ToArray();
@@ -44,7 +44,7 @@ internal sealed class AllocationService : IAllocationService
     public bool CanSatisfyPolicyWithCurrentReceipts(OrderAllocation order, IEnumerable<SkuReceipt> receipts,
         AllocationPolicies policy)
     {
-        if (order.AllocationStatus == AllocationStatus.Allocated)
+        if (order.AllocationStatus == AllocationStatuses.Allocated)
             return true;
 
         if (policy == AllocationPolicies.Partial)
@@ -95,13 +95,13 @@ internal sealed class AllocationService : IAllocationService
         return shortages;
     }
 
-    public AllocationStatus DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages)
+    public AllocationStatuses DeriveStatusFromShortages(OrderAllocation order, IEnumerable<SkuIdShortage> shortages)
     {
         ArgumentNullException.ThrowIfNull(order);
         ArgumentNullException.ThrowIfNull(shortages);
 
-        if (order.AllocationStatus == AllocationStatus.Allocated)
-            return AllocationStatus.Allocated;
+        if (order.AllocationStatus == AllocationStatuses.Allocated)
+            return AllocationStatuses.Allocated;
 
         var shortagesArray = shortages.ToArray();
 
@@ -109,19 +109,19 @@ internal sealed class AllocationService : IAllocationService
             .Select(line => DeriveLineStatus(line, shortagesArray))
             .ToArray();
 
-        if (lineStatuses.All(a => a == AllocationStatus.Confirmed))
-            return AllocationStatus.Confirmed;
+        if (lineStatuses.All(a => a == AllocationStatuses.Confirmed))
+            return AllocationStatuses.Confirmed;
 
-        if (lineStatuses.All(a => a == AllocationStatus.Allocated))
-            return AllocationStatus.Allocated;
+        if (lineStatuses.All(a => a == AllocationStatuses.Allocated))
+            return AllocationStatuses.Allocated;
 
-        return AllocationStatus.PartiallyAllocated;
+        return AllocationStatuses.PartiallyAllocated;
     }
 
-    private static AllocationStatus DeriveLineStatus(OrderLineAllocation line, SkuIdShortage[] shortages)
+    private static AllocationStatuses DeriveLineStatus(OrderLineAllocation line, SkuIdShortage[] shortages)
     {
         if (!line.IsAllocatable)
-            return AllocationStatus.Allocated;
+            return AllocationStatuses.Allocated;
 
         // a line without a matching shortage keeps its current allocated quantity
         var quantityAllocated = shortages.SingleOrDefault(s => s.SkuId == line.SkuId)?.QuantityAllocated
@@ -132,11 +132,11 @@ internal sealed class AllocationService : IAllocationService
                                                 "exceed a line's QuantityRequested");
 
         if (quantityAllocated == 0)
-            return AllocationStatus.Confirmed;
+            return AllocationStatuses.Confirmed;
 
         if (quantityAllocated < line.QuantityRequested)
-            return AllocationStatus.PartiallyAllocated;
+            return AllocationStatuses.PartiallyAllocated;
 
-        return AllocationStatus.Allocated;
+        return AllocationStatuses.Allocated;
     }
 }

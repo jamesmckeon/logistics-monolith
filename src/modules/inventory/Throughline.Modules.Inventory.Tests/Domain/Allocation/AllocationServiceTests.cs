@@ -26,7 +26,7 @@ internal sealed class AllocationServiceTests
         line.IncreaseQuantityAllocated(1, AppDateTime.Now);
 
         var order = CreateOrder(line);
-        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatus.Allocated));
+        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
 
         // this shouldn't ever happen, but the sut should be able to handle as per its contract
         var shortage = new SkuIdShortage(line.SkuId, line.QuantityRequested, line.QuantityRequested - 1,
@@ -34,7 +34,7 @@ internal sealed class AllocationServiceTests
 
         var actual = _sut.DeriveStatusFromShortages(order, [shortage]);
 
-        Assert.That(actual, Is.EqualTo(AllocationStatus.Allocated));
+        Assert.That(actual, Is.EqualTo(AllocationStatuses.Allocated));
     }
 
     [Test]
@@ -43,13 +43,13 @@ internal sealed class AllocationServiceTests
         var line = CreateLine();
         var order = CreateOrder(line);
 
-        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatus.Confirmed));
+        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Confirmed));
 
         var shortage = new SkuIdShortage(EntityId.Create(), 2, 0, 2);
 
         var actual = _sut.DeriveStatusFromShortages(order, [shortage]);
 
-        Assert.That(actual, Is.EqualTo(AllocationStatus.Confirmed));
+        Assert.That(actual, Is.EqualTo(AllocationStatuses.Confirmed));
     }
 
     [Test]
@@ -64,7 +64,7 @@ internal sealed class AllocationServiceTests
 
         var actual = _sut.DeriveStatusFromShortages(order, [shortage]);
 
-        Assert.That(actual, Is.EqualTo(AllocationStatus.PartiallyAllocated));
+        Assert.That(actual, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
     }
 
     [Test]
@@ -77,7 +77,7 @@ internal sealed class AllocationServiceTests
 
         var actual = _sut.DeriveStatusFromShortages(order, [shortage]);
 
-        Assert.That(actual, Is.EqualTo(AllocationStatus.Allocated));
+        Assert.That(actual, Is.EqualTo(AllocationStatuses.Allocated));
     }
 
     [Test]
@@ -91,7 +91,7 @@ internal sealed class AllocationServiceTests
 
         var actual = _sut.DeriveStatusFromShortages(order, [shortage]);
 
-        Assert.That(actual, Is.EqualTo(AllocationStatus.PartiallyAllocated));
+        Assert.That(actual, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
     }
 
     [Test]
@@ -129,7 +129,7 @@ internal sealed class AllocationServiceTests
 
         var actual = _sut.GetShortedSkus(order, [receipt]);
 
-        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatus.Allocated));
+        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
         Assert.That(actual, Is.Empty);
     }
 
@@ -282,7 +282,7 @@ internal sealed class AllocationServiceTests
 
         line.IncreaseQuantityAllocated(1, AppDateTime.Now);
 
-        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatus.Allocated));
+        Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [], policy);
 

@@ -59,5 +59,7 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
         // OrderLines is an encapsulated read-only view over the _orderLines backing field.
         builder.Navigation(o => o.OrderLines)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Ignore(i => i.UnallocatedLines);
     }
 }

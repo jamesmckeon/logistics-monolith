@@ -26,30 +26,30 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
     public int QuantityShort => QuantityRequested - QuantityAllocated;
     public AppDateTime? LastUpdated { get; private set; }
 
-    public AllocationStatus AllocationStatus
+    public AllocationStatuses AllocationStatuses
     {
         get
         {
             if (QuantityAllocated == 0)
-                return AllocationStatus.Confirmed;
+                return AllocationStatuses.Confirmed;
             if (QuantityAllocated < QuantityRequested)
-                return AllocationStatus.PartiallyAllocated;
+                return AllocationStatuses.PartiallyAllocated;
 
-            return AllocationStatus.Allocated;
+            return AllocationStatuses.Allocated;
         }
     }
 
-    public bool IsAllocatable => AllocationStatus != AllocationStatus.Allocated;
+    public bool IsAllocatable => AllocationStatuses != AllocationStatuses.Allocated;
 
-    public static Result<OrderLineAllocation> Create(EntityId id, EntityId skuId, int quantityRequested)
+    public static Result<OrderLineAllocation> Create(EntityId orderLineId, EntityId skuId, int quantityRequested)
     {
-        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(orderLineId);
         ArgumentNullException.ThrowIfNull(skuId);
 
         if (quantityRequested <= 0)
             return Result<OrderLineAllocation>.Validation("quantityRequested must be greater than zero");
 
-        return new OrderLineAllocation(id, skuId, quantityRequested, 0);
+        return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0);
     }
 
     public void IncreaseQuantityAllocated(int quantity, AppDateTime updatedOn)

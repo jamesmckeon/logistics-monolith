@@ -34,4 +34,14 @@ public sealed class AppDateTime : ValueObject, IComparable<AppDateTime>
     {
         return left.Value < right.Value;
     }
+
+    public AppDateTime Add(TimeSpan timeSpan)
+    {
+        return new AppDateTime(Value.Add(timeSpan));
+    }
+
+    public AppDateTime Subtract(TimeSpan timeSpan)
+    {
+        return new AppDateTime(Value.Subtract(timeSpan));
+    }
 }

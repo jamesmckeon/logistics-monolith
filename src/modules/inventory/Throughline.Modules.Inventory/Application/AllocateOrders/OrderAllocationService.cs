@@ -43,7 +43,7 @@ internal sealed class OrderAllocationService
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
 
-        order.SetAllocating(AppDateTime.Now);
+        order.StartAllocating(AppDateTime.Now);
 
         try
         {
@@ -94,12 +94,12 @@ internal sealed class OrderAllocationService
     }
 
     private static AllocatedOrder ToAllocatedOrder(
-        Guid orderId, AllocationStatus status, IEnumerable<SkuCodeShortage> shortages)
+        Guid orderId, AllocationStatuses statuses, IEnumerable<SkuCodeShortage> shortages)
     {
-        if (status == AllocationStatus.Allocated)
+        if (statuses == AllocationStatuses.Allocated)
             return AllocatedOrder.FullyAllocated(orderId);
 
-        if (status == AllocationStatus.PartiallyAllocated)
+        if (statuses == AllocationStatuses.PartiallyAllocated)
             return AllocatedOrder.PartiallyAllocated(orderId, shortages);
 
         return AllocatedOrder.AllShort(orderId, shortages);

@@ -34,7 +34,7 @@ internal sealed class GetOrderQuery
                 skuCodes[l.SkuId.Value],
                 l.QuantityRequested,
                 l.QuantityAllocated,
-                l.AllocationStatus.ToString()))
+                l.AllocationStatuses.ToString()))
             .ToList()
             .AsReadOnly();
 
