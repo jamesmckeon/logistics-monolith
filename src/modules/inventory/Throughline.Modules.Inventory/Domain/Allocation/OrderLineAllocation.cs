@@ -59,6 +59,8 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         if (!IsAllocatable)
             throw new InvalidOperationException("line isn't allocatable");
 
+        ArgumentOutOfRangeException.ThrowIfLessThan(quantity, 0);
+
         if (quantity == 0)
             return;
 
