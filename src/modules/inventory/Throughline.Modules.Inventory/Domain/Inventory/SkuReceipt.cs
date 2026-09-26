@@ -1,4 +1,6 @@
 using Throughline.Common.Models;
+using Throughline.Common.Results;
+using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 
 namespace Throughline.Modules.Inventory.Domain.Inventory;
@@ -7,41 +9,27 @@ internal sealed class SkuReceipt : Entity<EntityId>
 {
     private readonly List<ReceiptAllocation> _allocations;
 
-/*
-    private SkuReceipt(Sku sku, int quantityReceived, AppDateTime receivedOn)
-        : base(Guid.CreateVersion7())
-    {
-        ArgumentNullException.ThrowIfNull(sku);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantityReceived);
-        ArgumentNullException.ThrowIfNull(receivedOn);
-
-        // Reference the Sku aggregate by identity, not by object; owner is denormalized for
-        // segregation (every aggregate carries its own OwnerId).
-        SkuId = sku.Id;
-        OwnerId = sku.OwnerId;
-        QuantityReceived = quantityReceived;
-        ReceivedOn = receivedOn;
-        _allocations = [];
-    }
-*/
     // EF materialization constructor — binds mapped scalars and the _allocations backing field.
-    private SkuReceipt(EntityId id, EntityId skuId, int ownerId, int quantityReceived, AppDateTime receivedOn)
+    private SkuReceipt(EntityId id, EntityId skuId, int quantityReceived, AppDateTime receivedOn)
         : base(id)
     {
         SkuId = skuId;
-        OwnerId = ownerId;
         QuantityReceived = quantityReceived;
         ReceivedOn = receivedOn;
         _allocations = [];
     }
 
     public EntityId SkuId { get; }
-    public int OwnerId { get; }
     public int QuantityReceived { get; }
     public AppDateTime ReceivedOn { get; }
     public IReadOnlyCollection<ReceiptAllocation> Allocations => _allocations.AsReadOnly();
 
     public int QuantityAvailable => QuantityReceived - _allocations.Sum(s => s.QuantityAllocated);
+
+    public int AllocateToOrder(OrderAllocation order, int quantity, AppDateTime allocatedOn)
+    {
+        return AllocateToOrder(order.Id, quantity, allocatedOn);
+    }
 
     public int AllocateToOrder(Guid orderid, int quantity, AppDateTime allocatedOn)
     {
@@ -56,5 +44,17 @@ internal sealed class SkuReceipt : Entity<EntityId>
         }
 
         return 0;
+    }
+
+    public static Result<SkuReceipt> Create(
+        EntityId id, EntityId skuId, int quantityReceived, AppDateTime receivedOn)
+    {
+        if (quantityReceived <= 0)
+            return Result<SkuReceipt>.Validation("quantityReceived must be greater than zero");
+
+        if (receivedOn > AppDateTime.Now)
+            return Result<SkuReceipt>.Validation("receivedOn must be in the past");
+
+        return new SkuReceipt(id, skuId, quantityReceived, receivedOn);
     }
 }

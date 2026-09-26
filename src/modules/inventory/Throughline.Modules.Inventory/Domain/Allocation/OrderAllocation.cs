@@ -39,6 +39,10 @@ internal sealed class OrderAllocation : Entity<Guid>
 
     public IReadOnlyCollection<OrderLineAllocation> OrderLines => _orderLines.AsReadOnly();
 
+    public IReadOnlyCollection<OrderLineAllocation> UnallocatedLines =>
+        _orderLines.Where(ol => ol.AllocationStatus != AllocationStatus.Allocated)
+            .ToList().AsReadOnly();
+
     public AllocationStatus AllocationStatus
     {
         get

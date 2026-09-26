@@ -24,4 +24,14 @@ public sealed class AppDateTime : ValueObject, IComparable<AppDateTime>
     {
         yield return Value;
     }
+
+    public static bool operator >(AppDateTime left, AppDateTime right)
+    {
+        return left.Value > right.Value;
+    }
+
+    public static bool operator <(AppDateTime left, AppDateTime right)
+    {
+        return left.Value < right.Value;
+    }
 }

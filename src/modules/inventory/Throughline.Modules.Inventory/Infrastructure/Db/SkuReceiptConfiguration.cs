@@ -19,7 +19,6 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
         builder.Property(r => r.Id).HasColumnName("sku_receipt_id").HasColumnType("uuid");
 
         builder.Property(r => r.SkuId).HasColumnName("sku_id").HasColumnType("uuid");
-        builder.Property(r => r.OwnerId).HasColumnName("owner_id");
         builder.Property(r => r.QuantityReceived).HasColumnName("quantity_received");
 
         builder.Property(r => r.ReceivedOn)
@@ -34,9 +33,6 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
             .WithMany()
             .HasForeignKey(r => r.SkuId)
             .HasConstraintName("fk_sku_receipts_skus_sku_id");
-
-        // The hot allocation filter: available receipts for an owner's SKU, oldest first (FEFO).
-        builder.HasIndex(r => new { r.OwnerId, r.SkuId });
 
         builder.Ignore(r => r.QuantityAvailable);
 
@@ -57,5 +53,7 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
         // Allocations is an encapsulated read-only view over the _allocations backing field.
         builder.Navigation(r => r.Allocations)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(i => i.ReceivedOn, "ix_skureceipts_receivedon");
     }
 }

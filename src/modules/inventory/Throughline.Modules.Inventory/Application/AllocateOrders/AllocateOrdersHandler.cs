@@ -11,20 +11,18 @@ public sealed class AllocateOrdersHandler
     private readonly OrderAllocationService _orderAllocationService;
     private readonly IOrderAllocationRepository _orderRepository;
     private readonly IOwnerProvider _ownerProvider;
-    private readonly AllocationSpecContext _specContext;
+
 
     internal AllocateOrdersHandler(
         ILogger<AllocateOrdersHandler> logger,
         OrderAllocationService orderAllocationService,
         IOrderAllocationRepository orderAllocationRepository,
-        IOwnerProvider ownerProvider,
-        AllocationSpecContext allocationSpecContext)
+        IOwnerProvider ownerProvider)
     {
         _logger = logger;
         _orderAllocationService = orderAllocationService;
         _orderRepository = orderAllocationRepository;
         _ownerProvider = ownerProvider;
-        _specContext = allocationSpecContext;
     }
 
     public async Task<AllocateOrdersResult> AllocateOrdersAsync(
@@ -53,12 +51,10 @@ public sealed class AllocateOrdersHandler
         if (owner == null)
             throw new InvalidOperationException($"An owner with id {ownerIds.Single()} wasn't found in the system");
 
-        var spec = _specContext.GetSpecification(owner.AllocationPolicy);
-
         var allocatedOrders = new List<AllocatedOrder>();
         foreach (var order in orders)
         {
-            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(order, spec, token);
+            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(order, token);
             allocatedOrders.Add(allocatedOrder);
         }
 

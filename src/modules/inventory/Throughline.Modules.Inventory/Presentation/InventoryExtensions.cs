@@ -30,8 +30,7 @@ public static class InventoryExtensions
         services.AddScoped<IOwnerProvider>(sp => sp.GetRequiredService<InventoryDbContext>());
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<IOrderlineAllocationService, OrderLineAllocationService>();
-        services.AddScoped<AllocationSpecContext>();
+        services.AddScoped<IAllocationService, AllocationService>();
         services.AddScoped<GetOrderQuery>();
 
         return services;
