@@ -1,8 +1,15 @@
 # Throughline WMS — Operating Manual
 
-This file tells Claude how to work on **Throughline**, the enterprise WMS being built in
-this repository. Read it at the start of every session that touches requirements, the
-skill backlog, stories, or reviews.
+**Throughline** is an enterprise, multi-client (3PL) **Warehouse Management System** built
+as a **.NET 10 modular monolith**. It is real, production-bar system code — not a practice
+lab. Real WMS requirements at production scale drive the work; the **Staff / Principal /
+Senior** skills the user is growing are the lens the work is reviewed through, never the
+reason a story exists.
+
+This file tells Claude how to work on Throughline: the canonical warehouse profile, bounded
+contexts, how the requirement/skill backlog works, and how stories and reviews are
+generated. The backlog, stories, reviews, and decision register live alongside it in
+`.claude/`.
 
 Test conventions live in @../docs/testing.md — follow them when writing, editing, or reviewing
 C# unit and integration tests.
