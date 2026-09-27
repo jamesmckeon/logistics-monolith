@@ -13,21 +13,26 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         EntityId id,
         EntityId skuId,
         int quantityRequested,
-        int quantityAllocated) : base(id)
+        int quantityAllocated,
+        int quantityShort) : base(id)
     {
         ArgumentNullException.ThrowIfNull(skuId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantityRequested);
+        ArgumentOutOfRangeException.ThrowIfNegative(quantityAllocated);
+        ArgumentOutOfRangeException.ThrowIfNegative(quantityShort);
 
         SkuId = skuId;
         QuantityRequested = quantityRequested;
         QuantityAllocated = quantityAllocated;
+        QuantityShort = quantityShort;
+
         _allocations = new();
     }
 
     public EntityId SkuId { get; }
     public int QuantityRequested { get; }
-    public int QuantityAllocated { get; }
-    public int QuantityShort => QuantityRequested - QuantityAllocated;
+    public int QuantityAllocated { get; private set; }
+    public int QuantityShort { get; private set; }
     public IReadOnlyCollection<ReceiptAllocation> ReceiptAllocations => _allocations;
     public AppDateTime? LastUpdated { get; private set; }
 
@@ -54,12 +59,34 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         if (quantityRequested <= 0)
             return Result<OrderLineAllocation>.Validation("quantityRequested must be greater than zero");
 
-        return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0);
+        return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0, quantityRequested);
     }
 
     public void AllocateReceipt(SkuReceipt receipt, AppDateTime allocatedOn)
     {
-        throw new NotImplementedException();
+        if (receipt.SkuId != SkuId)
+            throw new ArgumentException("Receipt sku must be the same as the line's sku",
+                nameof(receipt));
+
+        if (allocatedOn > AppDateTime.Now)
+            throw new ArgumentException("allocatedOn must be in the past", nameof(allocatedOn));
+
+        if (AllocationStatus == AllocationStatuses.Allocated)
+            throw new InvalidOperationException("Cannot add a receipt to a fully allocated line");
+
+        if (receipt.QuantityAvailable == 0)
+            throw new InvalidOperationException("Cannot allocate a fully allocated receipt");
+
+        var allocation = new ReceiptAllocation(
+            receipt.Id,
+            Math.Min(QuantityShort, receipt.QuantityAvailable),
+            allocatedOn);
+        _allocations.Add(allocation);
+
+        QuantityAllocated += allocation.QuantityAllocated;
+        QuantityShort = QuantityRequested - QuantityAllocated;
+
+        receipt.Allocate(allocation.QuantityAllocated, allocatedOn);
     }
 
     public bool CanAllocate(SkuReceipt receipt)

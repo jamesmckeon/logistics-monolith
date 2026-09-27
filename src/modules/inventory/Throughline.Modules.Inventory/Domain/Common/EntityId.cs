@@ -27,4 +27,9 @@ public sealed class EntityId : ValueObject
     {
         return new EntityId(value);
     }
+
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
 }
