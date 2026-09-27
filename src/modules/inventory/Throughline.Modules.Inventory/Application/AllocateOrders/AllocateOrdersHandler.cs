@@ -8,14 +8,13 @@ namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 public sealed class AllocateOrdersHandler
 {
     private readonly ILogger<AllocateOrdersHandler> _logger;
-    private readonly OrderAllocationService _orderAllocationService;
+    private readonly IOrderAllocationService _orderAllocationService;
     private readonly IOrderAllocationRepository _orderRepository;
     private readonly IOwnerProvider _ownerProvider;
 
-
     internal AllocateOrdersHandler(
         ILogger<AllocateOrdersHandler> logger,
-        OrderAllocationService orderAllocationService,
+        IOrderAllocationService orderAllocationService,
         IOrderAllocationRepository orderAllocationRepository,
         IOwnerProvider ownerProvider)
     {
@@ -44,7 +43,6 @@ public sealed class AllocateOrdersHandler
             throw new ArgumentException(
                 "command.OrderIds must all have the same OwnerId",
                 nameof(command.OrderIds));
-
 
         var owner = await _ownerProvider.GetOwnerByIdAsync(ownerIds.Single(), token);
 

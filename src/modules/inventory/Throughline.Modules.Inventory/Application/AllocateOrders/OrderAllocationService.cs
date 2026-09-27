@@ -11,7 +11,7 @@ namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 ///     Allocates a confirmed order's outstanding demand against available inventory, subject to the
 ///     owner's allocation-completeness policy
 /// </summary>
-internal sealed class OrderAllocationService
+internal sealed class OrderAllocationService : IOrderAllocationService
 {
     private readonly IAllocationService _allocationService;
     private readonly IInventoryRepository _inventoryRespository;
