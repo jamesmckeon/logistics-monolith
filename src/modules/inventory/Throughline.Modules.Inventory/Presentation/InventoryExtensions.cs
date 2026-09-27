@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
 using Throughline.Common.Presentation.Http;
+using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Queries;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Inventory;
@@ -40,12 +41,19 @@ public static class InventoryExtensions
     {
         var group = app.MapGroup(InventoryRoute).WithTags("Inventory");
 
-        group.MapGet("/orders/{orderId}",
+        group.MapGet("/inventory/{orderId}",
             async (Guid orderId, RequestContext requestContext, GetOrderQuery query, CancellationToken token) =>
                 await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
                     ? Results.Ok(order)
                     : Results.NotFound());
 
+
+        group.MapPost("/inventory/allocate", async (AllocateOrdersCommand command,
+            AllocateOrdersHandler hander, CancellationToken token) =>
+        {
+            var result = await hander.AllocateOrdersAsync(command, token);
+            return TypedResults.Ok(result);
+        });
 
         return app;
     }
