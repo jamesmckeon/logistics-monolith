@@ -21,4 +21,9 @@ internal sealed class UnitOfWork : IUnitOfWork
     {
         return _dbContext.Database.BeginTransactionAsync(token);
     }
+
+    public void ClearChanges()
+    {
+        _dbContext.ChangeTracker.Clear();
+    }
 }

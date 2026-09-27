@@ -43,6 +43,9 @@ internal sealed class OrderAllocationService : IOrderAllocationService
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
 
+        if (order.AllocationStatus == AllocationStatuses.Allocated)
+            return AllocatedOrder.FullyAllocated(order.Id);
+
         order.StartAllocating(AppDateTime.Now);
 
         try
@@ -63,7 +66,12 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         var canSatisfyPolicy = _allocationService.CanSatisfyPolicyWithCurrentReceipts(
             order, receipts, policy);
 
-        if (!canSatisfyPolicy) return await ConstructResponseAsync(order, receipts, token);
+        if (!canSatisfyPolicy)
+        {
+            await transaction.RollbackAsync(token);
+            _unitOfWork.ClearChanges();
+            return await ConstructResponseAsync(order, receipts, token);
+        }
 
         foreach (var line in order.UnallocatedLines)
             _allocationService.AllocateOrderLine(order.Id, line, receipts);
