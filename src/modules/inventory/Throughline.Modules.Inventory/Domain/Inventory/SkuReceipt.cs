@@ -6,7 +6,6 @@ namespace Throughline.Modules.Inventory.Domain.Inventory;
 
 internal sealed class SkuReceipt : Entity<EntityId>
 {
-    // EF materialization constructor — binds mapped scalars and the _allocations backing field.
     private SkuReceipt(
         EntityId id, EntityId skuId, int quantityReceived, int quantityAllocated, AppDateTime receivedOn)
         : base(id)
@@ -34,5 +33,10 @@ internal sealed class SkuReceipt : Entity<EntityId>
             return Result<SkuReceipt>.Validation("receivedOn must be in the past");
 
         return new SkuReceipt(id, skuId, quantityReceived, 0, receivedOn);
+    }
+
+    public void Allocate(int quantity)
+    {
+        throw new NotImplementedException();
     }
 }

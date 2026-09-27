@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
-using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Skus;
 
@@ -41,24 +40,6 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
         builder.Property<int>("quantity_available")
             .HasColumnName("quantity_available")
             .HasComputedColumnSql("quantity_received - quantity_allocated", stored: true);
-
-        builder.OwnsMany(r => r.Allocations, a =>
-        {
-            a.ToTable("receipt_allocations");
-            a.WithOwner().HasForeignKey("sku_receipt_id");
-            a.Property<EntityId>("sku_receipt_id").HasColumnType("uuid");
-            a.Property(x => x.OrderId).HasColumnName("order_id").HasColumnType("uuid");
-            a.Property(x => x.QuantityAllocated).HasColumnName("quantity_allocated");
-            a.Property(x => x.AllocatedOn)
-                .HasColumnName("allocated_on")
-                .HasConversion(
-                    v => v.Value,
-                    v => new AppDateTime(v));
-        });
-
-        // Allocations is an encapsulated read-only view over the _allocations backing field.
-        builder.Navigation(r => r.Allocations)
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(i => i.ReceivedOn, "ix_skureceipts_receivedon");
     }

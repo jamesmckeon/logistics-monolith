@@ -23,8 +23,8 @@ internal sealed class AllocationServiceTests
     {
         var line = CreateLine(3);
         var orderId = Guid.CreateVersion7();
-        var receiptOne = CreateReceipt(line.SkuId, 1, AppDateTime.Now.Subtract(new(2, 0, 0)));
-        var receiptTwo = CreateReceipt(line.SkuId, 2, AppDateTime.Now.Subtract(new(1, 0, 0)));
+        var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(2, 0, 0)));
+        var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(1, 0, 0)), 2);
 
         _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
 
@@ -190,7 +190,7 @@ internal sealed class AllocationServiceTests
         var receipt = CreateReceipt(line);
         line.AllocateReceipt(receipt, AppDateTime.Now);
 
-        var actual = _sut.GetShortedSkus(order, [CreateReceipt(line.SkuId, 1,)]);
+        var actual = _sut.GetShortedSkus(order, [CreateReceipt(line.SkuId)]);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
         Assert.That(actual, Is.Empty);
