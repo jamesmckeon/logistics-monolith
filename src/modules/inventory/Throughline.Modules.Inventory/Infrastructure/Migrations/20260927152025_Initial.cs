@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -67,6 +66,7 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                     sku_id = table.Column<Guid>(type: "uuid", nullable: false),
                     quantity_requested = table.Column<int>(type: "integer", nullable: false),
                     quantity_allocated = table.Column<int>(type: "integer", nullable: false),
+                    quantity_short = table.Column<int>(type: "integer", nullable: false),
                     last_updated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     order_id = table.Column<Guid>(type: "uuid", nullable: false)
                 },
@@ -89,9 +89,11 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                 {
                     sku_receipt_id = table.Column<Guid>(type: "uuid", nullable: false),
                     sku_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    owner_id = table.Column<int>(type: "integer", nullable: false),
                     quantity_received = table.Column<int>(type: "integer", nullable: false),
-                    received_on = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    quantity_allocated = table.Column<int>(type: "integer", nullable: false),
+                    received_on = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    last_updated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    quantity_available = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -110,22 +112,21 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                 schema: "inventory",
                 columns: table => new
                 {
+                    receipt_allocation_id = table.Column<Guid>(type: "uuid", nullable: false),
                     sku_receipt_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    order_id = table.Column<Guid>(type: "uuid", nullable: false),
                     quantity_allocated = table.Column<int>(type: "integer", nullable: false),
-                    allocated_on = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    allocated_on = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    orderline_allocation_id = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_receipt_allocations", x => new { x.sku_receipt_id, x.id });
+                    table.PrimaryKey("pk_receipt_allocations", x => x.receipt_allocation_id);
                     table.ForeignKey(
-                        name: "fk_receipt_allocations_sku_receipts_sku_receipt_id",
-                        column: x => x.sku_receipt_id,
+                        name: "fk_receipt_allocations_orderline_allocations_orderline_allocat",
+                        column: x => x.orderline_allocation_id,
                         principalSchema: "inventory",
-                        principalTable: "sku_receipts",
-                        principalColumn: "sku_receipt_id",
+                        principalTable: "orderline_allocations",
+                        principalColumn: "orderline_allocation_id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -142,10 +143,22 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                 column: "order_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_sku_receipts_owner_id_sku_id",
+                name: "ix_receipt_allocations_orderline_allocation_id",
+                schema: "inventory",
+                table: "receipt_allocations",
+                column: "orderline_allocation_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_receipt_allocations_sku_receipt_id",
+                schema: "inventory",
+                table: "receipt_allocations",
+                column: "sku_receipt_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_sku_receipts_received_on",
                 schema: "inventory",
                 table: "sku_receipts",
-                columns: new[] { "owner_id", "sku_id" });
+                column: "received_on");
 
             migrationBuilder.CreateIndex(
                 name: "ix_sku_receipts_sku_id",
@@ -165,10 +178,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "orderline_allocations",
-                schema: "inventory");
-
-            migrationBuilder.DropTable(
                 name: "owners",
                 schema: "inventory");
 
@@ -177,15 +186,19 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                 schema: "inventory");
 
             migrationBuilder.DropTable(
-                name: "order_allocations",
-                schema: "inventory");
-
-            migrationBuilder.DropTable(
                 name: "sku_receipts",
                 schema: "inventory");
 
             migrationBuilder.DropTable(
+                name: "orderline_allocations",
+                schema: "inventory");
+
+            migrationBuilder.DropTable(
                 name: "skus",
+                schema: "inventory");
+
+            migrationBuilder.DropTable(
+                name: "order_allocations",
                 schema: "inventory");
         }
     }

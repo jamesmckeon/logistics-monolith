@@ -5,14 +5,14 @@ using Throughline.Modules.Inventory.Domain.Owners;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 
-public sealed class AllocateOrdersHandler
+internal sealed class AllocateOrdersHandler
 {
     private readonly ILogger<AllocateOrdersHandler> _logger;
     private readonly IOrderAllocationService _orderAllocationService;
     private readonly IOrderAllocationRepository _orderRepository;
     private readonly IOwnerProvider _ownerProvider;
 
-    internal AllocateOrdersHandler(
+    public AllocateOrdersHandler(
         ILogger<AllocateOrdersHandler> logger,
         IOrderAllocationService orderAllocationService,
         IOrderAllocationRepository orderAllocationRepository,

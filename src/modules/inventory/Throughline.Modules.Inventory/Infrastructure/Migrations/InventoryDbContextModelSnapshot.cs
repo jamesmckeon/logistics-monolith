@@ -64,9 +64,17 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("sku_receipt_id");
 
+                    b.Property<DateTimeOffset?>("LastUpdated")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_updated");
+
                     b.Property<int>("QuantityAllocated")
                         .HasColumnType("integer")
                         .HasColumnName("quantity_allocated");
+
+                    b.Property<int>("QuantityAvailable")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity_available");
 
                     b.Property<int>("QuantityReceived")
                         .HasColumnType("integer")
@@ -79,12 +87,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                     b.Property<Guid>("SkuId")
                         .HasColumnType("uuid")
                         .HasColumnName("sku_id");
-
-                    b.Property<int>("quantity_available")
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity_available")
-                        .HasComputedColumnSql("quantity_received - quantity_allocated", true);
 
                     b.HasKey("Id")
                         .HasName("pk_sku_receipts");
@@ -255,6 +257,10 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                                 .HasColumnType("integer")
                                 .HasColumnName("quantity_requested");
 
+                            b1.Property<int>("QuantityShort")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity_short");
+
                             b1.Property<Guid>("SkuId")
                                 .HasColumnType("uuid")
                                 .HasColumnName("sku_id");
@@ -274,6 +280,47 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("order_id")
                                 .HasConstraintName("fk_orderline_allocations_order_allocations_order_id");
+
+                            b1.OwnsMany("Throughline.Modules.Inventory.Domain.Allocation.ReceiptAllocation", "ReceiptAllocations", b2 =>
+                                {
+                                    b2.Property<Guid>("receipt_allocation_id")
+                                        .ValueGeneratedOnAdd()
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("receipt_allocation_id");
+
+                                    b2.Property<DateTimeOffset>("AllocatedOn")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("allocated_on");
+
+                                    b2.Property<int>("QuantityAllocated")
+                                        .HasColumnType("integer")
+                                        .HasColumnName("quantity_allocated");
+
+                                    b2.Property<Guid>("SkuReceiptId")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("sku_receipt_id");
+
+                                    b2.Property<Guid>("orderline_allocation_id")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("orderline_allocation_id");
+
+                                    b2.HasKey("receipt_allocation_id")
+                                        .HasName("pk_receipt_allocations");
+
+                                    b2.HasIndex("orderline_allocation_id")
+                                        .HasDatabaseName("ix_receipt_allocations_orderline_allocation_id");
+
+                                    b2.HasIndex(new[] { "SkuReceiptId" }, "ix_receipt_allocations_sku_receipt_id")
+                                        .HasDatabaseName("ix_receipt_allocations_sku_receipt_id");
+
+                                    b2.ToTable("receipt_allocations", "inventory");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("orderline_allocation_id")
+                                        .HasConstraintName("fk_receipt_allocations_orderline_allocations_orderline_allocat");
+                                });
+
+                            b1.Navigation("ReceiptAllocations");
                         });
 
                     b.Navigation("OrderLines");
@@ -287,43 +334,6 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sku_receipts_skus_sku_id");
-
-                    b.OwnsMany("Throughline.Modules.Inventory.Domain.Inventory.ReceiptAllocation", "Allocations", b1 =>
-                        {
-                            b1.Property<Guid>("sku_receipt_id")
-                                .HasColumnType("uuid")
-                                .HasColumnName("sku_receipt_id");
-
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer")
-                                .HasColumnName("id");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
-
-                            b1.Property<DateTimeOffset>("AllocatedOn")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("allocated_on");
-
-                            b1.Property<Guid>("OrderId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("order_id");
-
-                            b1.Property<int>("QuantityAllocated")
-                                .HasColumnType("integer")
-                                .HasColumnName("quantity_allocated");
-
-                            b1.HasKey("sku_receipt_id", "Id")
-                                .HasName("pk_receipt_allocations");
-
-                            b1.ToTable("receipt_allocations", "inventory");
-
-                            b1.WithOwner()
-                                .HasForeignKey("sku_receipt_id")
-                                .HasConstraintName("fk_receipt_allocations_sku_receipts_sku_receipt_id");
-                        });
-
-                    b.Navigation("Allocations");
                 });
 #pragma warning restore 612, 618
         }

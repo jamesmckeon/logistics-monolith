@@ -32,6 +32,8 @@ public static class InventoryExtensions
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAllocationService, AllocationService>();
+        services.AddScoped<IOrderAllocationService, OrderAllocationService>();
+        services.AddScoped<AllocateOrdersHandler>();
         services.AddScoped<GetOrderQuery>();
 
         return services;
