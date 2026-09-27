@@ -181,7 +181,7 @@ internal sealed class OrderAllocationTests
     {
         var line = CreateLine();
         var partialLine = CreateLine(2);
-        var receipt = CreateReceipt(line);
+        var receipt = CreateReceipt(partialLine);
         partialLine.AllocateReceipt(receipt, AppDateTime.Now);
 
         var order = CreateOrder(line, partialLine);
