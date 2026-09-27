@@ -8,7 +8,7 @@ using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 using Throughline.Modules.Ordering.Presentation;
 
-namespace Throughline.Api.Tests;
+namespace Throughline.Api.Tests.Ordering;
 
 [Category("Integration")]
 public class OrderingTests

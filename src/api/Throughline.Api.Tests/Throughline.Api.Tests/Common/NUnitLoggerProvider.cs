@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Throughline.Api.Tests;
+namespace Throughline.Api.Tests.Common;
 
 // Routes the in-memory host's logs to NUnit's output so failures (e.g. an unhandled 500)
 // are visible in the test runner. Test infrastructure only — not app observability.

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
-namespace Throughline.Api.Tests;
+namespace Throughline.Api.Tests.Common;
 
 internal abstract class TestFactoryBase : WebApplicationFactory<Program>
 {

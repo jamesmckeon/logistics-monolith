@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orders.OrdersDbContext;
 
-namespace Throughline.Api.Tests;
+namespace Throughline.Api.Tests.Common;
 
 internal sealed class IntegrationEventsTestFactory : TestFactoryBase
 {

@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Api.Tests.Common;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 
-namespace Throughline.Api.Tests;
+namespace Throughline.Api.Tests.Ordering;
 
 internal sealed class OrderingTestFactory : TestFactoryBase
 {
