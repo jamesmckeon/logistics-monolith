@@ -50,10 +50,17 @@ public static class InventoryExtensions
                     : Results.NotFound());
 
 
-        group.MapPost("/orders/allocate", async (AllocateOrdersCommand command,
+        group.MapPost("/orders/allocate", async Task<IResult> (
+            AllocateOrdersCommand command,
             AllocateOrdersHandler hander, CancellationToken token) =>
         {
             var result = await hander.AllocateOrdersAsync(command, token);
+
+            if (result.IsBadRequest)
+            {
+                return TypedResults.BadRequest("At least one order id is required");
+            }
+
             return TypedResults.Ok(result);
         });
 

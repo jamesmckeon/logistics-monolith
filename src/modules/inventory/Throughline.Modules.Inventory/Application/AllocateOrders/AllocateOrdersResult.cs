@@ -2,7 +2,7 @@ using Throughline.Modules.Inventory.Application.Models;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 
-public sealed record AllocateOrdersResult
+internal sealed record AllocateOrdersResult
 {
     internal AllocateOrdersResult(IEnumerable<AllocatedOrder> orders)
     {
@@ -26,6 +26,8 @@ public sealed record AllocateOrdersResult
         Success = false;
         Orders = [];
     }
+
+    public bool IsBadRequest => Errors.Any(a => a.Code == AllocationError.InvalidRequestCode);
 
     public bool Success { get; }
     public IReadOnlyCollection<AllocationError> Errors { get; }

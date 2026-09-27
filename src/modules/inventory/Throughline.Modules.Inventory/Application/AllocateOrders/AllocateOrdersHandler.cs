@@ -30,24 +30,31 @@ internal sealed class AllocateOrdersHandler
         ArgumentNullException.ThrowIfNull(command);
 
         if (!command.OrderIds.Any())
-            throw new ArgumentException(
-                "command.OrderIds must contain at least one item",
-                nameof(command.OrderIds));
+        {
+            return new AllocateOrdersResult(
+                [AllocationError.InvalidRequest("command must contain at least one order id")]);
+        }
 
         var orders = await _orderRepository.GetAllByOrderIdAsync(command.OrderIds);
         if (!orders.Any())
+        {
             return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
+        }
 
         var ownerIds = orders.Select(o => o.OwnerId).Distinct().ToList();
         if (ownerIds.Count > 1)
+        {
             throw new ArgumentException(
                 "command.OrderIds must all have the same OwnerId",
                 nameof(command.OrderIds));
+        }
 
         var owner = await _ownerProvider.GetOwnerByIdAsync(ownerIds.Single(), token);
 
         if (owner == null)
+        {
             throw new InvalidOperationException($"An owner with id {ownerIds.Single()} wasn't found in the system");
+        }
 
         var allocatedOrders = new List<AllocatedOrder>();
         foreach (var order in orders)

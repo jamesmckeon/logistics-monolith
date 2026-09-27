@@ -1,6 +1,6 @@
 namespace Throughline.Modules.Inventory.Application.Models;
 
-public sealed record AllocatedOrder(
+internal sealed record AllocatedOrder(
     Guid OrderId,
     string Status,
     IReadOnlyCollection<SkuCodeShortage> Shortages,
