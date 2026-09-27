@@ -6,9 +6,9 @@ internal sealed record AllocatedOrder(
     IReadOnlyCollection<SkuCodeShortage> Shortages,
     IEnumerable<AllocationError> Errors)
 {
-    private const string FullyAllocatedStatus = "fullyAllocated";
-    private const string FailedStatus = "failed";
-    private const string AllShortStatus = "notAllocated";
+    public const string FullyAllocatedStatus = "fullyAllocated";
+    public const string FailedStatus = "failed";
+    public const string AllShortStatus = "notAllocated";
     public const string PartiallyAllocatedStatus = "partiallyAllocated";
 
     internal static AllocatedOrder FullyAllocated(Guid orderId)

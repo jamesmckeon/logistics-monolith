@@ -2,10 +2,16 @@
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Models;
+using Throughline.Modules.Inventory.Domain.Allocation;
+using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Owners;
+using Throughline.Modules.Inventory.Domain.Skus;
+using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Inventory.Presentation;
-using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Api.Tests.Inventory;
 
@@ -14,14 +20,32 @@ public class InventoryTests
 {
     private HttpClient _client;
     private InventoryTestFactory _testFactory;
+    private List<Sku> TestSkus { get; set; }
+    private Owner PartialAllocationOwner { get; set; }
+    private Owner ShipCompleteOwner { get; set; }
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
         _testFactory = new();
         await _testFactory.InitializeAsync();
+
         _client = _testFactory.CreateClient();
         await _testFactory.ApplyMigrationsAsync();
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+
+        TestSkus = Enumerable.Range(1, 5).Select(i => new Sku(EntityId.Create(), 1, $"SKU{i}"))
+            .ToList();
+        await dbContext.Skus.AddRangeAsync(TestSkus);
+
+        PartialAllocationOwner = new Owner(1, AllocationPolicies.Partial);
+        dbContext.Owners.Add(PartialAllocationOwner);
+        ShipCompleteOwner = new Owner(2, AllocationPolicies.ShipComplete);
+        dbContext.Owners.Add(ShipCompleteOwner);
+
+        await dbContext.SaveChangesAsync();
     }
 
     [OneTimeTearDown]
@@ -40,304 +64,183 @@ public class InventoryTests
         await ResetAsync();
     }
 
-    #region Post
+    [Test]
+    public async Task Post_EmptyRequest_ReturnsInvalidRequest()
+    {
+        var response = await PostOrderAllocationsAsync(new AllocateOrdersCommand([]), 1);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await GetBadRequestErrors(response);
+        Assert.That(errors, Is.Not.Null);
+
+        var error = errors.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Code, Is.EqualTo(AllocationError.OrderIdsEmptyCode));
+            Assert.That(error.Description, Is.EqualTo("command must contain at least one order id"));
+        });
+    }
+
 
     [Test]
-    public async Task Post_InvalidRequest_ReturnsInvalidRequest()
+    public async Task Post_DuplicateOrderIds_ReturnsInvalidRequest()
     {
-        var response = await PostOrderAllocations(new AllocateOrdersCommand([]), 1);
+        var orderId = Guid.CreateVersion7();
+        var response = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderId, orderId]), 1);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await GetBadRequestErrors(response);
+        Assert.That(errors, Is.Not.Null);
+
+        var error = errors.Single();
+        var expectedMessage = $"The request contains the following duplicate order ids: {orderId}";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Code, Is.EqualTo(AllocationError.DuplicateOrderIdsCode));
+            Assert.That(error.Description, Is.EqualTo(expectedMessage));
+        });
+    }
+
+    [Test]
+    public async Task Post_OrderAllocating_ReturnsExpectedError()
+    {
+        var orderId = Guid.CreateVersion7();
+        var order = CreateOrder(PartialAllocationOwner, orderId, CreateLine(TestSkus.First()));
+
+        var receipts = Enumerable.Range(1, 3).Select(i => CreateSkuReceipt(order.OrderLines.Single().SkuId, i));
+
+        await SeedOrdersAndReceiptsAsync(receipts, order);
+
+        var command = new AllocateOrdersCommand([orderId]);
+        var requests = Enumerable.Range(0, 3)
+            .Select(_ => PostOrderAllocationsAsync(command, PartialAllocationOwner.Id));
+
+        var responses = await Task.WhenAll(requests);
+        Assert.That(responses.Select(r => r.StatusCode), Is.All.EqualTo(HttpStatusCode.OK));
+
+        var results = await Task.WhenAll(responses.Select(GetResult));
+        Assert.That(results, Is.All.Not.Null);
+
+        var orderResults = results.SelectMany(r => r!.Orders)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orderResults.Count, Is.EqualTo(3));
+            Assert.That(
+                orderResults.Count(r =>
+                    r.Errors.Any() && r!.Errors.Single().Code == AllocationError.OrderAllocatingCode),
+                Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task Post_ShipCompleteOwner_FulfillsOrderOnSecondRequest()
+    {
+        // create one order that will fail allocation the first time but succeed
+        // when allocation is re-requested
+        var orderIdOne = Guid.CreateVersion7();
+
+        var skuOne = TestSkus.First();
+        var lineOne = CreateLine(skuOne);
+
+        var skuTwo = TestSkus.Skip(1).Take(1).First();
+        var lineTwo = CreateLine(skuTwo, 99);
+
+        var orderOne = CreateOrder(ShipCompleteOwner, orderIdOne, lineOne, lineTwo);
+
+        var firstPassReceipts = new[]
+        {
+            CreateSkuReceipt(skuOne.Id, 1),
+            CreateSkuReceipt(skuTwo.Id, 98)
+        }.ToList();
+
+        // create a second order that'll pass on the first attempts
+        var orderIdTwo = Guid.CreateVersion7();
+        var orderTwoSku = TestSkus.Skip(2).First();
+        var orderTwoLine = CreateLine(orderTwoSku);
+        var orderTwo = CreateOrder(ShipCompleteOwner, orderIdTwo, orderTwoLine);
+        var orderTwoReceipt = CreateSkuReceipt(orderTwoSku.Id, 2);
+
+        firstPassReceipts.Add(orderTwoReceipt);
+
+        await SeedOrdersAndReceiptsAsync(firstPassReceipts, orderOne, orderTwo);
+
+        var response = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderIdOne, orderIdTwo]),
+            ShipCompleteOwner.Id);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
         var result = await GetResult(response);
         Assert.That(result, Is.Not.Null);
 
-        var error = result.Errors.Single();
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That(error.Code, Is.EqualTo(AllocationError.InvalidRequestCode));
-            Assert.That(error.Description, Is.EqualTo(AllocationError.InvalidRequestCode));
-        });
+        Assert.That(result.Orders.Single(s => s.OrderId == orderIdOne).Status,
+            Is.EqualTo(AllocatedOrder.AllShortStatus));
+
+        Assert.That(result.Orders.Single(s => s.OrderId == orderIdTwo).Status,
+            Is.EqualTo(nameof(AllocatedOrder.FullyAllocatedStatus)));
     }
 
-/*
-    [Test]
-    public async Task Post_OrderExistsWithDifferentContents_ReturnsConflict()
+    private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)
     {
-        var existingCommand = TestCommand("Po1");
-        var existingRecord = TestOrder(existingCommand);
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(existingRecord);
-            return Task.CompletedTask;
-        });
-
-        var newCommand = TestCommand("Po2");
-
-        var response = await PostOrderAllocations(newCommand, existingRecord.OwnerId);
-        var problemDetails = await GetResult(response);
-        Assert.That(problemDetails, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-            Assert.That(problemDetails.Detail,
-                Is.EqualTo(
-                    $"Reference #{newCommand.ReferenceNumber} already identifies an order with different contents."));
-        });
+        await dbContext.SkuReceipts.AddRangeAsync(receipts);
+        await dbContext.Orders.AddRangeAsync(order);
+        await dbContext.SaveChangesAsync();
     }
 
-    [Test]
-    public async Task Post_OrderExists_ReturnsNotCreated()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        var response = await PostOrderAllocations(command, orderRecord.OwnerId);
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
-        Assert.That(result, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(result.OwnerId, Is.EqualTo(orderRecord.OwnerId));
-            Assert.That(result.OrderId, Is.EqualTo(orderRecord.OrderId));
-            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(orderRecord.ReferenceNumber));
-        });
-    }
-
-
-    [Test]
-    public async Task Post_NewOrder_ReturnsCreatedAndFiresEvent()
-    {
-        var ownerId = 1;
-        var command = TestCommand();
-
-        var response = await PostOrderAllocations(command, ownerId);
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
-        Assert.That(result, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-            Assert.That(result.OwnerId, Is.EqualTo(ownerId));
-            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-        });
-    }
-
-
-    [Test]
-    public async Task Post_ConcurrentSubmissions_CreatesOneResult()
-    {
-        const int ownerId = 1;
-        const int concurrency = 2;
-        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
-
-        var responses = await PostConcurrently(commands, ownerId);
-
-        var bodies = await Task.WhenAll(
-            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
-        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
-        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
-            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
-            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
-        });
-    }
-
-    #endregion
-
-
-    #region Get
-
-    [Test]
-    public async Task Get_OrderExists_ReturnsOk()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", orderRecord.OwnerId.ToString());
-
-        var response = await _client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        var model = await response.Content.ReadFromJsonAsync<OrderModel>();
-
-        Assert.That(model, Is.Not.Null);
-
-        var expectedDestination = new DestinationModel(
-            orderRecord.StreetAddressOne, orderRecord.StreetAddressTwo,
-            orderRecord.City, orderRecord.State, orderRecord.Zipcode);
-        var expectedLines = orderRecord.OrderLines.Select(i => new OrderLineModel(i.SkuCode, i.Quantity));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(model.OwnerId, Is.EqualTo(orderRecord.OwnerId));
-            Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.OrderId, Is.EqualTo(orderRecord.OrderId));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(orderRecord.PurchaseOrderNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedDestination));
-            Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
-        });
-    }
-
-    [Test]
-    public async Task Get_OrderNotFound_ReturnsNotFound()
-    {
-        var orderId = Guid.NewGuid();
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderId}");
-        request.Headers.Add("owner_id", "1");
-
-        var response = await _client.SendAsync(request);
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-    }
-
-    [Test]
-    public async Task Get_OrderExistsForDifferentOwner_ReturnsNotFound()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", (orderRecord.OwnerId + 1).ToString()); // different owner
-
-        var response = await _client.SendAsync(request);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-    }
-
-    #endregion
+    private sealed record AllocateOrdersResponse(
+        bool Success,
+        IReadOnlyCollection<AllocatedOrder> Orders,
+        IReadOnlyCollection<AllocationError> Errors);
 
     #region Helpers
 
-    // Fires all requests "at once": every task parks on the gate, then we release together.
-    private async Task<IReadOnlyList<HttpResponseMessage>> PostConcurrently(
-        IReadOnlyList<CreateOrderCommand> commands, int ownerId)
+    private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines)
     {
-        var gate = new TaskCompletionSource();
-        var tasks = commands
-            .Select(async cmd =>
-            {
-                await gate.Task; // park here until released
-                return await PostOrderAllocations(cmd, ownerId); // reuses your existing helper
-            })
-            .ToArray();
-
-        gate.SetResult(); // launch together
-        return await Task.WhenAll(tasks);
+        return OrderAllocation.Create(owner.Id, orderId, lines)
+            .Value!;
     }
 
-    private async Task<int> CountOrdersAsync(int ownerId, string reference)
+    private static OrderLineAllocation CreateLine(Sku sku, int quantityRequested = 1)
     {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
-        return await db.Orders.CountAsync(o => o.OwnerId == ownerId && o.ReferenceNumber == reference);
+        return OrderLineAllocation.Create(EntityId.Create(), sku.Id, quantityRequested)
+            .Value!;
     }
 
-    private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
+    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived)
     {
-        var orderId = Guid.CreateVersion7();
-        var orderRecord = new OrderRecord
-        {
-            OrderId = orderId,
-            OwnerId = ownerId,
-            PurchaseOrderNumber = command.PurchaseOrderNumber,
-            ReferenceNumber = command.ReferenceNumber,
-            StreetAddressOne = command.StreetAddressOne,
-            StreetAddressTwo = command.StreetAddressTwo,
-            City = command.City,
-            State = command.State,
-            Zipcode = command.PostalCode,
-            OrderLines =
-            [
-                new OrderLineRecord
-                {
-                    OrderId = orderId,
-                    SkuCode = "TestSku",
-                    Quantity = 1
-                }
-            ]
-        };
-        return orderRecord;
+        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
+            .Value!;
     }
 
-    private static CreateOrderCommand TestCommand()
+    private static Task<AllocationError[]?> GetBadRequestErrors(HttpResponseMessage message)
     {
-        return new CreateOrderCommand(
-            "TESTPO",
-            "testreference",
-            "test address",
-            null,
-            "TestCity",
-            "OR",
-            "97211", [
-                new CreateOrderCommandItem("TestSku", 1)
-            ]);
+        return message.Content.ReadFromJsonAsync<AllocationError[]>();
     }
 
-    private static CreateOrderCommand TestCommand(string purchaseOrderNumber)
-    {
-        return new CreateOrderCommand(
-            purchaseOrderNumber,
-            "testreference",
-            "test address",
-            null,
-            "TestCity",
-            "OR",
-            "97211", [
-                new CreateOrderCommandItem("TestSku", 1)
-            ]);
-    }
-*/
-    private static async Task<AllocateOrdersResult?> GetResult(HttpResponseMessage response)
+    private static async Task<AllocateOrdersResponse?> GetResult(HttpResponseMessage response)
     {
         Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
-        return await response.Content.ReadFromJsonAsync<AllocateOrdersResult>();
-    }
-
-    private async Task SeedAsync(Func<OrdersDbContext, Task> seed)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
-        await seed(dbContext);
-        await dbContext.SaveChangesAsync();
+        return await response.Content.ReadFromJsonAsync<AllocateOrdersResponse>();
     }
 
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
+        await dbContext.SkuReceipts.ExecuteDeleteAsync();
+        // owners and skus are static lookup data, reused across tests
     }
 
-    private async Task<HttpResponseMessage> PostOrderAllocations(AllocateOrdersCommand command, int ownerId)
+    private async Task<HttpResponseMessage> PostOrderAllocationsAsync(AllocateOrdersCommand command, int ownerId)
     {
         var url = $"{InventoryExtensions.InventoryRoute}/orders/allocate";
 
@@ -347,6 +250,10 @@ public class InventoryTests
         request.Content = JsonContent.Create(command);
 
         return await _client.SendAsync(request);
+    }
+
+    private async Task SeedTestData(OrderAllocation order, IEnumerable<SkuReceipt> receipts)
+    {
     }
 
     #endregion

@@ -2,7 +2,9 @@ namespace Throughline.Modules.Inventory.Application.Models;
 
 internal sealed record AllocationError(string Code, string Description)
 {
-    public const string InvalidRequestCode = "INVALID_REQUEST";
+    public const string OrderIdsEmptyCode = "ORDERIDS_MISSING";
+    public const string DuplicateOrderIdsCode = "DUPLICATE_ORDERS";
+    public const string OrderAllocatingCode = "ORDER_ALLOCATING";
 
     public static AllocationError OrderNotFound(Guid orderId)
     {
@@ -11,11 +13,19 @@ internal sealed record AllocationError(string Code, string Description)
 
     public static AllocationError OrderAllocating(Guid orderId)
     {
-        return new AllocationError("ORDER_ALLOCATING", $"Order id {orderId} is currently being allocated");
+        return new AllocationError(OrderAllocatingCode,
+            $"Order id {orderId} is currently being allocated");
     }
 
-    public static AllocationError InvalidRequest(string message)
+    public static AllocationError OrderIdsEmpty(string message)
     {
-        return new AllocationError(InvalidRequestCode, message);
+        return new AllocationError(OrderIdsEmptyCode, message);
+    }
+
+    public static AllocationError DuplicateOrderIds(IEnumerable<Guid> orderIds)
+    {
+        return new AllocationError(DuplicateOrderIdsCode,
+            "The request contains the following duplicate order ids: " +
+            $"{string.Join(", ", orderIds.Select(o => o.ToString()))}");
     }
 }

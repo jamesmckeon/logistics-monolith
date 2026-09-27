@@ -58,7 +58,7 @@ public static class InventoryExtensions
 
             if (result.IsBadRequest)
             {
-                return TypedResults.BadRequest("At least one order id is required");
+                return TypedResults.BadRequest(result.Errors);
             }
 
             return TypedResults.Ok(result);

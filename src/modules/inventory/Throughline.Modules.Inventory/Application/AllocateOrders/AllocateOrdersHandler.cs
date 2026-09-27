@@ -31,8 +31,17 @@ internal sealed class AllocateOrdersHandler
 
         if (!command.OrderIds.Any())
         {
-            return new AllocateOrdersResult(
-                [AllocationError.InvalidRequest("command must contain at least one order id")]);
+            return AllocationError.OrderIdsEmpty("command must contain at least one order id");
+        }
+
+        var duplicates = command.OrderIds.GroupBy(grp => grp)
+            .Select(grp => new { OrderId = grp.Key, Count = grp.Count() })
+            .Where(w => w.Count > 1)
+            .ToList();
+
+        if (duplicates.Any())
+        {
+            return AllocationError.DuplicateOrderIds(duplicates.Select(d => d.OrderId));
         }
 
         var orders = await _orderRepository.GetAllByOrderIdAsync(command.OrderIds);

@@ -88,6 +88,13 @@ internal sealed class OrderAllocationServiceTests
     }
 
     [Test]
+    public async Task AllocateOrderAsync_ShipCompleteFailed_ReturnsFailed()
+    {
+        throw new NotImplementedException(
+            "Verify that SUT returns AllocatedOrder.FailedStatus when order can't be fully allocated and policy is ShipComplete");
+    }
+
+    [Test]
     public async Task AllocateOrderAsync_ConcurrencyConflictOnStart_ReturnsOrderAllocatingFailure()
     {
         var order = CreateOrder(CreateLine());
