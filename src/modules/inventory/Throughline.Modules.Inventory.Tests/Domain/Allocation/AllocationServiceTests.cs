@@ -276,12 +276,34 @@ internal sealed class AllocationServiceTests
         // on the receipt, not its received quantity
         var otherLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var otherOrder = OrderAllocation.Create(1, Guid.Empty, [otherLine])
-            .Value!;
         var skuReceipt = CreateReceipt(otherLine, 2);
         otherLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
+
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    ///     Verifies that SUT handles case where receipts doesn't contain an item for the sku that is
+    ///     on the line being tested
+    /// </summary>
+    [TestCase(AllocationPolicies.Partial, true)]
+    [TestCase(AllocationPolicies.ShipComplete, false)]
+    public void CanSatisfyPolicyWithCurrentReceipts_SkuNotInReceipts_ReturnsExpected(
+        AllocationPolicies policy, bool expected)
+    {
+        var line = CreateLine();
+        var lineTwo = CreateLine();
+        var order = OrderAllocation.Create(1, Guid.Empty, [line, lineTwo])
+            .Value!;
+
+        // create a receipt for the sku on line, but not one for the sku
+        // on lineTwo
+        var skuReceipt = CreateReceipt(line);
+
+        var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(
+            order, [skuReceipt], policy);
 
         Assert.That(actual, Is.EqualTo(expected));
     }

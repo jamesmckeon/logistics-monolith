@@ -62,6 +62,7 @@ internal sealed class AllocationService : IAllocationService
             return false;
 
         return unallocatedLines.All(all =>
+            skuQuantities.Any(a => a.SkuId == all.SkuId) &&
             skuQuantities.Single(s => s.SkuId == all.SkuId).QuantityAvailable >= all.QuantityShort);
     }
 

@@ -69,7 +69,9 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         if (!canSatisfyPolicy)
         {
             await transaction.RollbackAsync(token);
-            _unitOfWork.ClearChanges();
+
+            order.StopAllocating(AppDateTime.Now);
+            await _unitOfWork.SaveChangesAsync(token);
             return await ConstructResponseAsync(order, receipts, token);
         }
 

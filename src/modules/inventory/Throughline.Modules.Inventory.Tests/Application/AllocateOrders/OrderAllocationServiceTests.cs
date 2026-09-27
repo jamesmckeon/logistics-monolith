@@ -19,15 +19,15 @@ internal sealed class OrderAllocationServiceTests
     private const int OwnerId = 1;
 
     private static readonly CancellationTokenSource TokenSource = new();
-    private static CancellationToken Token => TokenSource.Token;
 
     private Mock<IAllocationService> _allocationService;
     private Mock<IInventoryRepository> _inventoryRepository;
     private Mock<ILogger<OrderAllocationService>> _logger;
     private Mock<IOrderAllocationRepository> _orderAllocationRepository;
+    private OrderAllocationService _sut;
     private Mock<IDbContextTransaction> _transaction;
     private Mock<IUnitOfWork> _unitOfWork;
-    private OrderAllocationService _sut;
+    private static CancellationToken Token => TokenSource.Token;
 
     [SetUp]
     public void SetUp()
@@ -116,12 +116,13 @@ internal sealed class OrderAllocationServiceTests
 
         await _sut.AllocateOrderAsync(order, AllocationPolicies.ShipComplete, Token);
 
-        _unitOfWork.Verify(u => u.SaveChangesAsync(Token), Times.Once);
-        _transaction.Verify(t => t.CommitAsync(Token), Times.Never);
+        // should save once each for StartAllocating() and StopAllocating()
+        _unitOfWork.Verify(u => u.SaveChangesAsync(Token), Times.Exactly(2));
+        _transaction.Verify(t => t.RollbackAsync(Token), Times.Once);
     }
 
     [Test]
-    public async Task AllocateOrderAsync_PolicyNotSatisfied_RollsBackAndClearsChanges()
+    public async Task AllocateOrderAsync_PolicyNotSatisfied_StopsAllocating()
     {
         var line = CreateLine();
         var order = CreateOrder(line);
@@ -132,8 +133,7 @@ internal sealed class OrderAllocationServiceTests
 
         await _sut.AllocateOrderAsync(order, AllocationPolicies.ShipComplete, Token);
 
-        _transaction.Verify(t => t.RollbackAsync(Token), Times.Once);
-        _unitOfWork.Verify(u => u.ClearChanges(), Times.Once);
+        Assert.That(order.Allocating, Is.False);
     }
 
     [Test]
@@ -273,7 +273,8 @@ internal sealed class OrderAllocationServiceTests
 
     private void GivenAllocationRollsBack()
     {
-        _transaction.Setup(t => t.RollbackAsync(Token)).Returns(Task.CompletedTask);
+        _transaction.Setup(t => t.RollbackAsync(Token))
+            .Returns(Task.CompletedTask);
         _unitOfWork.Setup(u => u.ClearChanges());
     }
 
