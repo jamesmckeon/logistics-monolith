@@ -25,9 +25,9 @@ internal sealed class AllocationService : IAllocationService
             throw new ArgumentException("skuReceipts must contain only receipts for the sku being allocated",
                 nameof(skuReceipts));
 
-        foreach (var skuReceipt in receipts.OrderByDescending(o => o.ReceivedOn))
+        foreach (var skuReceipt in receipts.OrderBy(o => o.ReceivedOn))
         {
-            if (orderLine.CanAllocate(skuReceipt)) orderLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
+            if (orderLine.CanAllocateReceipt(skuReceipt)) orderLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
 
             if (orderLine.AllocationStatus == AllocationStatuses.Allocated)
                 break;

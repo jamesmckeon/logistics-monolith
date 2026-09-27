@@ -40,6 +40,48 @@ internal sealed class OrderLineAllocationTests
         Assert.That(line.QuantityShort, Is.EqualTo(expected));
     }
 
+    #region CanAllocateReceipt
+
+    [Test]
+    public void CanAllocateReceipt_DifferentSku_ReturnsFalse()
+    {
+        var line = CreateLine(1);
+        var receipt = CreateReceipt(EntityId.Create());
+        Assert.That(line.CanAllocateReceipt(receipt), Is.False);
+    }
+
+    [Test]
+    public void CanAllocateReceipt_LineAllocated_ReturnsFalse()
+    {
+        var line = CreateLine(1);
+        var firstReceipt = CreateReceipt(line);
+        line.AllocateReceipt(firstReceipt, AppDateTime.Now);
+
+        var secondReceipt = CreateReceipt(line);
+        Assert.That(line.CanAllocateReceipt(secondReceipt), Is.False);
+    }
+
+    [Test]
+    public void CanAllocateReceipt_ReceiptAllocated_ReturnsFalse()
+    {
+        var line = CreateLine(1);
+
+        var receipt = CreateReceipt(line);
+        receipt.Allocate(1, AppDateTime.Now);
+
+        Assert.That(line.CanAllocateReceipt(receipt), Is.False);
+    }
+
+    [Test]
+    public void CanAllocateReceipt_ReceiptAndLineAllocatable_ReturnsTrue()
+    {
+        var line = CreateLine(1);
+        var receipt = CreateReceipt(line);
+        Assert.That(line.CanAllocateReceipt(receipt), Is.True);
+    }
+
+    #endregion
+
     #region AllocateReceipt
 
     [Test]
@@ -120,6 +162,7 @@ internal sealed class OrderLineAllocationTests
         Assert.Multiple(() =>
         {
             Assert.That(line.QuantityAllocated, Is.EqualTo(expectedAllocated));
+            Assert.That(line.LastUpdated, Is.EqualTo(now));
             Assert.That(allocatedReceipt.QuantityAllocated, Is.EqualTo(expectedAllocated));
             Assert.That(allocatedReceipt.AllocatedOn, Is.EqualTo(now));
             Assert.That(allocatedReceipt.SkuReceiptId, Is.EqualTo(receipt.Id));

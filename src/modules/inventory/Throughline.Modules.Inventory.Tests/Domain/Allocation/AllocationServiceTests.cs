@@ -272,13 +272,13 @@ internal sealed class AllocationServiceTests
             .Value!;
 
         // allocate the quantity that could potentially be used to complete the first order
-        // to another order, to ensure that SUT is using the available/allocated quantity
+        // to another order, to ensure that SUT is using the available quantity
         // on the receipt, not its received quantity
         var otherLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
         var otherOrder = OrderAllocation.Create(1, Guid.Empty, [otherLine])
             .Value!;
-        var skuReceipt = CreateReceipt(line, 2);
+        var skuReceipt = CreateReceipt(otherLine, 2);
         otherLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);

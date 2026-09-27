@@ -85,12 +85,22 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
 
         QuantityAllocated += allocation.QuantityAllocated;
         QuantityShort = QuantityRequested - QuantityAllocated;
+        LastUpdated = allocatedOn;
 
         receipt.Allocate(allocation.QuantityAllocated, allocatedOn);
     }
 
-    public bool CanAllocate(SkuReceipt receipt)
+    public bool CanAllocateReceipt(SkuReceipt receipt)
     {
-        throw new NotImplementedException();
+        if (receipt.SkuId != SkuId)
+            return false;
+
+        if (AllocationStatus == AllocationStatuses.Allocated)
+            return false;
+
+        if (receipt.QuantityAvailable == 0)
+            return false;
+
+        return true;
     }
 }
