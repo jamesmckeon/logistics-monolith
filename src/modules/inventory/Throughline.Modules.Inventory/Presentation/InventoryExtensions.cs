@@ -46,6 +46,7 @@ public static class InventoryExtensions
                     ? Results.Ok(order)
                     : Results.NotFound());
 
+
         return app;
     }
 }

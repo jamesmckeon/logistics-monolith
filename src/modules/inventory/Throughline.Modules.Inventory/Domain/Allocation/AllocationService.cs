@@ -13,7 +13,7 @@ internal sealed class AllocationService : IAllocationService
         ArgumentNullException.ThrowIfNull(orderLine);
         ArgumentNullException.ThrowIfNull(skuReceipts);
 
-        if (orderLine.AllocationStatuses == AllocationStatuses.Allocated)
+        if (orderLine.AllocationStatus == AllocationStatuses.Allocated)
             return;
 
         var receipts = skuReceipts.ToArray();
@@ -27,16 +27,9 @@ internal sealed class AllocationService : IAllocationService
 
         foreach (var skuReceipt in receipts.OrderByDescending(o => o.ReceivedOn))
         {
-            if (skuReceipt.QuantityAvailable >= orderLine.QuantityShort)
-            {
-                var quantityAllocated = skuReceipt.AllocateToOrder(
-                    orderId, orderLine.QuantityShort, AppDateTime.Now);
+            if (orderLine.CanAllocate(skuReceipt)) orderLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
 
-                if (quantityAllocated > 0)
-                    orderLine.IncreaseQuantityAllocated(quantityAllocated, AppDateTime.Now);
-            }
-
-            if (orderLine.QuantityShort == 0)
+            if (orderLine.AllocationStatus == AllocationStatuses.Allocated)
                 break;
         }
     }

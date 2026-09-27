@@ -20,6 +20,7 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
 
         builder.Property(r => r.SkuId).HasColumnName("sku_id").HasColumnType("uuid");
         builder.Property(r => r.QuantityReceived).HasColumnName("quantity_received");
+        builder.Property(r => r.QuantityAllocated).HasColumnName("quantity_allocated");
 
         builder.Property(r => r.ReceivedOn)
             .HasColumnName("received_on")
@@ -34,7 +35,12 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
             .HasForeignKey(r => r.SkuId)
             .HasConstraintName("fk_sku_receipts_skus_sku_id");
 
+        // The domain derives QuantityAvailable in memory; the database stores it as a generated column so
+        // queries can filter on it and a locked row's re-check sees the current value.
         builder.Ignore(r => r.QuantityAvailable);
+        builder.Property<int>("quantity_available")
+            .HasColumnName("quantity_available")
+            .HasComputedColumnSql("quantity_received - quantity_allocated", stored: true);
 
         builder.OwnsMany(r => r.Allocations, a =>
         {

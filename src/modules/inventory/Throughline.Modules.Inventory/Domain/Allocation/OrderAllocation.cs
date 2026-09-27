@@ -40,18 +40,18 @@ internal sealed class OrderAllocation : Entity<Guid>
     public IReadOnlyCollection<OrderLineAllocation> OrderLines => _orderLines.AsReadOnly();
 
     public IReadOnlyCollection<OrderLineAllocation> UnallocatedLines =>
-        _orderLines.Where(ol => ol.AllocationStatuses != AllocationStatuses.Allocated)
+        _orderLines.Where(ol => ol.AllocationStatus != AllocationStatuses.Allocated)
             .ToList().AsReadOnly();
 
     public AllocationStatuses AllocationStatus
     {
         get
         {
-            if (OrderLines.All(a => a.AllocationStatuses == AllocationStatuses.Confirmed))
+            if (OrderLines.All(a => a.AllocationStatus == AllocationStatuses.Confirmed))
                 return AllocationStatuses.Confirmed;
 
-            if (OrderLines.Any(a => a.AllocationStatuses == AllocationStatuses.PartiallyAllocated ||
-                                    a.AllocationStatuses == AllocationStatuses.Confirmed))
+            if (OrderLines.Any(a => a.AllocationStatus == AllocationStatuses.PartiallyAllocated ||
+                                    a.AllocationStatus == AllocationStatuses.Confirmed))
                 return AllocationStatuses.PartiallyAllocated;
 
             return AllocationStatuses.Allocated;

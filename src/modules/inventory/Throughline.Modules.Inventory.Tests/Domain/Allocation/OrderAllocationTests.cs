@@ -2,6 +2,7 @@ using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 
@@ -12,10 +13,12 @@ internal sealed class OrderAllocationTests
     public void UnallocatedLines_HasUnallocated_ReturnsExpected()
     {
         var partialLine = CreateLine(2);
-        partialLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(partialLine);
+        partialLine.AllocateReceipt(receipt, AppDateTime.Now);
 
         var allocatedLine = CreateLine();
-        allocatedLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receiptTwo = CreateReceipt(allocatedLine);
+        allocatedLine.AllocateReceipt(receiptTwo, AppDateTime.Now);
 
         var confirmedLine = CreateLine();
         var order = CreateOrder(partialLine, confirmedLine, allocatedLine);
@@ -27,7 +30,8 @@ internal sealed class OrderAllocationTests
     public void UnallocatedLines_AllConfirmed_ReturnsEmpty()
     {
         var allocatedLine = CreateLine();
-        allocatedLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(allocatedLine);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
 
         var order = CreateOrder(allocatedLine);
 
@@ -177,7 +181,9 @@ internal sealed class OrderAllocationTests
     {
         var line = CreateLine();
         var partialLine = CreateLine(2);
-        partialLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(line);
+        partialLine.AllocateReceipt(receipt, AppDateTime.Now);
+
         var order = CreateOrder(line, partialLine);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
@@ -186,13 +192,15 @@ internal sealed class OrderAllocationTests
     [Test]
     public void AllocationStatus_OnePartialOneAllocated_ReturnsPartial()
     {
-        var line = CreateLine();
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var allocatedLine = CreateLine();
+        var receipt = CreateReceipt(allocatedLine);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
 
         var partialLine = CreateLine(2);
-        partialLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receiptTwo = CreateReceipt(partialLine);
+        partialLine.AllocateReceipt(receiptTwo, AppDateTime.Now);
 
-        var order = CreateOrder(line, partialLine);
+        var order = CreateOrder(allocatedLine, partialLine);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
     }
@@ -201,7 +209,8 @@ internal sealed class OrderAllocationTests
     public void AllocationStatus_AllAllocated_ReturnsAllocated()
     {
         var line = CreateLine();
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
         var order = CreateOrder(line);
 
@@ -228,6 +237,12 @@ internal sealed class OrderAllocationTests
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
         return OrderAllocation.Create(1, Guid.Empty, lines)
+            .Value!;
+    }
+
+    private static SkuReceipt CreateReceipt(OrderLineAllocation line, int quantityReceived = 1)
+    {
+        return SkuReceipt.Create(EntityId.Create(), line.SkuId, quantityReceived, AppDateTime.Now)
             .Value!;
     }
 

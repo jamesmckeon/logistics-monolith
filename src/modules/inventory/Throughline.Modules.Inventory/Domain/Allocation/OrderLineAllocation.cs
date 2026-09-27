@@ -1,11 +1,14 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal sealed class OrderLineAllocation : Entity<EntityId>
 {
+    private readonly List<ReceiptAllocation> _allocations;
+
     private OrderLineAllocation(
         EntityId id,
         EntityId skuId,
@@ -18,15 +21,17 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         SkuId = skuId;
         QuantityRequested = quantityRequested;
         QuantityAllocated = quantityAllocated;
+        _allocations = new();
     }
 
     public EntityId SkuId { get; }
     public int QuantityRequested { get; }
-    public int QuantityAllocated { get; private set; }
+    public int QuantityAllocated { get; }
     public int QuantityShort => QuantityRequested - QuantityAllocated;
+    public IReadOnlyCollection<ReceiptAllocation> ReceiptAllocations => _allocations;
     public AppDateTime? LastUpdated { get; private set; }
 
-    public AllocationStatuses AllocationStatuses
+    public AllocationStatuses AllocationStatus
     {
         get
         {
@@ -39,7 +44,7 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         }
     }
 
-    public bool IsAllocatable => AllocationStatuses != AllocationStatuses.Allocated;
+    public bool IsAllocatable => AllocationStatus != AllocationStatuses.Allocated;
 
     public static Result<OrderLineAllocation> Create(EntityId orderLineId, EntityId skuId, int quantityRequested)
     {
@@ -52,24 +57,13 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0);
     }
 
-    public void IncreaseQuantityAllocated(int quantity, AppDateTime updatedOn)
+    public void AllocateReceipt(SkuReceipt receipt, AppDateTime allocatedOn)
     {
-        ArgumentNullException.ThrowIfNull(updatedOn);
+        throw new NotImplementedException();
+    }
 
-        if (!IsAllocatable)
-            throw new InvalidOperationException("line isn't allocatable");
-
-        ArgumentOutOfRangeException.ThrowIfLessThan(quantity, 0);
-
-        if (quantity == 0)
-            return;
-
-        if (QuantityAllocated + quantity > QuantityRequested)
-            throw new InvalidOperationException(
-                $"Increasing the allocated quantity by {quantity} " +
-                "would exceed the requested quantity for this order line");
-
-        QuantityAllocated += quantity;
-        LastUpdated = updatedOn;
+    public bool CanAllocate(SkuReceipt receipt)
+    {
+        throw new NotImplementedException();
     }
 }

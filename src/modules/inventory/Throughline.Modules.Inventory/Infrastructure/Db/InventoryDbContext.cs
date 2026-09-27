@@ -38,10 +38,7 @@ public sealed class InventoryDbContext :
                 $"""
                  SELECT r.* FROM inventory.sku_receipts AS r
                  WHERE r.sku_id = ANY({ids})
-                   AND r.quantity_received > (
-                       SELECT COALESCE(SUM(a.quantity_allocated), 0)
-                       FROM inventory.receipt_allocations AS a
-                       WHERE a.sku_receipt_id = r.sku_receipt_id)
+                   AND r.quantity_available > 0
                  ORDER BY r.received_on
                  FOR UPDATE
                  """)

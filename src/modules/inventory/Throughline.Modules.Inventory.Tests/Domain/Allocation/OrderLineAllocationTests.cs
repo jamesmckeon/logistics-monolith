@@ -2,12 +2,44 @@ using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 
 [Category("Unit")]
 internal sealed class OrderLineAllocationTests
 {
+    [Test]
+    public void IsAllocatable_NotFullyAllocated_ReturnsTrue()
+    {
+        var line = CreateLine(2);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
+
+        Assert.That(line.IsAllocatable, Is.True);
+    }
+
+    [Test]
+    public void IsAllocatable_FullyAllocated_ReturnsFalse()
+    {
+        var line = CreateLine(2);
+        var receipt = CreateReceipt(line, 2);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
+
+        Assert.That(line.IsAllocatable, Is.False);
+    }
+
+    [TestCase(1, 2)]
+    [TestCase(3, 0)]
+    public void QuantityShort_AfterAllocating_ReturnsRemainder(int quantityAllocated, int expected)
+    {
+        var line = CreateLine(3);
+        var receipt = CreateReceipt(line, quantityAllocated);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
+
+        Assert.That(line.QuantityShort, Is.EqualTo(expected));
+    }
+
     #region Create
 
     [TestCase(0)]
@@ -51,154 +83,35 @@ internal sealed class OrderLineAllocationTests
     #region AllocationStatuses
 
     [Test]
-    public void AllocationStatuses_NoneAllocated_ReturnsConfirmed()
+    public void AllocationStatus_NoneAllocated_ReturnsConfirmed()
     {
         var line = CreateLine(2);
 
-        Assert.That(line.AllocationStatuses, Is.EqualTo(AllocationStatuses.Confirmed));
+        Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Confirmed));
     }
 
     [Test]
-    public void AllocationStatuses_SomeAllocated_ReturnsPartiallyAllocated()
+    public void AllocationStatus_SomeAllocated_ReturnsPartiallyAllocated()
     {
         var line = CreateLine(2);
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
-        Assert.That(line.AllocationStatuses, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
+        Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
     }
 
     [Test]
-    public void AllocationStatuses_AllAllocated_ReturnsAllocated()
+    public void AllocationStatus_AllAllocated_ReturnsAllocated()
     {
         var line = CreateLine(2);
-        line.IncreaseQuantityAllocated(2, AppDateTime.Now);
+        var receipt = CreateReceipt(line, 2);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
-        Assert.That(line.AllocationStatuses, Is.EqualTo(AllocationStatuses.Allocated));
+        Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
     }
 
     #endregion
 
-    [TestCase(0)]
-    [TestCase(1)]
-    public void IsAllocatable_NotFullyAllocated_ReturnsTrue(int quantityAllocated)
-    {
-        var line = CreateLine(2);
-        line.IncreaseQuantityAllocated(quantityAllocated, AppDateTime.Now);
-
-        Assert.That(line.IsAllocatable, Is.True);
-    }
-
-    [Test]
-    public void IsAllocatable_FullyAllocated_ReturnsFalse()
-    {
-        var line = CreateLine(2);
-        line.IncreaseQuantityAllocated(2, AppDateTime.Now);
-
-        Assert.That(line.IsAllocatable, Is.False);
-    }
-
-    [TestCase(0, 3)]
-    [TestCase(1, 2)]
-    [TestCase(3, 0)]
-    public void QuantityShort_AfterAllocating_ReturnsRemainder(int quantityAllocated, int expected)
-    {
-        var line = CreateLine(3);
-        line.IncreaseQuantityAllocated(quantityAllocated, AppDateTime.Now);
-
-        Assert.That(line.QuantityShort, Is.EqualTo(expected));
-    }
-
-    #region IncreaseQuantityAllocated
-
-    [Test]
-    public void IncreaseQuantityAllocated_WithinRequested_SetsExpected()
-    {
-        var line = CreateLine(3);
-
-        var updatedOn = AppDateTime.Now;
-        line.IncreaseQuantityAllocated(2, updatedOn);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(line.QuantityAllocated, Is.EqualTo(2));
-            Assert.That(line.LastUpdated, Is.EqualTo(updatedOn));
-        });
-    }
-
-    [Test]
-    public void IncreaseQuantityAllocated_CalledTwice_AccumulatesQuantity()
-    {
-        var line = CreateLine(3);
-
-        var firstUpdate = AppDateTime.Now.Subtract(new(1, 0, 0));
-        line.IncreaseQuantityAllocated(1, firstUpdate);
-
-        var secondUpdate = AppDateTime.Now;
-        line.IncreaseQuantityAllocated(2, secondUpdate);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(line.QuantityAllocated, Is.EqualTo(3));
-            Assert.That(line.LastUpdated, Is.EqualTo(secondUpdate));
-        });
-    }
-
-    [Test]
-    public void IncreaseQuantityAllocated_ZeroQuantity_SetsNothing()
-    {
-        var line = CreateLine(2);
-
-        line.IncreaseQuantityAllocated(0, AppDateTime.Now);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(line.QuantityAllocated, Is.Zero);
-            Assert.That(line.LastUpdated, Is.Null);
-        });
-    }
-
-    [Test]
-    public void IncreaseQuantityAllocated_ExceedsRequested_ThrowsAndSetsNothing()
-    {
-        var line = CreateLine(2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(() => line.IncreaseQuantityAllocated(3, AppDateTime.Now),
-                Throws.InvalidOperationException.With.Message.EqualTo(
-                    "Increasing the allocated quantity by 3 " +
-                    "would exceed the requested quantity for this order line"));
-            Assert.That(line.QuantityAllocated, Is.Zero);
-            Assert.That(line.LastUpdated, Is.Null);
-        });
-    }
-
-    [Test]
-    public void IncreaseQuantityAllocated_NegativeQuantity_ThrowsAndSetsNothing()
-    {
-        var line = CreateLine(2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(() => line.IncreaseQuantityAllocated(-1, AppDateTime.Now),
-                Throws.TypeOf<ArgumentOutOfRangeException>()
-                    .With.Property(nameof(ArgumentException.ParamName)).EqualTo("quantity"));
-            Assert.That(line.QuantityAllocated, Is.Zero);
-            Assert.That(line.LastUpdated, Is.Null);
-        });
-    }
-
-    [Test]
-    public void IncreaseQuantityAllocated_FullyAllocated_ThrowsInvalidOperationException()
-    {
-        var line = CreateLine(1);
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
-
-        Assert.That(() => line.IncreaseQuantityAllocated(1, AppDateTime.Now),
-            Throws.InvalidOperationException.With.Message.EqualTo("line isn't allocatable"));
-    }
-
-    #endregion
 
     #region Helpers
 
@@ -207,6 +120,12 @@ internal sealed class OrderLineAllocationTests
         return OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), quantityRequested)
                    .Value
                ?? throw new InvalidOperationException("test line could not be created");
+    }
+
+    private static SkuReceipt CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
+    {
+        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
+            .Value!;
     }
 
     #endregion

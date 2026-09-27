@@ -1,5 +1,4 @@
 using Throughline.Common.Models;
-using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
@@ -17,13 +16,82 @@ internal sealed class AllocationServiceTests
         _sut = new();
     }
 
+    #region AllocateOrderLine
+
+    [Test]
+    public void AllocateOrderLine_NoSingleReceiptCoversLine_AllocatesAcrossReceipts()
+    {
+        var line = CreateLine(3);
+        var orderId = Guid.CreateVersion7();
+        var receiptOne = CreateReceipt(line.SkuId, 1, AppDateTime.Now.Subtract(new(2, 0, 0)));
+        var receiptTwo = CreateReceipt(line.SkuId, 2, AppDateTime.Now.Subtract(new(1, 0, 0)));
+
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(line.QuantityAllocated, Is.EqualTo(3));
+            Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
+            Assert.That(line.ReceiptAllocations.Count, Is.EqualTo(2));
+            Assert.That(line.ReceiptAllocations.Any(a =>
+                a.SkuReceiptId == receiptOne.Id && a.QuantityAllocated == 1));
+            Assert.That(line.ReceiptAllocations.Any(a =>
+                a.SkuReceiptId == receiptTwo.Id && a.QuantityAllocated == 2));
+        });
+    }
+
+    [Test]
+    public void AllocateOrderLine_ReceiptsExceedRequestedQuantity_AllocatesReceipts()
+    {
+        var line = CreateLine(3);
+        var orderId = Guid.CreateVersion7();
+        //verify FEFO
+        var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(0, 0, 0, 1)), 2);
+        var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now, 2);
+
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(line.QuantityAllocated, Is.EqualTo(3));
+            Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
+            Assert.That(line.ReceiptAllocations.Count, Is.EqualTo(2));
+            Assert.That(line.ReceiptAllocations.Single(a =>
+                a.SkuReceiptId == receiptOne.Id).QuantityAllocated, Is.EqualTo(2));
+            Assert.That(line.ReceiptAllocations.Single(a =>
+                a.SkuReceiptId == receiptTwo.Id).QuantityAllocated, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void AllocateOrderLine_ReceiptsInsufficientCombined_AllocatesAllAvailable()
+    {
+        var line = CreateLine(5);
+        var orderId = Guid.CreateVersion7();
+        var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(2, 0, 0)));
+        var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(1, 0, 0)), 2);
+
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(line.QuantityAllocated, Is.EqualTo(3));
+            Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
+            Assert.That(receiptOne.QuantityAvailable, Is.Zero);
+            Assert.That(receiptTwo.QuantityAvailable, Is.Zero);
+        });
+    }
+
+    #endregion
+
     #region DeriveStatusFromShortages
 
     [Test]
     public void DeriveStatusFromShortages_AllLinesAllocated_ReturnsAllocated()
     {
         var line = CreateLine();
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
         var order = CreateOrder(line);
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
@@ -85,7 +153,7 @@ internal sealed class AllocationServiceTests
     {
         var lineOne = CreateLine();
         var lineTwo = CreateLine();
-        var order = CreateOrder([lineOne, lineTwo]);
+        var order = CreateOrder(lineOne, lineTwo);
 
         var shortage = new SkuIdShortage(lineOne.SkuId, lineOne.QuantityRequested, 1, 1);
 
@@ -117,17 +185,12 @@ internal sealed class AllocationServiceTests
     [Test]
     public void GetShortedSkus_NoShortedLines_ReturnsEmptyShortages()
     {
-        var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
-            .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
-            .Value!;
+        var line = CreateLine();
+        var order = CreateOrder(line);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
-
-        var receipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
-            .Value!;
-
-        var actual = _sut.GetShortedSkus(order, [receipt]);
+        var actual = _sut.GetShortedSkus(order, [CreateReceipt(line.SkuId, 1,)]);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
         Assert.That(actual, Is.Empty);
@@ -136,17 +199,15 @@ internal sealed class AllocationServiceTests
     [Test]
     public void GetShortedSkus_NoMatchingReceipts_ReturnsShortedLines()
     {
-        var shortedLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
-            .Value!;
+        var shortedLine = CreateLine();
         // create one allocated line - this shouldn't be returned
-        var allocatedLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
-            .Value!;
-        allocatedLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
-        var order = OrderAllocation.Create(1, Guid.Empty, [shortedLine, allocatedLine])
-            .Value!;
+        var allocatedLine = CreateLine();
+        var allocatedReceipt = CreateReceipt(allocatedLine);
+        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now);
 
-        var receipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
-            .Value!;
+        var order = CreateOrder(shortedLine, allocatedLine);
+
+        var receipt = CreateReceipt(allocatedLine.SkuId);
 
         var expectedShortage = new SkuIdShortage(shortedLine.SkuId, shortedLine.QuantityRequested,
             shortedLine.QuantityAllocated, shortedLine.QuantityShort);
@@ -159,17 +220,15 @@ internal sealed class AllocationServiceTests
     [Test]
     public void GetShortedSkus_MatchingReceipts_ReturnsShortedLines()
     {
-        var shortedLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 2)
-            .Value!;
+        var shortedLine = CreateLine(2);
         // create one allocated line - this shouldn't be returned
-        var allocatedLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
-            .Value!;
-        allocatedLine.IncreaseQuantityAllocated(1, AppDateTime.Now);
-        var order = OrderAllocation.Create(1, Guid.Empty, [shortedLine, allocatedLine])
-            .Value!;
+        var allocatedLine = CreateLine();
+        var allocatedReceipt = CreateReceipt(allocatedLine);
+        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now);
 
-        var receipt = SkuReceipt.Create(EntityId.Create(), shortedLine.SkuId, 1, AppDateTime.Now)
-            .Value!;
+        var order = CreateOrder(shortedLine, allocatedLine);
+
+        var receipt = CreateReceipt(shortedLine);
 
         // sut should apply available quantity on receipt to line
         var expectedShortage = new SkuIdShortage(shortedLine.SkuId, shortedLine.QuantityRequested,
@@ -219,9 +278,8 @@ internal sealed class AllocationServiceTests
             .Value!;
         var otherOrder = OrderAllocation.Create(1, Guid.Empty, [otherLine])
             .Value!;
-        var skuReceipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now)
-            .Value!;
-        skuReceipt.AllocateToOrder(otherOrder, 1, AppDateTime.Now);
+        var skuReceipt = CreateReceipt(line, 2);
+        otherLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
 
@@ -245,8 +303,9 @@ internal sealed class AllocationServiceTests
             .Value!;
         var otherOrder = OrderAllocation.Create(1, Guid.Empty, [otherLine])
             .Value!;
+        var otherReceipt = CreateReceipt(otherLine);
 
-        skuReceipt.AllocateToOrder(otherOrder, 1, AppDateTime.Now);
+        otherLine.AllocateReceipt(otherReceipt, AppDateTime.Now);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
 
@@ -279,8 +338,8 @@ internal sealed class AllocationServiceTests
             .Value!;
         var order = OrderAllocation.Create(1, Guid.Empty, [line])
             .Value!;
-
-        line.IncreaseQuantityAllocated(1, AppDateTime.Now);
+        var receipt = CreateReceipt(line);
+        line.AllocateReceipt(receipt, AppDateTime.Now);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
 
@@ -293,10 +352,24 @@ internal sealed class AllocationServiceTests
 
     #region Helpers
 
-    private static Result<SkuReceipt> CreateReceipt(EntityId skuId, int quantityReceived = 1)
+    private static SkuReceipt CreateReceipt(EntityId skuId, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, 1, AppDateTime.Now);
+        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now)
+            .Value!;
     }
+
+    private static SkuReceipt CreateReceipt(EntityId skuId, AppDateTime receivedOn, int quantityReceived = 1)
+    {
+        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, receivedOn)
+            .Value!;
+    }
+
+    private static SkuReceipt CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
+    {
+        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
+            .Value!;
+    }
+
 
     private static OrderLineAllocation CreateLine(int quantityRequested = 1)
     {
@@ -304,12 +377,7 @@ internal sealed class AllocationServiceTests
             .Value!;
     }
 
-    private static OrderAllocation CreateOrder(OrderLineAllocation line)
-    {
-        return OrderAllocation.Create(1, Guid.Empty, [line]).Value!;
-    }
-
-    private static OrderAllocation CreateOrder(OrderLineAllocation[] lines)
+    private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
         return OrderAllocation.Create(1, Guid.Empty, lines).Value!;
     }
