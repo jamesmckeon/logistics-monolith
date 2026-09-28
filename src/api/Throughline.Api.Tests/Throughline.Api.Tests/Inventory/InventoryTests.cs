@@ -209,15 +209,16 @@ public class InventoryTests
         var orderIdOne = Guid.CreateVersion7();
 
         var skuOne = TestSkus.First();
-        var lineOne = CreateLine(skuOne, 5);
+        var lineOne = CreateLine(skuOne, 9);
 
         var orderOne = CreateOrder(ShipCompleteOwner, orderIdOne, lineOne);
 
         var now = AppDateTime.Now;
-        var oldest = CreateSkuReceipt(skuOne.Id, 5, now.Subtract(new(0, 0, 1)));
-        var newest = CreateSkuReceipt(skuOne.Id, 5, now);
+        var first = CreateSkuReceipt(skuOne.Id, 5, now.Subtract(new(0, 0, 5)));
+        var second = CreateSkuReceipt(skuOne.Id, 4, now.Subtract(new(0, 0, 4)));
+        var third = CreateSkuReceipt(skuOne.Id, 4, now);
 
-        await SeedOrdersAndReceiptsAsync([oldest, newest], orderOne);
+        await SeedOrdersAndReceiptsAsync([first, second, third], orderOne);
 
         var response = await PostOrderAllocationsAsync(
             new AllocateOrdersCommand([orderIdOne]),
@@ -228,21 +229,90 @@ public class InventoryTests
         Assert.That(result, Is.Not.Null);
 
         var orderResult = result.Orders.Single();
-
-        // need to use different DbContext than what was used to seed data, as that one
-        // will still have copies of the pre-allocation sku receipts
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-        var receipts = await dbContext.SkuReceipts.ToListAsync();
+        var receipts = await GetReceiptsAsync();
 
         Assert.That(orderResult.Status,
             Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
         Assert.That(orderResult.OrderId, Is.EqualTo(orderIdOne));
-        Assert.That(receipts.Single(r => r.Id == oldest.Id).QuantityAllocated,
+        Assert.That(receipts.Single(r => r.Id == first.Id).QuantityAllocated,
             Is.EqualTo(5));
-        Assert.That(receipts.Single(r => r.Id == newest.Id).QuantityAllocated,
+        Assert.That(receipts.Single(r => r.Id == second.Id).QuantityAllocated,
+            Is.EqualTo(4));
+        Assert.That(receipts.Single(r => r.Id == third.Id).QuantityAllocated,
             Is.EqualTo(0));
     }
+
+    [Test]
+    public async Task Post_MultipleOrdersCompeteForStock_AllocatesInRequestedOrder()
+    {
+        var sku = TestSkus.First();
+
+        // orderOne is created and seeded first, so it's the order the database is most
+        // likely to return first; the request lists orderTwo first
+        var orderIdOne = Guid.CreateVersion7();
+        var orderOne = CreateOrder(PartialAllocationOwner, orderIdOne, CreateLine(sku));
+
+        var orderIdTwo = Guid.CreateVersion7();
+        var orderTwo = CreateOrder(PartialAllocationOwner, orderIdTwo, CreateLine(sku));
+
+        // enough stock for only one of the orders
+        await SeedOrdersAndReceiptsAsync([CreateSkuReceipt(sku.Id, 1)], orderOne, orderTwo);
+
+        var response = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderIdTwo, orderIdOne]),
+            PartialAllocationOwner.Id);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var result = await GetResult(response);
+        Assert.That(result, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Orders.Single(o => o.OrderId == orderIdTwo).Status,
+                Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+            Assert.That(result.Orders.Single(o => o.OrderId == orderIdOne).Status,
+                Is.EqualTo(AllocatedOrder.AllShortStatus));
+        });
+    }
+
+    [Test]
+    public async Task Post_OrderAlreadyFullyAllocated_CreatesNoAdditionalCommitments()
+    {
+        var orderId = Guid.CreateVersion7();
+        var sku = TestSkus.First();
+        var order = CreateOrder(PartialAllocationOwner, orderId, CreateLine(sku, 3));
+        var receipt = CreateSkuReceipt(sku.Id, 5);
+
+        await SeedOrdersAndReceiptsAsync([receipt], order);
+
+        var command = new AllocateOrdersCommand([orderId]);
+
+        var firstResponse = await PostOrderAllocationsAsync(command, PartialAllocationOwner.Id);
+        Assert.That(firstResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var firstResult = await GetResult(firstResponse);
+        Assert.That(firstResult, Is.Not.Null);
+        Assert.That(firstResult.Orders.Single().Status, Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+
+        var secondResponse = await PostOrderAllocationsAsync(command, PartialAllocationOwner.Id);
+        Assert.That(secondResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var secondResult = await GetResult(secondResponse);
+        Assert.That(secondResult, Is.Not.Null);
+
+        var receipts = await GetReceiptsAsync();
+        var secondOrderResult = secondResult.Orders.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(secondOrderResult.OrderId, Is.EqualTo(orderId));
+            Assert.That(secondOrderResult.Status, Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+            Assert.That(receipts.Single(r => r.Id == receipt.Id).QuantityAllocated, Is.EqualTo(3));
+        });
+    }
+
+
+    #region Helpers
 
     private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)
     {
@@ -263,12 +333,21 @@ public class InventoryTests
         await dbContext.SaveChangesAsync();
     }
 
+    // reads through a fresh DbContext so the seeding context's tracked, pre-allocation
+    // copies of the receipts aren't returned
+    private async Task<List<SkuReceipt>> GetReceiptsAsync()
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+
+        return await dbContext.SkuReceipts.ToListAsync();
+    }
+
     private sealed record AllocateOrdersResponse(
         bool Success,
         IReadOnlyCollection<AllocatedOrder> Orders,
         IReadOnlyCollection<AllocationError> Errors);
 
-    #region Helpers
 
     private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines)
     {
