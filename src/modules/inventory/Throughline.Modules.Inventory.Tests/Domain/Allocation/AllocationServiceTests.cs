@@ -82,6 +82,25 @@ internal sealed class AllocationServiceTests
         });
     }
 
+    [Test]
+    public void AllocateOrderLine_NoReceiptsMatchLineSku_LeavesLineUnallocated()
+    {
+        var line = CreateLine(3);
+        var orderId = Guid.CreateVersion7();
+        // a receipt for a different sku, e.g. another line on the same order
+        var otherSkuReceipt = CreateReceipt(EntityId.Create(), 5);
+
+        _sut.AllocateOrderLine(orderId, line, [otherSkuReceipt]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(line.QuantityAllocated, Is.Zero);
+            Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Confirmed));
+            Assert.That(line.ReceiptAllocations, Is.Empty);
+            Assert.That(otherSkuReceipt.QuantityAvailable, Is.EqualTo(5));
+        });
+    }
+
     #endregion
 
     #region DeriveStatusFromShortages

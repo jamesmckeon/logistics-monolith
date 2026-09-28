@@ -16,14 +16,12 @@ internal sealed class AllocationService : IAllocationService
         if (orderLine.AllocationStatus == AllocationStatuses.Allocated)
             return;
 
-        var receipts = skuReceipts.ToArray();
+        // receipts for other skus (e.g. the order's other lines) are ignored; a line with no
+        // matching receipts has no stock to allocate from and stays unallocated
+        var receipts = skuReceipts.Where(r => r.SkuId == orderLine.SkuId).ToArray();
 
         if (!receipts.Any())
             return;
-
-        if (receipts.All(a => a.SkuId != orderLine.SkuId))
-            throw new ArgumentException("skuReceipts must contain only receipts for the sku being allocated",
-                nameof(skuReceipts));
 
         foreach (var skuReceipt in receipts.OrderBy(o => o.ReceivedOn))
         {
