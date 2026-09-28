@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -39,22 +40,46 @@ public static class InventoryExtensions
         return services;
     }
 
+    /// <summary>
+    ///     Adds OwnerId to the request span and logging scope
+    /// </summary>
+    private static IDisposable? OwnerScope(ILoggerFactory loggerFactory, int ownerId)
+    {
+        // owner attribution on the per-request span the ASP.NET Core instrumentation already emits
+        Activity.Current?.SetTag("owner_id", ownerId);
+
+        // owner on every log record in the request
+        return loggerFactory.CreateLogger("Inventory").BeginScope("Owner {OwnerId}", ownerId);
+    }
+
     public static IEndpointRouteBuilder MapInventory(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(InventoryRoute).WithTags("Inventory");
 
-        group.MapGet("/orders/{orderId}",
-            async (Guid orderId, RequestContext requestContext, GetOrderQuery query, CancellationToken token) =>
-                await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
-                    ? Results.Ok(order)
-                    : Results.NotFound());
+        group.MapGet("/orders/{orderId}", async (
+            Guid orderId,
+            RequestContext requestContext,
+            ILoggerFactory loggerFactory,
+            GetOrderQuery query,
+            CancellationToken token) =>
+        {
+            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
+
+            return await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
+                ? Results.Ok(order)
+                : Results.NotFound();
+        });
 
 
         group.MapPost("/orders/allocate", async Task<IResult> (
             AllocateOrdersCommand command,
-            AllocateOrdersHandler hander, CancellationToken token) =>
+            AllocateOrdersHandler handler,
+            RequestContext requestContext,
+            ILoggerFactory loggerFactory,
+            CancellationToken token) =>
         {
-            var result = await hander.AllocateOrdersAsync(command, token);
+            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
+            var result = await handler.AllocateOrdersAsync(command, token);
 
             if (result.IsBadRequest)
             {

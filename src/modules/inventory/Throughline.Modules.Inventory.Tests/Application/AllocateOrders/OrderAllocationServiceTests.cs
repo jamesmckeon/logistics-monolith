@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -22,7 +22,6 @@ internal sealed class OrderAllocationServiceTests
 
     private Mock<IAllocationService> _allocationService;
     private Mock<IInventoryRepository> _inventoryRepository;
-    private Mock<ILogger<OrderAllocationService>> _logger;
     private Mock<IOrderAllocationRepository> _orderAllocationRepository;
     private OrderAllocationService _sut;
     private Mock<IDbContextTransaction> _transaction;
@@ -34,7 +33,6 @@ internal sealed class OrderAllocationServiceTests
     {
         _allocationService = new Mock<IAllocationService>(MockBehavior.Strict);
         _inventoryRepository = new Mock<IInventoryRepository>(MockBehavior.Strict);
-        _logger = new Mock<ILogger<OrderAllocationService>>(MockBehavior.Strict);
         _orderAllocationRepository = new Mock<IOrderAllocationRepository>(MockBehavior.Strict);
         _transaction = new Mock<IDbContextTransaction>(MockBehavior.Strict);
         _unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
@@ -44,7 +42,7 @@ internal sealed class OrderAllocationServiceTests
             _unitOfWork.Object,
             _allocationService.Object,
             _inventoryRepository.Object,
-            _logger.Object);
+            NullLogger<OrderAllocationService>.Instance);
     }
 
     #region AllocateOrderAsync

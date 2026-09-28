@@ -23,8 +23,11 @@ public sealed class OrderConfirmedHandler
         IInventoryRepository inventoryRepository = db;
         IOrderAllocationRepository orderAllocationRepository = db;
 
+        // owner on every log record while handling the message
+        using var _ = logger.BeginScope("Owner {OwnerId}", message.OwnerId);
+
         logger.LogInformation(
-            "Received OrderConfirmedIntegrationEVent for owner {OwnerId}, order {OrderId}",
+            "Received OrderConfirmedIntegrationEvent for owner {OwnerId}, order {OrderId}",
             message.OwnerId, message.OrderId);
 
         var messageSkus = message.Lines.Select(l => l.SkuCode)
@@ -32,52 +35,46 @@ public sealed class OrderConfirmedHandler
         var validSkus = await inventoryRepository.GetSkusByOwnerIdAsync(
             message.OwnerId, messageSkus, token);
 
-        try
+        // exceptions aren't caught and logged here; Wolverine logs handler failures, with the
+        // exception, at Error level
+        if (validSkus.Count != messageSkus.Count)
         {
-            if (validSkus.Count != messageSkus.Count)
-            {
-                var invalidSkus = messageSkus.Except(validSkus.Select(s => s.Code));
-                throw new MissingDependencyException(
-                    $"The following skus were not found: {string.Join(", ", invalidSkus)}");
-            }
-
-            var lineResults = message.Lines.Select(l =>
-                    OrderLineAllocation.Create(
-                        EntityId.Create(),
-                        validSkus.Single(s => s.Code == l.SkuCode).Id,
-                        l.QuantityRequested))
-                .ToList();
-
-            // permanent (poison) failure; retrying the same data can't succeed, so dead-letter it.
-            var lineErrors = lineResults
-                .Where(r => !r.Succeeded)
-                .SelectMany(r => r.Errors)
-                .Select(e => e.Description)
-                .ToList();
-
-            if (lineErrors.Count > 0)
-                throw Poison(message, logger, lineErrors);
-
-            var orderResult =
-                // null forgiving is ok here bc we verified that all results succeeded, so all results
-                // must have a value
-                OrderAllocation.Create(
-                    message.OwnerId, message.OrderId, lineResults.Select(r => r.Value!));
-
-            if (!orderResult.Succeeded)
-                throw Poison(message, logger, orderResult.Errors.Select(e => e.Description));
-
-            orderAllocationRepository.Add(orderResult.Value);
-
-            logger.LogInformation(
-                "Added new confirmed order for owner {OwnerId}, order {OrderId}; committed by the transactional middleware",
-                message.OwnerId, message.OrderId);
+            var invalidSkus = messageSkus.Except(validSkus.Select(s => s.Code));
+            throw new MissingDependencyException(
+                $"The following skus were not found: {string.Join(", ", invalidSkus)}");
         }
-        catch (Exception ex)
-        {
-            logger.LogError("OrderConfirmedIntegrationEvent handling encountered an error", ex);
-            throw;
-        }
+
+        var lineResults = message.Lines.Select(l =>
+                OrderLineAllocation.Create(
+                    EntityId.Create(),
+                    validSkus.Single(s => s.Code == l.SkuCode).Id,
+                    l.QuantityRequested))
+            .ToList();
+
+        // permanent (poison) failure; retrying the same data can't succeed, so dead-letter it.
+        var lineErrors = lineResults
+            .Where(r => !r.Succeeded)
+            .SelectMany(r => r.Errors)
+            .Select(e => e.Description)
+            .ToList();
+
+        if (lineErrors.Count > 0)
+            throw Poison(message, logger, lineErrors);
+
+        var orderResult =
+            // null forgiving is ok here bc we verified that all results succeeded, so all results
+            // must have a value
+            OrderAllocation.Create(
+                message.OwnerId, message.OrderId, lineResults.Select(r => r.Value!));
+
+        if (!orderResult.Succeeded)
+            throw Poison(message, logger, orderResult.Errors.Select(e => e.Description));
+
+        orderAllocationRepository.Add(orderResult.Value);
+
+        logger.LogInformation(
+            "Added new confirmed order for owner {OwnerId}, order {OrderId}; committed by the transactional middleware",
+            message.OwnerId, message.OrderId);
     }
 
     private static UnrecoverableMessageException Poison(

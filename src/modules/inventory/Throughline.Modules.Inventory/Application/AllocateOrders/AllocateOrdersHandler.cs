@@ -31,6 +31,8 @@ internal sealed class AllocateOrdersHandler
 
         if (!command.OrderIds.Any())
         {
+            _logger.LogInformation("Allocation request rejected as invalid: {ErrorCode}",
+                AllocationError.OrderIdsEmptyCode);
             return AllocationError.OrderIdsEmpty("command must contain at least one order id");
         }
 
@@ -41,12 +43,15 @@ internal sealed class AllocateOrdersHandler
 
         if (duplicates.Any())
         {
+            _logger.LogInformation("Allocation request rejected as invalid: {ErrorCode}, order ids {OrderIds}",
+                AllocationError.DuplicateOrderIdsCode, duplicates.Select(d => d.OrderId));
             return AllocationError.DuplicateOrderIds(duplicates.Select(d => d.OrderId));
         }
 
         var orders = await _orderRepository.GetAllByOrderIdAsync(command.OrderIds);
         if (!orders.Any())
         {
+            _logger.LogInformation("Orders not found for allocation: {OrderIds}", command.OrderIds);
             return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
         }
 
@@ -81,8 +86,13 @@ internal sealed class AllocateOrdersHandler
             }
         }
 
-        var missingOrders = command.OrderIds.Except(orders.Select(o => o.Id))
-            .Select(AllocationError.OrderNotFound);
+        var missingOrderIds = command.OrderIds.Except(orders.Select(o => o.Id)).ToList();
+        if (missingOrderIds.Count > 0)
+        {
+            _logger.LogInformation("Orders not found for allocation: {OrderIds}", missingOrderIds);
+        }
+
+        var missingOrders = missingOrderIds.Select(AllocationError.OrderNotFound);
 
         return new AllocateOrdersResult(allocatedOrders, missingOrders);
     }

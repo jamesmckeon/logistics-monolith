@@ -41,12 +41,17 @@ internal sealed class OrderAllocationService : IOrderAllocationService
     {
         if (order.Allocating)
         {
+            _logger.LogInformation(
+                "Order {OrderId} not allocated: {ErrorCode}, allocation already in progress",
+                order.Id, AllocationError.OrderAllocatingCode);
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
         }
 
         if (order.AllocationStatus == AllocationStatuses.Allocated)
         {
+            _logger.LogInformation(
+                "Order {OrderId} already fully allocated; no new commitments made", order.Id);
             return AllocatedOrder.FullyAllocated(order.Id);
         }
 
@@ -58,38 +63,65 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         }
         catch (DbUpdateConcurrencyException)
         {
+            _logger.LogInformation(
+                "Order {OrderId} not allocated: {ErrorCode}, another request started allocating it first",
+                order.Id, AllocationError.OrderAllocatingCode);
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
         }
 
-        var transaction = await _unitOfWork.BeginTransactionAsync(token);
+        IReadOnlyCollection<SkuReceipt> receipts;
 
-        var receipts = await _inventoryRespository.GetAvailableInventoryAsync(
-            order.UnallocatedLines.Select(ul => ul.SkuId), token);
-
-        var canSatisfyPolicy = _allocationService.CanSatisfyPolicyWithCurrentReceipts(
-            order, receipts, policy);
-
-        if (!canSatisfyPolicy)
+        try
         {
-            await transaction.RollbackAsync(token);
+            var transaction = await _unitOfWork.BeginTransactionAsync(token);
+
+            receipts = await _inventoryRespository.GetAvailableInventoryAsync(
+                order.UnallocatedLines.Select(ul => ul.SkuId), token);
+
+            var canSatisfyPolicy = _allocationService.CanSatisfyPolicyWithCurrentReceipts(
+                order, receipts, policy);
+
+            if (!canSatisfyPolicy)
+            {
+                await transaction.RollbackAsync(token);
+
+                order.StopAllocating(AppDateTime.Now);
+                await _unitOfWork.SaveChangesAsync(token);
+
+                _logger.LogInformation(
+                    "Order {OrderId} not allocated: {ErrorCode} under {Policy} policy",
+                    order.Id, AllocationError.PolicyNotSatisfiedCode, policy);
+                return AllocatedOrder.Failed(
+                    order.Id, AllocationError.PolicyNotSatisfied(
+                        "The owner's allocation policy doesn't allow for partial order allocation"));
+            }
+
+            foreach (var line in order.UnallocatedLines)
+                _allocationService.AllocateOrderLine(order.Id, line, receipts);
 
             order.StopAllocating(AppDateTime.Now);
+
             await _unitOfWork.SaveChangesAsync(token);
-            return AllocatedOrder.Failed(
-                order.Id, AllocationError.PolicyNotSatisfied(
-                    "The owner's allocation policy doesn't allow for partial order allocation"));
+            await transaction.CommitAsync(token);
+        }
+        catch (Exception ex)
+        {
+            // the global exception handler logs the exception, but not which order may now be
+            // left flagged as allocating
+            _logger.LogError(ex,
+                "Allocation of order {OrderId} failed after it was flagged as allocating; the flag may not have been cleared",
+                order.Id);
+            throw;
         }
 
-        foreach (var line in order.UnallocatedLines)
-            _allocationService.AllocateOrderLine(order.Id, line, receipts);
+        var allocatedOrder = await ConstructResponseAsync(order, receipts, token);
 
-        order.StopAllocating(AppDateTime.Now);
+        _logger.LogInformation(
+            "Order {OrderId} allocation completed under {Policy} policy: {Status}, {ShortageCount} sku(s) short",
+            order.Id, policy, allocatedOrder.Status, allocatedOrder.Shortages.Count);
 
-        await _unitOfWork.SaveChangesAsync(token);
-        await transaction.CommitAsync(token);
-
-        return await ConstructResponseAsync(order, receipts, token);
+        return allocatedOrder;
     }
 
     private async Task<AllocatedOrder> ConstructResponseAsync(
