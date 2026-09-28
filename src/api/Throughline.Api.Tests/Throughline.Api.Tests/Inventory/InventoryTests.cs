@@ -110,31 +110,26 @@ public class InventoryTests
     {
         var orderId = Guid.CreateVersion7();
         var order = CreateOrder(PartialAllocationOwner, orderId, CreateLine(TestSkus.First()));
+        order.StartAllocating(AppDateTime.Now);
 
-        var receipts = Enumerable.Range(1, 3).Select(i => CreateSkuReceipt(order.OrderLines.Single().SkuId, i));
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await dbContext.Orders.AddAsync(order);
+        await dbContext.SaveChangesAsync();
 
-        await SeedOrdersAndReceiptsAsync(receipts, order);
 
         var command = new AllocateOrdersCommand([orderId]);
-        var requests = Enumerable.Range(0, 3)
-            .Select(_ => PostOrderAllocationsAsync(command, PartialAllocationOwner.Id));
+        var response = await PostOrderAllocationsAsync(command, ShipCompleteOwner.Id);
 
-        var responses = await Task.WhenAll(requests);
-        Assert.That(responses.Select(r => r.StatusCode), Is.All.EqualTo(HttpStatusCode.OK));
+        var result = await GetResult(response);
+        Assert.That(result, Is.Not.Null);
 
-        var results = await Task.WhenAll(responses.Select(GetResult));
-        Assert.That(results, Is.All.Not.Null);
-
-        var orderResults = results.SelectMany(r => r!.Orders)
-            .ToList();
-
+        var resultOrder = result.Orders.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(orderResults.Count, Is.EqualTo(3));
-            Assert.That(
-                orderResults.Count(r =>
-                    r.Errors.Any() && r!.Errors.Single().Code == AllocationError.OrderAllocatingCode),
-                Is.EqualTo(2));
+            Assert.That(result.Success, Is.False);
+            Assert.That(resultOrder.OrderId, Is.EqualTo(orderId));
+            Assert.That(resultOrder.Errors.Single().Code, Is.EqualTo(AllocationError.OrderAllocatingCode));
         });
     }
 

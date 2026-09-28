@@ -66,11 +66,19 @@ internal sealed class AllocateOrdersHandler
         }
 
         var allocatedOrders = new List<AllocatedOrder>();
-        foreach (var order in orders)
+
+        // as per requirements, orders should be processed in the order they're
+        // provided in the request
+        foreach (var orderId in command.OrderIds)
         {
-            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
-                order, owner.AllocationPolicy, token);
-            allocatedOrders.Add(allocatedOrder);
+            var order = orders.SingleOrDefault(s => s.Id == orderId);
+
+            if (order != null)
+            {
+                var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
+                    order, owner.AllocationPolicy, token);
+                allocatedOrders.Add(allocatedOrder);
+            }
         }
 
         var missingOrders = command.OrderIds.Except(orders.Select(o => o.Id))
