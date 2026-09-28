@@ -206,6 +206,25 @@ internal sealed class OrderAllocationServiceTests
         Assert.That(order.Allocating, Is.False);
     }
 
+    [Test]
+    public void AllocateOrderAsync_CancelledAfterAllocationStarts_StopsAllocating()
+    {
+        var order = CreateOrder(CreateLine());
+        _unitOfWork.Setup(u => u.SaveChangesAsync(Token)).Returns(Task.CompletedTask);
+        _unitOfWork.Setup(u => u.SaveChangesAsync(CancellationToken.None)).Returns(Task.CompletedTask);
+        _unitOfWork.Setup(u => u.BeginTransactionAsync(Token))
+            .ThrowsAsync(new OperationCanceledException());
+
+        Assert.That(async () => await _sut.AllocateOrderAsync(order, AllocationPolicies.Partial, Token),
+            Throws.InstanceOf<OperationCanceledException>());
+
+        // StartAllocating() is saved with the request token; StopAllocating() can't use it, as it
+        // may be the token that was cancelled
+        _unitOfWork.Verify(u => u.SaveChangesAsync(Token), Times.Once);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(CancellationToken.None), Times.Once);
+        Assert.That(order.Allocating, Is.False);
+    }
+
     [TestCase(AllocationStatuses.Allocated, "fullyAllocated")]
     [TestCase(AllocationStatuses.PartiallyAllocated, "partiallyAllocated")]
     [TestCase(AllocationStatuses.Confirmed, "notAllocated")]

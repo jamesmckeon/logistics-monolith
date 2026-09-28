@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
@@ -71,10 +72,11 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         }
 
         IReadOnlyCollection<SkuReceipt> receipts;
+        IDbContextTransaction? transaction = null;
 
         try
         {
-            var transaction = await _unitOfWork.BeginTransactionAsync(token);
+            transaction = await _unitOfWork.BeginTransactionAsync(token);
 
             receipts = await _inventoryRespository.GetAvailableInventoryAsync(
                 order.UnallocatedLines.Select(ul => ul.SkuId), token);
@@ -107,11 +109,18 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         }
         catch (Exception ex)
         {
-            // the global exception handler logs the exception, but not which order may now be
-            // left flagged as allocating
             _logger.LogError(ex,
-                "Allocation of order {OrderId} failed after it was flagged as allocating; the flag may not have been cleared",
+                "Allocation of order {OrderId} failed: setting order allocating state to stopped",
                 order.Id);
+
+            // the request token may be the thing that was cancelled, so clean-up can't use it
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+            }
+
+            order.StopAllocating(AppDateTime.Now);
+            await _unitOfWork.SaveChangesAsync(CancellationToken.None);
             throw;
         }
 
