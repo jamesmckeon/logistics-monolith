@@ -5,6 +5,7 @@ internal sealed record AllocationError(string Code, string Description)
     public const string OrderIdsEmptyCode = "ORDERIDS_MISSING";
     public const string DuplicateOrderIdsCode = "DUPLICATE_ORDERS";
     public const string OrderAllocatingCode = "ORDER_ALLOCATING";
+    public const string PolicyNotSatisfiedCode = "POLICY_NOT_SATISFIED";
 
     public static AllocationError OrderNotFound(Guid orderId)
     {
@@ -21,6 +22,12 @@ internal sealed record AllocationError(string Code, string Description)
     {
         return new AllocationError(OrderIdsEmptyCode, message);
     }
+
+    public static AllocationError PolicyNotSatisfied(string message)
+    {
+        return new AllocationError(PolicyNotSatisfiedCode, message);
+    }
+
 
     public static AllocationError DuplicateOrderIds(IEnumerable<Guid> orderIds)
     {

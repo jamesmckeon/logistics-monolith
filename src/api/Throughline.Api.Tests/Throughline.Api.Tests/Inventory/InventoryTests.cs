@@ -148,25 +148,21 @@ public class InventoryTests
         var skuOne = TestSkus.First();
         var lineOne = CreateLine(skuOne);
 
-        var skuTwo = TestSkus.Skip(1).Take(1).First();
+        var skuTwo = TestSkus.Skip(1).First();
         var lineTwo = CreateLine(skuTwo, 99);
 
         var orderOne = CreateOrder(ShipCompleteOwner, orderIdOne, lineOne, lineTwo);
 
         var firstPassReceipts = new[]
         {
-            CreateSkuReceipt(skuOne.Id, 1),
+            CreateSkuReceipt(skuOne.Id, 2), // will be used by both orders
             CreateSkuReceipt(skuTwo.Id, 98)
         }.ToList();
 
         // create a second order that'll pass on the first attempts
         var orderIdTwo = Guid.CreateVersion7();
-        var orderTwoSku = TestSkus.Skip(2).First();
-        var orderTwoLine = CreateLine(orderTwoSku);
+        var orderTwoLine = CreateLine(skuOne);
         var orderTwo = CreateOrder(ShipCompleteOwner, orderIdTwo, orderTwoLine);
-        var orderTwoReceipt = CreateSkuReceipt(orderTwoSku.Id, 2);
-
-        firstPassReceipts.Add(orderTwoReceipt);
 
         await SeedOrdersAndReceiptsAsync(firstPassReceipts, orderOne, orderTwo);
 
@@ -178,11 +174,74 @@ public class InventoryTests
         var result = await GetResult(response);
         Assert.That(result, Is.Not.Null);
 
-        Assert.That(result.Orders.Single(s => s.OrderId == orderIdOne).Status,
-            Is.EqualTo(AllocatedOrder.AllShortStatus));
+        var orderOneFirstResult = result.Orders.Single(s => s.OrderId == orderIdOne);
+        Assert.That(orderOneFirstResult.Status,
+            Is.EqualTo(AllocatedOrder.FailedStatus));
+        Assert.That(orderOneFirstResult.Errors.Single().Code,
+            Is.EqualTo(AllocationError.PolicyNotSatisfiedCode));
 
         Assert.That(result.Orders.Single(s => s.OrderId == orderIdTwo).Status,
-            Is.EqualTo(nameof(AllocatedOrder.FullyAllocatedStatus)));
+            Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+
+        // now add a receipt that will fulfill skuTwo on the first order
+        await SeedReceiptsAsync(CreateSkuReceipt(skuTwo.Id, 1));
+
+        var responseTwo = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderIdOne]),
+            ShipCompleteOwner.Id);
+        Assert.That(responseTwo.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var resultTwo = await GetResult(responseTwo);
+        Assert.That(resultTwo, Is.Not.Null);
+
+        var order = resultTwo.Orders.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.OrderId, Is.EqualTo(orderIdOne));
+            Assert.That(order.Status, Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+        });
+    }
+
+    [Test]
+    public async Task Post_MultipleReceiptsAllocated_UsesOldestFirst()
+    {
+        var orderIdOne = Guid.CreateVersion7();
+
+        var skuOne = TestSkus.First();
+        var lineOne = CreateLine(skuOne, 5);
+
+        var orderOne = CreateOrder(ShipCompleteOwner, orderIdOne, lineOne);
+
+        var now = AppDateTime.Now;
+        var oldest = CreateSkuReceipt(skuOne.Id, 5, now.Subtract(new(0, 0, 1)));
+        var newest = CreateSkuReceipt(skuOne.Id, 5, now);
+
+        await SeedOrdersAndReceiptsAsync([oldest, newest], orderOne);
+
+        var response = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderIdOne]),
+            ShipCompleteOwner.Id);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var result = await GetResult(response);
+        Assert.That(result, Is.Not.Null);
+
+        var orderResult = result.Orders.Single();
+
+        // need to use different DbContext than what was used to seed data, as that one
+        // will still have copies of the pre-allocation sku receipts
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        var receipts = await dbContext.SkuReceipts.ToListAsync();
+
+        Assert.That(orderResult.Status,
+            Is.EqualTo(AllocatedOrder.FullyAllocatedStatus));
+        Assert.That(orderResult.OrderId, Is.EqualTo(orderIdOne));
+        Assert.That(receipts.Single(r => r.Id == oldest.Id).QuantityAllocated,
+            Is.EqualTo(5));
+        Assert.That(receipts.Single(r => r.Id == newest.Id).QuantityAllocated,
+            Is.EqualTo(0));
     }
 
     private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)
@@ -192,6 +251,15 @@ public class InventoryTests
 
         await dbContext.SkuReceipts.AddRangeAsync(receipts);
         await dbContext.Orders.AddRangeAsync(order);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedReceiptsAsync(params SkuReceipt[] receipts)
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+
+        await dbContext.SkuReceipts.AddRangeAsync(receipts);
         await dbContext.SaveChangesAsync();
     }
 
@@ -217,6 +285,12 @@ public class InventoryTests
     private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived)
     {
         return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
+            .Value!;
+    }
+
+    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn)
+    {
+        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
             .Value!;
     }
 
@@ -250,10 +324,6 @@ public class InventoryTests
         request.Content = JsonContent.Create(command);
 
         return await _client.SendAsync(request);
-    }
-
-    private async Task SeedTestData(OrderAllocation order, IEnumerable<SkuReceipt> receipts)
-    {
     }
 
     #endregion

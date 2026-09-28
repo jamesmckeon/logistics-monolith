@@ -88,13 +88,6 @@ internal sealed class OrderAllocationServiceTests
     }
 
     [Test]
-    public async Task AllocateOrderAsync_ShipCompleteFailed_ReturnsFailed()
-    {
-        throw new NotImplementedException(
-            "Verify that SUT returns AllocatedOrder.FailedStatus when order can't be fully allocated and policy is ShipComplete");
-    }
-
-    [Test]
     public async Task AllocateOrderAsync_ConcurrencyConflictOnStart_ReturnsOrderAllocatingFailure()
     {
         var order = CreateOrder(CreateLine());
@@ -112,7 +105,7 @@ internal sealed class OrderAllocationServiceTests
     }
 
     [Test]
-    public async Task AllocateOrderAsync_PolicyNotSatisfied_DoesNotAllocateOrCommit()
+    public async Task AllocateOrderAsync_PolicyNotSatisfied_ResultsInExpectingState()
     {
         var line = CreateLine();
         var order = CreateOrder(line);
@@ -126,10 +119,12 @@ internal sealed class OrderAllocationServiceTests
         // should save once each for StartAllocating() and StopAllocating()
         _unitOfWork.Verify(u => u.SaveChangesAsync(Token), Times.Exactly(2));
         _transaction.Verify(t => t.RollbackAsync(Token), Times.Once);
+
+        Assert.That(order.Allocating, Is.False);
     }
 
     [Test]
-    public async Task AllocateOrderAsync_PolicyNotSatisfied_StopsAllocating()
+    public async Task AllocateOrderAsync_PolicyNotSatisfied_ReturnsExpectedResult()
     {
         var line = CreateLine();
         var order = CreateOrder(line);
@@ -138,10 +133,18 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationRollsBack();
         GivenResponse(order, receipts, [], AllocationStatuses.Confirmed, []);
 
-        await _sut.AllocateOrderAsync(order, AllocationPolicies.ShipComplete, Token);
+        var actual = await _sut.AllocateOrderAsync(order, AllocationPolicies.ShipComplete, Token);
 
-        Assert.That(order.Allocating, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Status, Is.EqualTo(AllocatedOrder.FailedStatus));
+            Assert.That(actual.Errors.Single().Code, Is.EqualTo(AllocationError.PolicyNotSatisfiedCode));
+            Assert.That(actual.Errors.Single().Description,
+                Is.EqualTo("The owner's allocation policy doesn't allow for partial order allocation"));
+            Assert.That(actual.OrderId, Is.EqualTo(order.Id));
+        });
     }
+
 
     [Test]
     public async Task AllocateOrderAsync_PolicySatisfied_AllocatesEachUnallocatedLine()

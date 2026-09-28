@@ -40,11 +40,15 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         CancellationToken token)
     {
         if (order.Allocating)
+        {
             return AllocatedOrder.Failed(
                 order.Id, AllocationError.OrderAllocating(order.Id));
+        }
 
         if (order.AllocationStatus == AllocationStatuses.Allocated)
+        {
             return AllocatedOrder.FullyAllocated(order.Id);
+        }
 
         order.StartAllocating(AppDateTime.Now);
 
@@ -72,7 +76,9 @@ internal sealed class OrderAllocationService : IOrderAllocationService
 
             order.StopAllocating(AppDateTime.Now);
             await _unitOfWork.SaveChangesAsync(token);
-            return await ConstructResponseAsync(order, receipts, token);
+            return AllocatedOrder.Failed(
+                order.Id, AllocationError.PolicyNotSatisfied(
+                    "The owner's allocation policy doesn't allow for partial order allocation"));
         }
 
         foreach (var line in order.UnallocatedLines)
@@ -107,10 +113,14 @@ internal sealed class OrderAllocationService : IOrderAllocationService
         Guid orderId, AllocationStatuses statuses, IEnumerable<SkuCodeShortage> shortages)
     {
         if (statuses == AllocationStatuses.Allocated)
+        {
             return AllocatedOrder.FullyAllocated(orderId);
+        }
 
         if (statuses == AllocationStatuses.PartiallyAllocated)
+        {
             return AllocatedOrder.PartiallyAllocated(orderId, shortages);
+        }
 
         return AllocatedOrder.AllShort(orderId, shortages);
     }
