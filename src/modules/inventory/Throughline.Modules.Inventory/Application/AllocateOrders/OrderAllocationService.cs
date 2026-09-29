@@ -4,6 +4,7 @@ using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Receiving;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
 namespace Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -81,7 +82,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
                 order.Id, AllocationError.OrderAllocating(order.Id));
         }
 
-        IReadOnlyCollection<SkuReceipt> receipts;
+        IReadOnlyCollection<InventoryPallet> receipts;
         IDbContextTransaction? transaction = null;
 
         try
@@ -144,7 +145,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
     }
 
     private async Task<AllocatedOrder> ConstructResponseAsync(
-        OrderAllocation order, IEnumerable<SkuReceipt> receipts, CancellationToken token)
+        OrderAllocation order, IEnumerable<InventoryPallet> receipts, CancellationToken token)
     {
         var shortedSkus = _allocationService.GetShortedSkus(order, receipts)
             .ToArray();

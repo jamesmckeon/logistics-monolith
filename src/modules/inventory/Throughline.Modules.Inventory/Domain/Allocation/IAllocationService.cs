@@ -1,4 +1,4 @@
-using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Receiving;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
@@ -7,14 +7,14 @@ internal interface IAllocationService
     void AllocateOrderLine(
         Guid orderId,
         OrderLineAllocation orderLine,
-        IEnumerable<SkuReceipt> skuReceipts);
+        IEnumerable<InventoryPallet> skuReceipts);
 
     /// <summary>
     ///     Returns true if an owner's <c>AllocationPolicy</c> can be satisfied with a set of SkuReceipts
     /// </summary>
     bool CanSatisfyPolicyWithCurrentReceipts(
         OrderAllocation order,
-        IEnumerable<SkuReceipt> receipts,
+        IEnumerable<InventoryPallet> receipts,
         AllocationPolicies policy);
 
     /// <summary>
@@ -22,7 +22,7 @@ internal interface IAllocationService
     ///     from <paramref name="receipts" /> were applied
     /// </summary>
     IEnumerable<SkuIdShortage> GetShortedSkus(OrderAllocation order,
-        IEnumerable<SkuReceipt> receipts);
+        IEnumerable<InventoryPallet> receipts);
 
     /// <summary>
     ///     Derives the <c>AllocationStatus</c> that would result from applying

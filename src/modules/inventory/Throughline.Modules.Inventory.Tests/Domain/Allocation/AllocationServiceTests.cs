@@ -1,7 +1,7 @@
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Inventory;
+using Throughline.Modules.Inventory.Domain.Receiving;
 
 namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 
@@ -272,7 +272,7 @@ internal sealed class AllocationServiceTests
         var order = OrderAllocation.Create(1, Guid.Empty, [line])
             .Value!;
         // receipt with a different sku id than on the order line
-        var skuReceipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
+        var skuReceipt = InventoryPallet.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
             .Value!;
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
@@ -335,7 +335,7 @@ internal sealed class AllocationServiceTests
             .Value!;
         var order = OrderAllocation.Create(1, Guid.Empty, [line])
             .Value!;
-        var skuReceipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now)
+        var skuReceipt = InventoryPallet.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now)
             .Value!;
 
         // partially allocate receipt to another order to ensure SUT uses receipt's allocatable
@@ -361,9 +361,9 @@ internal sealed class AllocationServiceTests
             .Value!;
         var order = OrderAllocation.Create(1, Guid.Empty, [line])
             .Value!;
-        var receiptOne = SkuReceipt.Create(EntityId.Create(), line.SkuId, 1, AppDateTime.Now)
+        var receiptOne = InventoryPallet.Create(EntityId.Create(), line.SkuId, 1, AppDateTime.Now)
             .Value!;
-        var receiptTwo = SkuReceipt.Create(EntityId.Create(), line.SkuId, 3, AppDateTime.Now)
+        var receiptTwo = InventoryPallet.Create(EntityId.Create(), line.SkuId, 3, AppDateTime.Now)
             .Value!;
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [receiptOne, receiptTwo], policy);
@@ -393,21 +393,21 @@ internal sealed class AllocationServiceTests
 
     #region Helpers
 
-    private static SkuReceipt CreateReceipt(EntityId skuId, int quantityReceived = 1)
+    private static InventoryPallet CreateReceipt(EntityId skuId, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now)
+        return InventoryPallet.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now)
             .Value!;
     }
 
-    private static SkuReceipt CreateReceipt(EntityId skuId, AppDateTime receivedOn, int quantityReceived = 1)
+    private static InventoryPallet CreateReceipt(EntityId skuId, AppDateTime receivedOn, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, receivedOn)
+        return InventoryPallet.Create(EntityId.Create(), skuId, quantityReceived, receivedOn)
             .Value!;
     }
 
-    private static SkuReceipt CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
+    private static InventoryPallet CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
+        return InventoryPallet.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
             .Value!;
     }
 

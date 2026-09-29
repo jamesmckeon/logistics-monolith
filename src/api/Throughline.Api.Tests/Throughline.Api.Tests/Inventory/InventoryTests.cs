@@ -7,8 +7,8 @@ using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Owners;
+using Throughline.Modules.Inventory.Domain.Receiving;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Inventory.Presentation;
@@ -309,33 +309,33 @@ public class InventoryTests
 
     #region Helpers
 
-    private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)
+    private async Task SeedOrdersAndReceiptsAsync(IEnumerable<InventoryPallet> receipts, params OrderAllocation[] order)
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
-        await dbContext.SkuReceipts.AddRangeAsync(receipts);
+        await dbContext.InventoryPallets.AddRangeAsync(receipts);
         await dbContext.Orders.AddRangeAsync(order);
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task SeedReceiptsAsync(params SkuReceipt[] receipts)
+    private async Task SeedReceiptsAsync(params InventoryPallet[] receipts)
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
-        await dbContext.SkuReceipts.AddRangeAsync(receipts);
+        await dbContext.InventoryPallets.AddRangeAsync(receipts);
         await dbContext.SaveChangesAsync();
     }
 
     // reads through a fresh DbContext so the seeding context's tracked, pre-allocation
     // copies of the receipts aren't returned
-    private async Task<List<SkuReceipt>> GetReceiptsAsync()
+    private async Task<List<InventoryPallet>> GetReceiptsAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
-        return await dbContext.SkuReceipts.ToListAsync();
+        return await dbContext.InventoryPallets.ToListAsync();
     }
 
     private sealed record AllocateOrdersResponse(
@@ -356,15 +356,15 @@ public class InventoryTests
             .Value!;
     }
 
-    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived)
+    private static InventoryPallet CreateSkuReceipt(EntityId skudId, int quantityReceived)
     {
-        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
+        return InventoryPallet.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
             .Value!;
     }
 
-    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn)
+    private static InventoryPallet CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn)
     {
-        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
+        return InventoryPallet.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
             .Value!;
     }
 
@@ -384,7 +384,7 @@ public class InventoryTests
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
-        await dbContext.SkuReceipts.ExecuteDeleteAsync();
+        await dbContext.InventoryPallets.ExecuteDeleteAsync();
         // owners and skus are static lookup data, reused across tests
     }
 
