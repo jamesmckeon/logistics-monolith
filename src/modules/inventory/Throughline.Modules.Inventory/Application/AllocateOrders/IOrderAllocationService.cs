@@ -6,7 +6,8 @@ namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 internal interface IOrderAllocationService
 {
     Task<AllocatedOrder> AllocateOrderAsync(
-        OrderAllocation order,
+        int ownerId,
+        Guid orderId,
         AllocationPolicies policy,
         CancellationToken token);
 }

@@ -119,7 +119,7 @@ public class InventoryTests
 
 
         var command = new AllocateOrdersCommand([orderId]);
-        var response = await PostOrderAllocationsAsync(command, ShipCompleteOwner.Id);
+        var response = await PostOrderAllocationsAsync(command, PartialAllocationOwner.Id);
 
         var result = await GetResult(response);
         Assert.That(result, Is.Not.Null);

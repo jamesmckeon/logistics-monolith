@@ -79,7 +79,7 @@ public static class InventoryExtensions
             CancellationToken token) =>
         {
             using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
-            var result = await handler.AllocateOrdersAsync(command, token);
+            var result = await handler.AllocateOrdersAsync(requestContext.OwnerId, command, token);
 
             if (result.IsBadRequest)
             {

@@ -7,12 +7,10 @@ internal sealed record AllocateOrdersResult
     private static readonly string[] BadRequestCodes =
         [AllocationError.OrderIdsEmptyCode, AllocationError.DuplicateOrderIdsCode];
 
-    internal AllocateOrdersResult(IEnumerable<AllocatedOrder> orders, IEnumerable<AllocationError> errors)
+    internal AllocateOrdersResult(IEnumerable<AllocatedOrder> orders)
     {
-        var errorsList = errors.ToList();
-
         Orders = orders.ToList().AsReadOnly();
-        Errors = errorsList.AsReadOnly();
+        Errors = [];
     }
 
     internal AllocateOrdersResult(IEnumerable<AllocationError> errors)

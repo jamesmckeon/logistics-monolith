@@ -36,10 +36,20 @@ internal sealed class OrderAllocationService : IOrderAllocationService
 
 
     public async Task<AllocatedOrder> AllocateOrderAsync(
-        OrderAllocation order,
+        int ownerId,
+        Guid orderId,
         AllocationPolicies policy,
         CancellationToken token)
     {
+        _unitOfWork.ClearChanges();
+
+        var order = await _orderAllocationRepository.GetByOrderIdAsync(ownerId, orderId, token);
+
+        if (order == null)
+        {
+            return AllocatedOrder.Failed(orderId, AllocationError.OrderNotFound(orderId));
+        }
+
         if (order.Allocating)
         {
             _logger.LogInformation(

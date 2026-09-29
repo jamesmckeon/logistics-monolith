@@ -25,7 +25,9 @@ internal sealed class AllocateOrdersHandler
     }
 
     public async Task<AllocateOrdersResult> AllocateOrdersAsync(
-        AllocateOrdersCommand command, CancellationToken token)
+        int ownerId,
+        AllocateOrdersCommand command,
+        CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -48,26 +50,12 @@ internal sealed class AllocateOrdersHandler
             return AllocationError.DuplicateOrderIds(duplicates.Select(d => d.OrderId));
         }
 
-        var orders = await _orderRepository.GetAllByOrderIdAsync(command.OrderIds);
-        if (!orders.Any())
-        {
-            _logger.LogInformation("Orders not found for allocation: {OrderIds}", command.OrderIds);
-            return new AllocateOrdersResult(command.OrderIds.Select(AllocationError.OrderNotFound));
-        }
 
-        var ownerIds = orders.Select(o => o.OwnerId).Distinct().ToList();
-        if (ownerIds.Count > 1)
-        {
-            throw new ArgumentException(
-                "command.OrderIds must all have the same OwnerId",
-                nameof(command.OrderIds));
-        }
-
-        var owner = await _ownerProvider.GetOwnerByIdAsync(ownerIds.Single(), token);
+        var owner = await _ownerProvider.GetOwnerByIdAsync(ownerId, token);
 
         if (owner == null)
         {
-            throw new InvalidOperationException($"An owner with id {ownerIds.Single()} wasn't found in the system");
+            throw new InvalidOperationException($"An owner with id {ownerId} wasn't found in the system");
         }
 
         var allocatedOrders = new List<AllocatedOrder>();
@@ -76,25 +64,16 @@ internal sealed class AllocateOrdersHandler
         // provided in the request
         foreach (var orderId in command.OrderIds)
         {
-            var order = orders.SingleOrDefault(s => s.Id == orderId);
-
-            if (order != null)
-            {
-                var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
-                    order, owner.AllocationPolicy, token);
-                allocatedOrders.Add(allocatedOrder);
-            }
+            var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
+                ownerId,
+                orderId,
+                owner.AllocationPolicy,
+                token);
+            allocatedOrders.Add(allocatedOrder);
         }
 
-        var missingOrderIds = command.OrderIds.Except(orders.Select(o => o.Id)).ToList();
-        if (missingOrderIds.Count > 0)
-        {
-            _logger.LogInformation("Orders not found for allocation: {OrderIds}", missingOrderIds);
-        }
 
-        var missingOrders = missingOrderIds.Select(AllocationError.OrderNotFound);
-
-        return new AllocateOrdersResult(allocatedOrders, missingOrders);
+        return new AllocateOrdersResult(allocatedOrders);
     }
 
     private static Result<IReadOnlyCollection<AllocatedOrder>> Validation(
