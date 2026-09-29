@@ -12,8 +12,8 @@ the expected behavior, not the current code.
 
 1. **Ask which SUT.** If the user didn't name one, ask for the class or method to test.
 
-2. **Load conventions.** Follow the test conventions in `claude/testing.md` (imported via
-   `claude/CLAUDE.md`) exactly — class/naming/namespace rules, Moq usage, `Assert.That` +
+2. **Load conventions.** Follow the test conventions in `docs/testing.md` (imported via
+   `.claude/CLAUDE.md`) exactly — class/naming/namespace rules, Moq usage, `Assert.That` +
    `Assert.Multiple`, `_sut` field, regions.
 
 3. **Derive expected behavior from documentation, not the implementation.**

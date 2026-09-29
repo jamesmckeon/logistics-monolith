@@ -2,7 +2,7 @@ namespace Throughline.Modules.Ordering.Domain.Orders;
 
 internal sealed class Order
 {
-    internal Order(
+    public Order(
         OrderId id,
         OwnerReferenceNumber ownerReferenceNumber,
         OrderContent content)

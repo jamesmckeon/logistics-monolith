@@ -3,17 +3,16 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Throughline.Common.Infrastructure;
 using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Application.Queries;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
-using Wolverine.EntityFrameworkCore;
 
 namespace Throughline.Modules.Ordering.Presentation;
 
@@ -23,16 +22,11 @@ public static class OrderingExtensions
 
     public static IServiceCollection AddOrdering(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContextWithWolverineIntegration<OrdersDbContext>(o =>
-            o.UseNpgsql(config.GetConnectionString("Throughline"))
-                .UseSnakeCaseNamingConvention());
+        services.AddModuleDbContext<OrdersDbContext>(config, OrdersDbContext.SchemaName);
 
         services.AddScoped<IOrdersRepository, OrdersRepository>();
         services.AddScoped<CreateOrderHandler>();
         services.AddScoped<GetOrderByIdQuery>();
-
-        services.AddHttpContextAccessor();
-        services.AddScoped<RequestContext>();
 
         return services;
     }

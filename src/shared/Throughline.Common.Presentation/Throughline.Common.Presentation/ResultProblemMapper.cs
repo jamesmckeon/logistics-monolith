@@ -90,7 +90,7 @@ public static class ResultProblemMapper
     }
 
 
-    private static string DetailFor(Error[] errors)
+    private static string DetailFor(FieldError[] errors)
     {
         var fieldErrors = errors.Where(e => e.FieldName != null)
             .Select(f => new { name = f.FieldName, reason = f.Description })

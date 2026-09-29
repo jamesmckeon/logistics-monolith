@@ -8,7 +8,7 @@
 - **Deciders:** Jamesey (engineer), Claude (mentor)
 - **Related items:** T-020 (Bounded Contexts & Context Mapping) — primary rep; supports STORY-0001 (#1). Touches deferred mechanism items T-004/T-006/T-008 (Phase 2) and T-007 (Phase 3).
 - **Builds on:** ADR-0002 (per-merchant, USD-only pricing). Architectural premises — modular monolith, transport-agnostic integration-event bus, module-owned tables — follow Grzybek (canon; verified against the repo this turn).
-- **Source grounding:** `claude/sources.md`. Grzybek **verified against the repo this turn** (async-only; module-owned data; modules depend only on another module's integration-events assembly). Evans/Vernon, Fowler, Martin/Cockburn **cited from knowledge, not verified against the texts this turn.**
+- **Source grounding:** `.claude/sources.md`. Grzybek **verified against the repo this turn** (async-only; module-owned data; modules depend only on another module's integration-events assembly). Evans/Vernon, Fowler, Martin/Cockburn **cited from knowledge, not verified against the texts this turn.**
 
 ---
 

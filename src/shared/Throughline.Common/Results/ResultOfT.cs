@@ -7,11 +7,11 @@ public sealed record Result<T>
     private Result(T value)
     {
         Value = value;
-        Errors = Array.Empty<Error>();
+        Errors = Array.Empty<FieldError>();
         Succeeded = true;
     }
 
-    private Result(Error[] errors, ErrorType errorType)
+    private Result(FieldError[] errors, ErrorType errorType)
     {
         ErrorType = errorType;
         Errors = errors;
@@ -23,11 +23,11 @@ public sealed record Result<T>
     public bool Succeeded { get; }
 
     public ErrorType? ErrorType { get; }
-    public Error[] Errors { get; }
+    public FieldError[] Errors { get; }
     public T? Value { get; }
 
 
-    private static Result<T> Failure(IEnumerable<Error> errors, ErrorType errorType)
+    private static Result<T> Failure(IEnumerable<FieldError> errors, ErrorType errorType)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
@@ -40,25 +40,30 @@ public sealed record Result<T>
     }
 
 
-    public static Result<T> Validation(params Error[] errors)
+    public static Result<T> Validation(params FieldError[] errors)
     {
         return Failure(errors, Results.ErrorType.Validation);
     }
 
-    public static Result<T> Validation(IEnumerable<Error> errors)
+    public static Result<T> Validation(IEnumerable<FieldError> errors)
     {
         return Failure(errors, Results.ErrorType.Validation);
     }
 
     public static Result<T> Validation(params string[] errors)
     {
-        return Failure(errors.Select(e => new Error(e)), Results.ErrorType.Validation);
+        return Failure(errors.Select(e => new FieldError(e)), Results.ErrorType.Validation);
+    }
+
+    public static Result<T> NotFound(string errorMessage)
+    {
+        return Failure([new FieldError(errorMessage)], Results.ErrorType.NotFound);
     }
 
     public static Result<T> Conflict(params string[] errors)
     {
         // conflict result shouldn't carry errors with field names
-        return Failure(errors.Select(e => new Error(e)),
+        return Failure(errors.Select(e => new FieldError(e)),
             Results.ErrorType.Conflict);
     }
 

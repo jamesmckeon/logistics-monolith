@@ -6,11 +6,11 @@ public sealed class Result
 {
     private Result()
     {
-        Errors = Array.Empty<Error>();
+        Errors = Array.Empty<FieldError>();
         Succeeded = true;
     }
 
-    private Result(Error[] errors, ErrorType errorType)
+    private Result(FieldError[] errors, ErrorType errorType)
     {
         ErrorType = errorType;
         Errors = errors;
@@ -21,9 +21,9 @@ public sealed class Result
     public bool Succeeded { get; }
 
     public ErrorType? ErrorType { get; }
-    public Error[] Errors { get; }
+    public FieldError[] Errors { get; }
 
-    public static Result Validation(IEnumerable<Error> errors)
+    public static Result Validation(IEnumerable<FieldError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
@@ -35,7 +35,13 @@ public sealed class Result
         return new Result(errorArray, Results.ErrorType.Validation);
     }
 
-    public static Result Conflict(IEnumerable<Error> errors)
+    public static Result Validation(string errorMessage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        return Validation([new(errorMessage)]);
+    }
+
+    public static Result Conflict(IEnumerable<FieldError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
@@ -45,6 +51,12 @@ public sealed class Result
             throw new ArgumentException("errors cannot be empty", nameof(errors));
 
         return new Result(errorArray, Results.ErrorType.Conflict);
+    }
+
+    public static Result Conflict(string errorMessage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        return Conflict([new FieldError(errorMessage)]);
     }
 
     public static Result Success()

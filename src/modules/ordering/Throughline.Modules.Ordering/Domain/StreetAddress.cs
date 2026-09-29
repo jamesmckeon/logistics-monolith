@@ -51,22 +51,22 @@ internal sealed class StreetAddress : ValueObject
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(postalCode);
 
-        var errors = new List<Error>();
+        var errors = new List<FieldError>();
 
         if (addressOne.Trim() == "")
-            errors.Add(Error.IsRequired(nameof(addressOne)));
+            errors.Add(FieldError.IsRequired(nameof(addressOne)));
 
         if (city.Trim() == "")
-            errors.Add(Error.IsRequired(nameof(city)));
+            errors.Add(FieldError.IsRequired(nameof(city)));
 
         if (state.Trim() == "")
         {
-            errors.Add(Error.IsRequired(nameof(state)));
+            errors.Add(FieldError.IsRequired(nameof(state)));
         }
         else
         {
             if (state.Trim().Length != 2 || state.Trim().Any(a => !char.IsLetter(a)))
-                errors.Add(new Error("state must be 2 alpha characters", "state"));
+                errors.Add(new FieldError("state must be 2 alpha characters", "state"));
         }
 
 

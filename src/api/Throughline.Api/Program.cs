@@ -1,10 +1,16 @@
+using JasperFx.Core;
 using JasperFx.Resources;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
+using Throughline.Common.Events;
+using Throughline.Common.Presentation.Http;
+using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
 using Wolverine;
+using Wolverine.EntityFrameworkCore;
+using Wolverine.ErrorHandling;
 using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,14 +53,36 @@ if (string.IsNullOrWhiteSpace(cs))
 builder.Host.UseWolverine(opts =>
 {
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
+
+    // EF Core transactional middleware: [Transactional] handlers commit their DbContext changes
+    // and the incoming message's Handled status in one transaction.
+    opts.UseEntityFrameworkCoreTransactions();
     opts.Policies.UseDurableLocalQueues();
+
+    // Poison messages (permanent/contract-violating failures) skip retries and go straight
+    // to the dead-letter queue. Transient faults are left to throw normally so they retry.
+    opts.OnException<UnrecoverableMessageException>().MoveToErrorQueue();
+
+    // A referenced dependency isn't present locally yet — very likely an eventual-consistency
+    // gap (the reference-data event hasn't arrived). Schedule durable, delayed retries so the
+    // reference has time to replicate; dead-letter only after the backoff is exhausted.
+    opts.OnException<MissingDependencyException>()
+        .ScheduleRetry(1.Minutes(), 5.Minutes(), 15.Minutes())
+        .Then.MoveToErrorQueue();
+
+    // Discover message handlers in the module assemblies;
+    // Wolverine only scans the entry assembly by default.
+    opts.Discovery.IncludeAssembly(typeof(InventoryExtensions).Assembly);
 });
 
 // dev convenience — provisions the "wolverine" tables on boot:
 if (builder.Environment.IsDevelopment())
     builder.Host.UseResourceSetupOnStartup();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<RequestContext>();
 builder.Services.AddOrdering(builder.Configuration);
+builder.Services.AddInventory(builder.Configuration);
 
 var app = builder.Build();
 
@@ -64,5 +92,6 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler();
 
 app.MapOrdering();
+app.MapInventory();
 
 app.Run();

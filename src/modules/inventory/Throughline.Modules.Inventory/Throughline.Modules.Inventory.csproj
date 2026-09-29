@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\ordering\Throughline.Modules.Ordering.Contracts\Throughline.Modules.Ordering.Contracts.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Infrastructure\Throughline.Common.Infrastructure.csproj"/>
+        <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Modules.Inventory.Tests"/>
+        <!-- lets Moq proxy the module's internal interfaces in tests -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="Infrastructure\Migrations\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Api.Tests"/>
+    </ItemGroup>
+</Project>

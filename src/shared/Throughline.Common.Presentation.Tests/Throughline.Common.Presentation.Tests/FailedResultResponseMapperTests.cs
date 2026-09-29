@@ -18,7 +18,7 @@ public sealed class FailedResultResponseMapperTests
     [Test]
     public void ToFailureResponse_ValidationError_ReturnsBadRequest()
     {
-        var result = Result<object>.Validation(new Error("Test description", "Test Field"));
+        var result = Result<object>.Validation(new FieldError("Test description", "Test Field"));
         var actual = (BadRequest<ProblemDetails>)result.ToFailureResponse();
         // don't need to verify ProblemDetails equality, that's handled by ResultProblemMapperTests
         Assert.That(actual.Value, Is.InstanceOf<ProblemDetails>());

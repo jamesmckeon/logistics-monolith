@@ -100,7 +100,8 @@ internal sealed class CreateOrderHandler
             command.ReferenceNumber);
     }
 
-    private Result<CreateOrderResult> RejectInvalid(IEnumerable<Error> errors, CreateOrderCommand command, int ownerId)
+    private Result<CreateOrderResult> RejectInvalid(IEnumerable<FieldError> errors, CreateOrderCommand command,
+        int ownerId)
     {
         _logger.LogInformation("Create order request for owner id {@OwnerId}, PO # {@PoNumber}, " +
                                "ref #{@refNumber} rejected as invalid: {@errors}",
