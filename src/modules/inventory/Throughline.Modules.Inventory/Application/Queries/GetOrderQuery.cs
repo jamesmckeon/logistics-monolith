@@ -19,11 +19,13 @@ internal sealed class GetOrderQuery
 
     public async Task<OrderAllocationModel?> GetOrderByIdAsync(int ownerId, Guid orderId, CancellationToken token)
     {
-        var order = await _orderAllocationRepository.GetByOrderIdAsync(orderId, token);
+        var order = await _orderAllocationRepository.GetByOrderIdAsync(ownerId, orderId, token);
 
         // Another owner's order is reported as not found, so callers can't probe for order ids they don't own.
         if (order is null || order.OwnerId != ownerId)
+        {
             return null;
+        }
 
         var skus = await _inventoryRepository.GetSkusByIdAsync(
             order.OrderLines.Select(l => l.SkuId).Distinct(), token);

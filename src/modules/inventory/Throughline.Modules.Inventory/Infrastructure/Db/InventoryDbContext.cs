@@ -32,7 +32,9 @@ public sealed class InventoryDbContext :
 
         var ids = skuIds.Select(s => s.Value).ToArray();
         if (!ids.Any())
+        {
             return Array.Empty<SkuReceipt>().ToList().AsReadOnly();
+        }
 
         return await SkuReceipts.FromSql(
                 $"""
@@ -51,20 +53,25 @@ public sealed class InventoryDbContext :
     {
         var codes = skuCodes.ToArray();
         if (!codes.Any())
+        {
             return Array.Empty<Sku>().ToList().AsReadOnly();
+        }
 
         return await Skus.Where(s => s.OwnerId == ownerId && codes.Any(a => a == s.Code))
             .ToListAsync(token);
     }
 
-    async Task<IReadOnlyCollection<Sku>> IInventoryRepository.GetSkusByIdAsync(IEnumerable<EntityId> skuIds, CancellationToken token)
+    async Task<IReadOnlyCollection<Sku>> IInventoryRepository.GetSkusByIdAsync(
+        IEnumerable<EntityId> skuIds, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(skuIds);
 
         var skuIdsArray = skuIds.ToArray();
 
         if (!skuIdsArray.Any())
+        {
             return [];
+        }
 
         return await Skus.Where(s => skuIdsArray.Contains(s.Id))
             .ToListAsync(token);
@@ -77,19 +84,23 @@ public sealed class InventoryDbContext :
         Orders.Add(order);
     }
 
-    async Task<OrderAllocation?> IOrderAllocationRepository.GetByOrderIdAsync(Guid orderId, CancellationToken token)
+    async Task<OrderAllocation?> IOrderAllocationRepository.GetByOrderIdAsync(int ownerId, Guid orderId,
+        CancellationToken token)
     {
-        return await Orders.FirstOrDefaultAsync(o => o.Id == orderId, token);
+        return await Orders.FirstOrDefaultAsync(o => o.OwnerId == ownerId && o.Id == orderId, token);
     }
 
-    async Task<IReadOnlyCollection<OrderAllocation>> IOrderAllocationRepository.GetAllByOrderIdAsync(IEnumerable<Guid> orderIds)
+    async Task<IReadOnlyCollection<OrderAllocation>> IOrderAllocationRepository.GetAllByOrderIdAsync(
+        IEnumerable<Guid> orderIds)
     {
         ArgumentNullException.ThrowIfNull(orderIds);
 
         var orderIdsArray = orderIds.ToArray();
 
         if (!orderIdsArray.Any())
+        {
             return [];
+        }
 
         var orders = await Orders.Where(o => orderIdsArray.Any(a => a == o.Id)).ToListAsync();
         return orders.AsReadOnly();
