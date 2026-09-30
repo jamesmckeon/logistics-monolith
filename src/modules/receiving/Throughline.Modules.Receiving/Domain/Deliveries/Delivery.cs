@@ -74,6 +74,11 @@ internal sealed class Delivery : Entity<Guid>
             errors.Add(new FieldError("invalidPallets must contain distinct LPNs"));
         }
 
+        if (errors.Any())
+        {
+            return Result<Delivery>.Validation(errors);
+        }
+
         return new Delivery(id, ownerId, operatorId, receivedOn, shipment, received, invalid);
     }
 }

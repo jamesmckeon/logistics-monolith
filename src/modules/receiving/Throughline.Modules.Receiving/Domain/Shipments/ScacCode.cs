@@ -17,7 +17,7 @@ internal sealed class ScacCode : ValueObject
         yield return Value;
     }
 
-    public Result<ScacCode> Create(string value)
+    public static Result<ScacCode> Create(string value)
     {
         if (value.Trim().Length == 0)
         {
