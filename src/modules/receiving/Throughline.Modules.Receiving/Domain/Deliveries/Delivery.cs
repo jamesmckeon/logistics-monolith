@@ -53,9 +53,27 @@ internal sealed class Delivery : Entity<Guid>
         {
             errors.Add(new("Either receivedPallets or invalidPallets must contain at least one item"));
         }
-        
-        var duplicateReceived = received.GroupBy(grp => new {Lpn = grp.LicensePlateNumber.Trim().})
 
-        if (receivedPallets.Any())
+        var duplicateReceived = received.GroupBy(grp => grp.LicensePlateNumber)
+            .Select(s => new { Count = s.Count() })
+            .Where(w => w.Count > 1)
+            .ToList();
+
+        if (duplicateReceived.Any())
+        {
+            errors.Add(new FieldError("receivedPallets must contain distinct LPNs"));
+        }
+
+        var duplicateInvalid = invalid.GroupBy(grp => grp.LicensePlateNumber)
+            .Select(s => new { Count = s.Count() })
+            .Where(w => w.Count > 1)
+            .ToList();
+
+        if (duplicateInvalid.Any())
+        {
+            errors.Add(new FieldError("invalidPallets must contain distinct LPNs"));
+        }
+
+        return new Delivery(id, ownerId, operatorId, receivedOn, shipment, received, invalid);
     }
 }

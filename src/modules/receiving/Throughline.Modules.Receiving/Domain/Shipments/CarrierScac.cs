@@ -1,22 +1,20 @@
 using Throughline.Common.Models;
-using Throughline.Modules.Receiving.Domain.Shipments;
 
-namespace Throughline.Modules.Receiving.Shipments;
+namespace Throughline.Modules.Receiving.Domain.Shipments;
 
 internal sealed class CarrierScac : ValueObject
 {
-    public CarrierScac(ScacCode scacCode, string name)
+    public CarrierScac(ScacCode scacCode, int carrierId)
     {
         ScacCode = scacCode;
-        Name = name;
+        CarrierId = carrierId;
     }
 
     public ScacCode ScacCode { get; }
-    public string Name { get; }
+    public int CarrierId { get; }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
         yield return ScacCode;
-        yield return Name;
     }
 }

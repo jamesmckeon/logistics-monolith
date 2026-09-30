@@ -1,24 +1,47 @@
 using Throughline.Common.Models;
+using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Locations;
 
 namespace Throughline.Modules.Receiving.Domain.Inventory;
 
-internal sealed class ReceivedPallet : Entity<string>
+internal sealed class ReceivedPallet : Entity<Guid>
 {
     private ReceivedPallet(
-        string id,
-        string licensePlateNumber,
-        string skuCode,
+        Guid id,
+        UpperCaseString licensePlateNumber,
+        UpperCaseString skuCode,
         int quantity,
         ReceivingLocation location,
-        HoldReasons holdReasons,
-        IEnumerable<ReceivingExceptions> receivingExceptions)
+        HoldReasons? holdReason) : base(id)
+    {
+        LicensePlateNumber = licensePlateNumber;
+        SkuCode = skuCode;
+        Quantity = quantity;
+        Location = location;
+        HoldReason = holdReason;
+    }
 
     public UpperCaseString LicensePlateNumber { get; }
     public UpperCaseString SkuCode { get; }
     public int Quantity { get; }
     public ReceivingLocation Location { get; }
     public HoldReasons? HoldReason { get; }
-    public IReadOnlyCollection<ReceivingExceptions> Exceptions { get; }
+
+    public static Result<ReceivedPallet> Create(Guid id, UpperCaseString lpn, UpperCaseString skuCode,
+        int quantity, ReceivingLocation location, HoldReasons? holdReason)
+    {
+        if (holdReason != null && location.IsHoldLocation())
+        {
+            return Result<ReceivedPallet>.Validation(
+                new FieldError("A held pallet must be received into a holding location"));
+        }
+
+        if (quantity <= 0)
+        {
+            return Result<ReceivedPallet>.Validation(new FieldError("quantity must be greater than zero"));
+        }
+
+        return new ReceivedPallet(id, lpn, skuCode, quantity, location, holdReason);
+    }
 }

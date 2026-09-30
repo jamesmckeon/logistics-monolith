@@ -11,22 +11,42 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 internal sealed class InvalidPallet : Entity<Guid>
 {
     private InvalidPallet(
-        Guid id, int ownerId, Shipment shipment, UpperCaseString skuCode, UpperCaseString lpn, int quantity) : base(id)
+        Guid id,
+        int ownerId,
+        InvalidShipment shipment,
+        UpperCaseString skuCode,
+        UpperCaseString lpn,
+        int quantity,
+        IEnumerable<ReceivingExceptions> exceptions) : base(id)
     {
         OwnerId = ownerId;
         Shipment = shipment;
         SkuCode = skuCode;
         Quantity = quantity;
         LicensePlateNumber = lpn;
+        Exceptions = exceptions.ToArray().AsReadOnly();
     }
 
     public int OwnerId { get; }
-    public Shipment Shipment { get; }
+    public InvalidShipment Shipment { get; }
     public UpperCaseString SkuCode { get; }
     public UpperCaseString LicensePlateNumber { get; }
     public int Quantity { get; }
+    public IReadOnlyCollection<ReceivingExceptions> Exceptions { get; }
 
-    public static Result<InvalidPallet> Create(Guid id, int ownerId, Shipment shipment, UpperCaseString skuCode,
-        UpperCaseString lpn, int quantity) =>
-        throw new NotImplementedException();
+    public static Result<InvalidPallet> Create(Guid id, int ownerId, InvalidShipment shipment, UpperCaseString skuCode,
+        UpperCaseString lpn, int quantity, params ReceivingExceptions[] exceptions)
+    {
+        if (quantity <= 0)
+        {
+            return Result<InvalidPallet>.Validation(new FieldError("quantity must be greater than zero"));
+        }
+
+        if (exceptions.Length == 0)
+        {
+            return Result<InvalidPallet>.Validation(new FieldError("exceptions must contain at least one item"));
+        }
+
+        return new InvalidPallet(id, ownerId, shipment, skuCode, lpn, quantity, exceptions.Distinct());
+    }
 }
