@@ -11,5 +11,5 @@ internal sealed class ReceivingLocation : Entity<string>
 
     public LocationTypes LocationType { get; }
 
-    public bool IsHoldLocation() => LocationType is LocationTypes.Bulk or LocationTypes.OnHold;
+    public bool IsHoldLocation() => LocationType is LocationTypes.Bulk or LocationTypes.ReceivingException;
 }

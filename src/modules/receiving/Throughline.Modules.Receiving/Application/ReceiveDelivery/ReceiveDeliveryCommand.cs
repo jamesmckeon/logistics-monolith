@@ -4,6 +4,7 @@ using Throughline.Modules.Receiving.Domain.Shipments;
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
 
 internal sealed record ReceiveDeliveryCommand(
+    Guid DeliveryId,
     int OwnerId,
     Guid OperatorId,
     string DeliveryReference,
@@ -14,7 +15,7 @@ internal sealed record ReceiveDeliveryCommand(
     string ShipperName,
     IEnumerable<ReceiveDeliveryCommandItem> Items)
 {
-    public Result ValidateCommand(ReceiveDeliveryCommand command)
+    public Result Validate()
     {
         var errors = new List<FieldError>();
 

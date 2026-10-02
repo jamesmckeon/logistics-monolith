@@ -1,14 +1,16 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
+using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
 
-namespace Throughline.Modules.Receiving.Domain.Deliveries;
+namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 
-internal sealed class Delivery : Entity<Guid>
+internal sealed class DeliveryReceipt : Entity<Guid>
 {
-    public Delivery(
+    public DeliveryReceipt(
         Guid id,
+        ReceiptNumber receiptNumber,
         int ownerId,
         Guid operatorId,
         AppDateTime receivedOn,
@@ -16,6 +18,7 @@ internal sealed class Delivery : Entity<Guid>
         IEnumerable<ReceivedPallet> receivedPallets,
         IEnumerable<InvalidPallet> invalidPallets) : base(id)
     {
+        ReceiptNumber = receiptNumber;
         OwnerId = ownerId;
         OperatorId = operatorId;
         ReceivedOn = receivedOn;
@@ -25,6 +28,7 @@ internal sealed class Delivery : Entity<Guid>
     }
 
     public int OwnerId { get; }
+    public ReceiptNumber ReceiptNumber { get; }
     public Shipment Shipment { get; }
     public IReadOnlyCollection<ReceivedPallet> ReceivedPallets { get; }
     public IReadOnlyCollection<InvalidPallet> InvalidPallets { get; }
@@ -36,7 +40,8 @@ internal sealed class Delivery : Entity<Guid>
 
     public AppDateTime ReceivedOn { get; }
 
-    public static Result<Delivery> Create(Guid id, int ownerId, Guid operatorId, AppDateTime receivedOn,
+    public static Result<DeliveryReceipt> Create(Guid id, ReceiptNumber receiptNumber, int ownerId, Guid operatorId,
+        AppDateTime receivedOn,
         Shipment shipment, IEnumerable<ReceivedPallet> receivedPallets, IEnumerable<InvalidPallet> invalidPallets)
     {
         var errors = new List<FieldError>();
@@ -76,9 +81,10 @@ internal sealed class Delivery : Entity<Guid>
 
         if (errors.Any())
         {
-            return Result<Delivery>.Validation(errors);
+            return Result<DeliveryReceipt>.Validation(errors);
         }
 
-        return new Delivery(id, ownerId, operatorId, receivedOn, shipment, received, invalid);
+        return new DeliveryReceipt(
+            id, receiptNumber, ownerId, operatorId, receivedOn, shipment, received, invalid);
     }
 }
