@@ -8,10 +8,10 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 /// <summary>
 ///     A pallet that hasn't been received into inventory due to invalid state
 /// </summary>
-internal sealed class InvalidPallet : Entity<Guid>
+internal sealed class InvalidPallet : Entity<UniqueId>
 {
     private InvalidPallet(
-        Guid id,
+        UniqueId id,
         int ownerId,
         InvalidShipment shipment,
         UpperCaseString skuCode,
@@ -34,7 +34,8 @@ internal sealed class InvalidPallet : Entity<Guid>
     public int Quantity { get; }
     public IReadOnlyCollection<ReceivingExceptions> Exceptions { get; }
 
-    public static Result<InvalidPallet> Create(Guid id, int ownerId, InvalidShipment shipment, UpperCaseString skuCode,
+    public static Result<InvalidPallet> Create(UniqueId id, int ownerId, InvalidShipment shipment,
+        UpperCaseString skuCode,
         UpperCaseString lpn, int quantity, params ReceivingExceptions[] exceptions)
     {
         if (quantity <= 0)

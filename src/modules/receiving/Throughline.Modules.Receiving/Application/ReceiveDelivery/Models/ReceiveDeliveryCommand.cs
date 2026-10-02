@@ -1,7 +1,7 @@
 using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Domain.Shipments;
 
-namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
+namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 internal sealed record ReceiveDeliveryCommand(
     Guid DeliveryId,
@@ -9,6 +9,7 @@ internal sealed record ReceiveDeliveryCommand(
     Guid OperatorId,
     string DeliveryReference,
     string BillOfLading,
+    string CarrierName,
     string CarrierScac,
     string TrailerNumber,
     string ContainerNumber,
@@ -32,6 +33,7 @@ internal sealed record ReceiveDeliveryCommand(
         AddIfBlank(TrailerNumber, nameof(TrailerNumber));
         AddIfBlank(ContainerNumber, nameof(ContainerNumber));
         AddIfBlank(ShipperName, nameof(ShipperName));
+        AddIfBlank(CarrierName, nameof(CarrierName));
 
         var scacResult = ScacCode.Create(CarrierScac);
 

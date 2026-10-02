@@ -4,9 +4,14 @@ namespace Throughline.Modules.Receiving.Domain.Common;
 
 internal sealed class UpperCaseString : ValueObject
 {
-    private UpperCaseString(string value)
+    public UpperCaseString(string value)
     {
-        Value = value;
+        if (value.Trim().Length == 0)
+        {
+            throw new ArgumentException("value cannot be blank", nameof(value));
+        }
+
+        Value = value.Trim().ToUpperInvariant();
     }
 
     public string Value { get; }
@@ -15,15 +20,5 @@ internal sealed class UpperCaseString : ValueObject
     protected override IEnumerable<object?> GetAtomicValues()
     {
         yield return Value;
-    }
-
-    public static UpperCaseString Create(string value)
-    {
-        if (value.Trim() == string.Empty)
-        {
-            throw new ArgumentException("value cannot be blank", nameof(value));
-        }
-
-        return new UpperCaseString(value.Trim().ToUpperInvariant());
     }
 }

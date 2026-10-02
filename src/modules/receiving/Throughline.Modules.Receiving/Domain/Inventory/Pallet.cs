@@ -5,9 +5,9 @@ using Throughline.Modules.Receiving.Domain.Locations;
 
 namespace Throughline.Modules.Receiving.Domain.Inventory;
 
-internal sealed class ReceivedPallet : Entity<Guid>
+internal sealed class Pallet : Entity<Guid>
 {
-    private ReceivedPallet(
+    private Pallet(
         Guid id,
         UpperCaseString licensePlateNumber,
         UpperCaseString skuCode,
@@ -28,20 +28,20 @@ internal sealed class ReceivedPallet : Entity<Guid>
     public ReceivingLocation Location { get; }
     public HoldReasons? HoldReason { get; }
 
-    public static Result<ReceivedPallet> Create(Guid id, UpperCaseString lpn, UpperCaseString skuCode,
+    public static Result<Pallet> Create(Guid id, UpperCaseString lpn, UpperCaseString skuCode,
         int quantity, ReceivingLocation location, HoldReasons? holdReason)
     {
         if (holdReason != null && location.IsHoldLocation())
         {
-            return Result<ReceivedPallet>.Validation(
+            return Result<Pallet>.Validation(
                 new FieldError("A held pallet must be received into a holding location"));
         }
 
         if (quantity <= 0)
         {
-            return Result<ReceivedPallet>.Validation(new FieldError("quantity must be greater than zero"));
+            return Result<Pallet>.Validation(new FieldError("quantity must be greater than zero"));
         }
 
-        return new ReceivedPallet(id, lpn, skuCode, quantity, location, holdReason);
+        return new Pallet(id, lpn, skuCode, quantity, location, holdReason);
     }
 }

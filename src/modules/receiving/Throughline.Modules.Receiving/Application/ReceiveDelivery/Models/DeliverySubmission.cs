@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
+namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 /// <summary>
 ///     The normalized content a client submitted for a delivery, kept alongside the

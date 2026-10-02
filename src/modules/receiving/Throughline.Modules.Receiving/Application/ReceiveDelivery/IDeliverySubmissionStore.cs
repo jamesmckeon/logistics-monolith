@@ -1,3 +1,5 @@
+using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
 
 internal interface IDeliverySubmissionStore

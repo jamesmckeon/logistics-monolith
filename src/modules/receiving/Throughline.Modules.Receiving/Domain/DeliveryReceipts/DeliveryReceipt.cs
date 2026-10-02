@@ -15,7 +15,7 @@ internal sealed class DeliveryReceipt : Entity<Guid>
         Guid operatorId,
         AppDateTime receivedOn,
         Shipment shipment,
-        IEnumerable<ReceivedPallet> receivedPallets,
+        IEnumerable<Pallet> receivedPallets,
         IEnumerable<InvalidPallet> invalidPallets) : base(id)
     {
         ReceiptNumber = receiptNumber;
@@ -30,7 +30,7 @@ internal sealed class DeliveryReceipt : Entity<Guid>
     public int OwnerId { get; }
     public ReceiptNumber ReceiptNumber { get; }
     public Shipment Shipment { get; }
-    public IReadOnlyCollection<ReceivedPallet> ReceivedPallets { get; }
+    public IReadOnlyCollection<Pallet> ReceivedPallets { get; }
     public IReadOnlyCollection<InvalidPallet> InvalidPallets { get; }
 
     /// <summary>
@@ -42,7 +42,7 @@ internal sealed class DeliveryReceipt : Entity<Guid>
 
     public static Result<DeliveryReceipt> Create(Guid id, ReceiptNumber receiptNumber, int ownerId, Guid operatorId,
         AppDateTime receivedOn,
-        Shipment shipment, IEnumerable<ReceivedPallet> receivedPallets, IEnumerable<InvalidPallet> invalidPallets)
+        Shipment shipment, IEnumerable<Pallet> receivedPallets, IEnumerable<InvalidPallet> invalidPallets)
     {
         var errors = new List<FieldError>();
 

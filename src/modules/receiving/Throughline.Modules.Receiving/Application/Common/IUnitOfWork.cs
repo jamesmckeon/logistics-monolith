@@ -1,6 +1,6 @@
 namespace Throughline.Modules.Receiving.Application.Common;
 
-public interface IUnitOfWork
+internal interface IUnitOfWork
 {
-    
+    Task SaveChangesAsync(CancellationToken token);
 }

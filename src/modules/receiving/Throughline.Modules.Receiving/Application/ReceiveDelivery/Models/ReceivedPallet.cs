@@ -1,4 +1,4 @@
-namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
+namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 internal sealed record ReceivedPallet(string Lpn, string Result, PalletError? Error)
 {
