@@ -2,12 +2,12 @@ using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Receiving;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Tests.Domain.Inventory;
 
 [Category("Unit")]
-internal sealed class InventoryPalletTests
+internal sealed class SkuReceiptTests
 {
     #region Allocate
 
@@ -87,7 +87,7 @@ internal sealed class InventoryPalletTests
     [TestCase(-1)]
     public void Create_QuantityReceivedNotPositive_ReturnsValidationFailure(int quantityReceived)
     {
-        var actual = InventoryPallet.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
+        var actual = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
             AppDateTime.Now.Subtract(new(1, 0, 0)));
 
         Assert.Multiple(() =>
@@ -102,7 +102,7 @@ internal sealed class InventoryPalletTests
     [Test]
     public void Create_ReceivedOnInFuture_ReturnsValidationFailure()
     {
-        var actual = InventoryPallet.Create(EntityId.Create(), EntityId.Create(), 1,
+        var actual = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1,
             AppDateTime.Now.Add(new(1, 0, 0)));
 
         Assert.Multiple(() =>
@@ -121,7 +121,7 @@ internal sealed class InventoryPalletTests
         var skuId = EntityId.Create();
         var receivedOn = AppDateTime.Now.Subtract(new(1, 0, 0));
 
-        var actual = InventoryPallet.Create(id, skuId, 5, receivedOn);
+        var actual = SkuReceipt.Create(id, skuId, 5, receivedOn);
 
         var receipt = actual.Value ?? throw new AssertionException("Create returned no value");
 
@@ -141,9 +141,9 @@ internal sealed class InventoryPalletTests
 
     #region Helpers
 
-    private static InventoryPallet CreateReceipt(int quantityReceived)
+    private static SkuReceipt CreateReceipt(int quantityReceived)
     {
-        return InventoryPallet.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
+        return SkuReceipt.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
                        AppDateTime.Now.Subtract(new(1, 0, 0)))
                    .Value
                ?? throw new InvalidOperationException("test receipt could not be created");

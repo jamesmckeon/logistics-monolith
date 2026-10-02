@@ -2,9 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
-using Throughline.Modules.Inventory.Domain.Locations;
 using Throughline.Modules.Inventory.Domain.Owners;
-using Throughline.Modules.Inventory.Domain.Receiving;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
@@ -22,14 +20,12 @@ public sealed class InventoryDbContext :
         _logger = logger;
     }
 
-    internal DbSet<InventoryLocation> Locations => Set<InventoryLocation>();
-
     internal DbSet<OrderAllocation> Orders => Set<OrderAllocation>();
     internal DbSet<Sku> Skus => Set<Sku>();
-    internal DbSet<InventoryPallet> InventoryPallets => Set<InventoryPallet>();
+    internal DbSet<SkuReceipt> SkuReceipts => Set<SkuReceipt>();
     internal DbSet<Owner> Owners => Set<Owner>();
 
-    async Task<IReadOnlyCollection<InventoryPallet>> IInventoryRepository.GetAvailableInventoryAsync(
+    async Task<IReadOnlyCollection<SkuReceipt>> IInventoryRepository.GetAvailableInventoryAsync(
         IEnumerable<EntityId> skuIds, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(skuIds);
@@ -37,10 +33,10 @@ public sealed class InventoryDbContext :
         var ids = skuIds.Select(s => s.Value).ToArray();
         if (!ids.Any())
         {
-            return Array.Empty<InventoryPallet>().ToList().AsReadOnly();
+            return Array.Empty<SkuReceipt>().ToList().AsReadOnly();
         }
 
-        return await InventoryPallets.FromSql(
+        return await SkuReceipts.FromSql(
                 $"""
                  SELECT r.* FROM inventory.sku_receipts AS r
                  WHERE r.sku_id = ANY({ids})
@@ -78,13 +74,6 @@ public sealed class InventoryDbContext :
         }
 
         return await Skus.Where(s => skuIdsArray.Contains(s.Id))
-            .ToListAsync(token);
-    }
-
-    async Task<IReadOnlyCollection<InventoryLocation>> IInventoryRepository.GetLocationsByTypeAsync(
-        InventoryLocationTypes locationType, CancellationToken token)
-    {
-        return await Locations.Where(w => w.LocationType == locationType)
             .ToListAsync(token);
     }
 

@@ -1,7 +1,7 @@
 using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Receiving;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Domain.Allocation;
 
@@ -41,14 +41,9 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         get
         {
             if (QuantityAllocated == 0)
-            {
                 return AllocationStatuses.Confirmed;
-            }
-
             if (QuantityAllocated < QuantityRequested)
-            {
                 return AllocationStatuses.PartiallyAllocated;
-            }
 
             return AllocationStatuses.Allocated;
         }
@@ -62,35 +57,25 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         ArgumentNullException.ThrowIfNull(skuId);
 
         if (quantityRequested <= 0)
-        {
             return Result<OrderLineAllocation>.Validation("quantityRequested must be greater than zero");
-        }
 
         return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0, quantityRequested);
     }
 
-    public void AllocateReceipt(InventoryPallet receipt, AppDateTime allocatedOn)
+    public void AllocateReceipt(SkuReceipt receipt, AppDateTime allocatedOn)
     {
         if (receipt.SkuId != SkuId)
-        {
             throw new ArgumentException("Receipt sku must be the same as the line's sku",
                 nameof(receipt));
-        }
 
         if (allocatedOn > AppDateTime.Now)
-        {
             throw new ArgumentException("allocatedOn must be in the past", nameof(allocatedOn));
-        }
 
         if (AllocationStatus == AllocationStatuses.Allocated)
-        {
             throw new InvalidOperationException("Cannot add a receipt to a fully allocated line");
-        }
 
         if (receipt.QuantityAvailable == 0)
-        {
             throw new InvalidOperationException("Cannot allocate a fully allocated receipt");
-        }
 
         var allocation = new ReceiptAllocation(
             receipt.Id,
@@ -105,22 +90,16 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         receipt.Allocate(allocation.QuantityAllocated, allocatedOn);
     }
 
-    public bool CanAllocateReceipt(InventoryPallet receipt)
+    public bool CanAllocateReceipt(SkuReceipt receipt)
     {
         if (receipt.SkuId != SkuId)
-        {
             return false;
-        }
 
         if (AllocationStatus == AllocationStatuses.Allocated)
-        {
             return false;
-        }
 
         if (receipt.QuantityAvailable == 0)
-        {
             return false;
-        }
 
         return true;
     }

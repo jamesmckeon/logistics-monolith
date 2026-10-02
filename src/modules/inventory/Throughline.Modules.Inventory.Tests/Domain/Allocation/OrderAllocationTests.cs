@@ -2,7 +2,7 @@ using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Receiving;
+using Throughline.Modules.Inventory.Domain.Inventory;
 
 namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 
@@ -240,9 +240,9 @@ internal sealed class OrderAllocationTests
             .Value!;
     }
 
-    private static InventoryPallet CreateReceipt(OrderLineAllocation line, int quantityReceived = 1)
+    private static SkuReceipt CreateReceipt(OrderLineAllocation line, int quantityReceived = 1)
     {
-        return InventoryPallet.Create(EntityId.Create(), line.SkuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), line.SkuId, quantityReceived, AppDateTime.Now)
             .Value!;
     }
 

@@ -8,7 +8,6 @@ using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
-using Throughline.Modules.Inventory.Domain.Receiving;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Common;
 
@@ -55,7 +54,7 @@ internal sealed class OrderAllocationServiceTests
         order.StartAllocating(AppDateTime.Now);
         GivenOrderLoaded(order);
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.Multiple(() =>
         {
@@ -77,7 +76,7 @@ internal sealed class OrderAllocationServiceTests
         GivenOrderLoaded(order);
         var expected = AllocatedOrder.FullyAllocated(order.Id);
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.Multiple(() =>
         {
@@ -96,7 +95,7 @@ internal sealed class OrderAllocationServiceTests
         _unitOfWork.Setup(u => u.SaveChangesAsync(Token))
             .ThrowsAsync(new DbUpdateConcurrencyException("conflict"));
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.Multiple(() =>
         {
@@ -117,7 +116,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationRollsBack();
         GivenResponse(order, receipts, [], AllocationStatuses.Confirmed, []);
 
-        await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.ShipComplete, Token);
+        await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.ShipComplete, Token);
 
         // should save once each for StartAllocating() and StopAllocating()
         _unitOfWork.Verify(u => u.SaveChangesAsync(Token), Times.Exactly(2));
@@ -137,7 +136,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationRollsBack();
         GivenResponse(order, receipts, [], AllocationStatuses.Confirmed, []);
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.ShipComplete, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.ShipComplete, Token);
 
         Assert.Multiple(() =>
         {
@@ -163,7 +162,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationCommits();
         GivenResponse(order, receipts, [], AllocationStatuses.Allocated, []);
 
-        await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         _allocationService.Verify(a => a.AllocateOrderLine(order.Id, lineOne, receipts), Times.Once);
         _allocationService.Verify(a => a.AllocateOrderLine(order.Id, lineTwo, receipts), Times.Once);
@@ -193,7 +192,7 @@ internal sealed class OrderAllocationServiceTests
         _transaction.InSequence(sequence).Setup(t => t.CommitAsync(Token)).Returns(Task.CompletedTask);
         GivenResponse(order, receipts, [], AllocationStatuses.Allocated, []);
 
-        await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         _transaction.Verify(t => t.CommitAsync(Token), Times.Once);
     }
@@ -210,7 +209,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationCommits();
         GivenResponse(order, receipts, [], AllocationStatuses.Allocated, []);
 
-        await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.That(order.Allocating, Is.False);
     }
@@ -225,7 +224,7 @@ internal sealed class OrderAllocationServiceTests
         _unitOfWork.Setup(u => u.BeginTransactionAsync(Token))
             .ThrowsAsync(new OperationCanceledException());
 
-        Assert.That(async () => await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token),
+        Assert.That(async () => await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token),
             Throws.InstanceOf<OperationCanceledException>());
 
         // StartAllocating() is saved with the request token; StopAllocating() can't use it, as it
@@ -250,7 +249,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationCommits();
         GivenResponse(order, receipts, [], derivedStatus, []);
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.Multiple(() =>
         {
@@ -273,7 +272,7 @@ internal sealed class OrderAllocationServiceTests
         GivenAllocationCommits();
         GivenResponse(order, receipts, [shortage], AllocationStatuses.PartiallyAllocated, [sku]);
 
-        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id, AllocationPolicies.Partial, Token);
+        var actual = await _sut.AllocateOrderAsync(OwnerId, order.Id,AllocationPolicies.Partial, Token);
 
         Assert.That(actual.Shortages, Is.EqualTo([new SkuCodeShortage("SKU-A", 3, 1, 2)]));
     }
@@ -291,7 +290,7 @@ internal sealed class OrderAllocationServiceTests
     }
 
     private void GivenAllocationStarts(
-        OrderAllocation order, InventoryPallet[] receipts, AllocationPolicies policy, bool canSatisfyPolicy)
+        OrderAllocation order, SkuReceipt[] receipts, AllocationPolicies policy, bool canSatisfyPolicy)
     {
         var skuIds = order.UnallocatedLines.Select(l => l.SkuId).ToArray();
 
@@ -307,7 +306,7 @@ internal sealed class OrderAllocationServiceTests
     }
 
     private void GivenLinesAllocated(
-        OrderAllocation order, InventoryPallet[] receipts, params OrderLineAllocation[] lines)
+        OrderAllocation order, SkuReceipt[] receipts, params OrderLineAllocation[] lines)
     {
         foreach (var line in lines)
             _allocationService.Setup(a => a.AllocateOrderLine(order.Id, line, receipts));
@@ -327,7 +326,7 @@ internal sealed class OrderAllocationServiceTests
 
     private void GivenResponse(
         OrderAllocation order,
-        InventoryPallet[] receipts,
+        SkuReceipt[] receipts,
         SkuIdShortage[] shortages,
         AllocationStatuses derivedStatus,
         Sku[] skus)
@@ -357,9 +356,9 @@ internal sealed class OrderAllocationServiceTests
                ?? throw new InvalidOperationException("test order could not be created");
     }
 
-    private static InventoryPallet CreateReceipt(EntityId skuId)
+    private static SkuReceipt CreateReceipt(EntityId skuId)
     {
-        return InventoryPallet.Create(EntityId.Create(), skuId, 5, AppDateTime.Now.Subtract(new(1, 0, 0))).Value
+        return SkuReceipt.Create(EntityId.Create(), skuId, 5, AppDateTime.Now.Subtract(new(1, 0, 0))).Value
                ?? throw new InvalidOperationException("test receipt could not be created");
     }
 

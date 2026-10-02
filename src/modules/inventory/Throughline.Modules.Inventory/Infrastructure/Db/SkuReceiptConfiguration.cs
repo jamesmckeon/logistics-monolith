@@ -1,17 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Common.Models;
-using Throughline.Modules.Inventory.Domain.Receiving;
-using Throughline.Modules.Inventory.Domain.Skus;
+using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Infrastructure.Common;
+using Throughline.Modules.Inventory.Domain.Skus;
 
 namespace Throughline.Modules.Inventory.Infrastructure.Db;
 
-internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<InventoryPallet>
+internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuReceipt>
 {
     public const string PrimaryKeyName = "pk_sku_receipts";
 
-    public void Configure(EntityTypeBuilder<InventoryPallet> builder)
+    public void Configure(EntityTypeBuilder<SkuReceipt> builder)
     {
         builder.ToTable("sku_receipts");
 
