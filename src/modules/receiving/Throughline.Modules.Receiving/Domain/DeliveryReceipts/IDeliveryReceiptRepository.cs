@@ -7,7 +7,7 @@ namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 
 internal interface IDeliveryReceiptRepository
 {
-    Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid deliveryId, CancellationToken token);
+    Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token);
 
     Task<IReadOnlyCollection<ReceivedLpn>> GetReceivedLpnsAsync(int ownerId, IEnumerable<UpperCaseString> lpns,
         CancellationToken token);
@@ -15,5 +15,9 @@ internal interface IDeliveryReceiptRepository
     Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token);
     Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token);
     Task<ReceiptNumber?> GetLastReceiptNumberAsync(int ownerId, CancellationToken token);
-    void Add(DeliveryReceipt receipt, DeliveryReceivedIntegrationEvent @event);
+
+    Task AddAsync(
+        DeliveryReceipt receipt,
+        DeliveryReceivedIntegrationEvent @event,
+        CancellationToken token);
 }

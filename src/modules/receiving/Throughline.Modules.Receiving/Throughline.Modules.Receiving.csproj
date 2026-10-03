@@ -15,4 +15,9 @@
         <Folder Include="Infrastructure\Migrations\"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
+    </ItemGroup>
+
 </Project>

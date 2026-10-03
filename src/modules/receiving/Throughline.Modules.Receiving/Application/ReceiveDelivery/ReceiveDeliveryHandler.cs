@@ -100,7 +100,7 @@ internal sealed class ReceiveDeliveryHandler
         var deliveryReceipt = new DeliveryReceipt(
             command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), command.OwnerId, command.OperatorId,
             AppDateTime.Now, shipment, pallets, invalidPallets);
-        _receiptRepository.Add(deliveryReceipt, ToEvent(deliveryReceipt));
+        await _receiptRepository.AddAsync(deliveryReceipt, ToEvent(deliveryReceipt), token);
 
         var result = ToResult(deliveryReceipt);
 
