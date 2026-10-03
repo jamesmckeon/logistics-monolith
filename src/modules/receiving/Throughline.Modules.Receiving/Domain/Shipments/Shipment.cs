@@ -8,7 +8,7 @@ internal sealed class Shipment : ValueObject
     public Shipment(
         CarrierScac carrierScac,
         TrimmedString? billOfLading,
-        TrimmedString shipperName,
+        TrimmedString? shipperName,
         TrimmedString? trailerNumber,
         TrimmedString? containerNumber,
         TrimmedString shipperReference)
@@ -28,7 +28,7 @@ internal sealed class Shipment : ValueObject
 
     public CarrierScac CarrierScac { get; }
     public TrimmedString? BillOfLading { get; }
-    public TrimmedString ShipperName { get; }
+    public TrimmedString? ShipperName { get; }
     public TrimmedString? TrailerNumber { get; }
     public TrimmedString? ContainerNumber { get; }
     public TrimmedString ShipperReference { get; }

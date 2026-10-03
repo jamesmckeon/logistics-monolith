@@ -18,6 +18,6 @@ internal interface IDeliveryReceiptRepository
 
     Task AddAsync(
         DeliveryReceipt receipt,
-        DeliveryReceivedIntegrationEvent @event,
+        AllocatablePalletsIntegrationEvent? @event,
         CancellationToken token);
 }

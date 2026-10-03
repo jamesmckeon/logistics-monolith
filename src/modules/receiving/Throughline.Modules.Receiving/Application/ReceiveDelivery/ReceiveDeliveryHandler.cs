@@ -44,7 +44,7 @@ internal sealed class ReceiveDeliveryHandler
     {
         var validationResult = command.Validate();
 
-        if (validationResult.Succeeded)
+        if (!validationResult.Succeeded)
         {
             return Result<ReceiveDeliveryResult>.FromFailureResult(validationResult);
         }
@@ -70,7 +70,7 @@ internal sealed class ReceiveDeliveryHandler
 
         if (carrierScac is null)
         {
-            return Result<ReceiveDeliveryResult>.Validation($"Scac code '{carrierScac}' not found");
+            return Result<ReceiveDeliveryResult>.Validation($"Scac code '{command.CarrierScac}' not found");
         }
 
         var existingLpns = (await _receiptRepository.GetReceivedLpnsAsync(command.OwnerId,
@@ -100,6 +100,7 @@ internal sealed class ReceiveDeliveryHandler
         var deliveryReceipt = new DeliveryReceipt(
             command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), command.OwnerId, command.OperatorId,
             AppDateTime.Now, shipment, pallets, invalidPallets);
+
         await _receiptRepository.AddAsync(deliveryReceipt, ToEvent(deliveryReceipt), token);
 
         var result = ToResult(deliveryReceipt);
@@ -152,17 +153,32 @@ internal sealed class ReceiveDeliveryHandler
         foreach (var pallet in command.Pallets)
         {
             var exceptions = new List<ReceivingExceptions>();
-            if (allSkus.All(a => a.SkuCode != new UpperCaseString(pallet.Sku)))
+            var sku = allSkus.FirstOrDefault(a => a.SkuCode == new UpperCaseString(pallet.Sku));
+
+            if (sku is null)
             {
                 exceptions.Add(ReceivingExceptions.InvalidSkuCode);
             }
+            else
+            {
+                if (sku.IsLotTracked && string.IsNullOrWhiteSpace(pallet.LotNumber))
+                {
+                    exceptions.Add(ReceivingExceptions.LotNumberRequired);
+                }
+
+                if (sku.IsExpirationTracked && pallet.Expires == null)
+                {
+                    exceptions.Add(ReceivingExceptions.ExpirationDateRequired);
+                }
+            }
+
 
             if (existingLpns.Any(a => a.Lpn == new UpperCaseString(pallet.Lpn)))
             {
                 exceptions.Add(ReceivingExceptions.DuplicateLpn);
             }
 
-            if (allLocations.All(all => all.Id == new UpperCaseString(pallet.LocationId)))
+            if (allLocations.All(all => all.Id != new UpperCaseString(pallet.LocationId)))
             {
                 exceptions.Add(ReceivingExceptions.InvalidLocation);
             }
@@ -209,7 +225,6 @@ internal sealed class ReceiveDeliveryHandler
     {
         TrimmedString? toNullString(string? val) => string.IsNullOrWhiteSpace(val) ? null : new(val);
 
-        TrimmedString? bol = string.IsNullOrWhiteSpace(command.BillOfLading) ? null : new(command.BillOfLading);
         return new(
             carrierScac,
             toNullString(command.BillOfLading),
@@ -219,13 +234,26 @@ internal sealed class ReceiveDeliveryHandler
             new(command.DeliveryReference));
     }
 
-    private static DeliveryReceivedIntegrationEvent ToEvent(DeliveryReceipt receipt) =>
-        new(receipt.OwnerId, receipt.Id, receipt.ReceiptNumber.Value, receipt.ReceivedOn.Value,
-            receipt.Pallets.Select(p => new AllocatablePalletModel(
+    /// <summary>
+    ///     Creates an event instance based on the provided <c>DeliveryReceipt</c>.
+    /// </summary>
+    /// <param name="receipt"></param>
+    /// <returns> An event instance if at least one pallet on the receipt has allocatable inventory</returns>
+    private static AllocatablePalletsIntegrationEvent? ToEvent(DeliveryReceipt receipt)
+    {
+        if (!receipt.Pallets.Any(a => a.IsAllocatable))
+        {
+            return null;
+        }
+
+        return new(receipt.OwnerId, receipt.Id, receipt.ReceiptNumber.Value, receipt.ReceivedOn.Value,
+            receipt.Pallets.Where(p => p.IsAllocatable)
+                .Select(p => new AllocatablePalletModel(
                     p.LicensePlateNumber.Value,
                     p.OwnerSku.SkuCode.Value,
                     p.Quantity,
                     p.Location.Id.Value))
                 .ToList()
                 .AsReadOnly());
+    }
 }

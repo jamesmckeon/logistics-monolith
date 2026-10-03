@@ -36,7 +36,6 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
         return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
     }
 
-
     public async Task<IReadOnlyCollection<ReceivedLpn>> GetReceivedLpnsAsync(int ownerId,
         IEnumerable<UpperCaseString> lpns,
         CancellationToken token) =>
@@ -53,7 +52,7 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
 
     public async Task AddAsync(
         DeliveryReceipt receipt,
-        DeliveryReceivedIntegrationEvent @event,
+        AllocatablePalletsIntegrationEvent? @event,
         CancellationToken token)
     {
         throw new NotImplementedException("wire up constraint name (see below)");

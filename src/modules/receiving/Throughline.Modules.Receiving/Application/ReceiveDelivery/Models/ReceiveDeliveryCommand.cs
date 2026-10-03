@@ -62,7 +62,31 @@ internal sealed record ReceiveDeliveryCommand(
 
             if (duplicateLpns.Any())
             {
-                errors.Add(new("Pallets must contain unique LPNs"));
+                errors.Add(new("Pallets must contain unique LPNs", nameof(Pallets)));
+            }
+
+            if (pallets.Any(a => string.IsNullOrWhiteSpace(a.Sku)))
+            {
+                errors.Add(new("Each pallet must have a non-blank sku",
+                    nameof(Pallets)));
+            }
+
+            if (pallets.Any(a => string.IsNullOrWhiteSpace(a.Lpn)))
+            {
+                errors.Add(new("Each pallet must have a non-blank lpn",
+                    nameof(Pallets)));
+            }
+
+            if (pallets.Any(a => string.IsNullOrWhiteSpace(a.LocationId)))
+            {
+                errors.Add(new("Each pallet must have a non-blank location ID",
+                    nameof(Pallets)));
+            }
+
+            if (pallets.Any(a => a.Quantity <= 0))
+            {
+                errors.Add(new("Each pallet must have quantity greater than zero",
+                    nameof(Pallets)));
             }
         }
 

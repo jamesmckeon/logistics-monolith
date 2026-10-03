@@ -1,5 +1,4 @@
 using Throughline.Common.Models;
-using Throughline.Modules.Receiving.Common.Exceptions;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
@@ -13,13 +12,11 @@ internal sealed class DeliveryReceipt : Entity<Guid>
         ReceiptNumber receiptNumber,
         int ownerId,
         Guid operatorId,
-        AppDateTime receivedOn,
+        NonFutureDateTime receivedOn,
         Shipment shipment,
         IEnumerable<Pallet> receivedPallets,
         IEnumerable<InvalidPallet> invalidPallets) : base(receiptId)
     {
-        FutureDateException.ThrowIfPastNow(receivedOn);
-
         var received = receivedPallets.ToArray();
         var invalid = invalidPallets.ToArray();
 
@@ -74,5 +71,5 @@ internal sealed class DeliveryReceipt : Entity<Guid>
     /// </summary>
     public Guid OperatorId { get; }
 
-    public AppDateTime ReceivedOn { get; }
+    public NonFutureDateTime ReceivedOn { get; }
 }

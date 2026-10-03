@@ -5,5 +5,7 @@ internal enum ReceivingExceptions
     InvalidSkuCode,
     InvalidLocation,
     DuplicateLpn,
-    InvalidHoldReason
+    InvalidHoldReason,
+    LotNumberRequired,
+    ExpirationDateRequired
 }

@@ -18,7 +18,7 @@ internal sealed class Pallet : Entity<UniqueId>
         AppDateTime? expiresOn,
         string? lotNumber) : base(id)
     {
-        if (holdReason != null && location.IsHoldLocation)
+        if (holdReason != null && !location.IsHoldLocation)
         {
             throw new InvalidOperationException("A held pallet must be received into a holding location");
         }
@@ -54,4 +54,10 @@ internal sealed class Pallet : Entity<UniqueId>
 
     [MemberNotNullWhen(true, nameof(HoldReason))]
     public bool IsHeld => HoldReason is not null;
+
+    /// <summary>
+    ///     Returns true if pallet contents are valid for order allocation; this does not reflect
+    ///     whether contents have yet been allocated or not
+    /// </summary>
+    public bool IsAllocatable => !IsHeld;
 }
