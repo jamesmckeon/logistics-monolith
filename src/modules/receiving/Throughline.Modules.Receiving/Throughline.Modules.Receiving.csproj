@@ -12,11 +12,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Modules.Receiving.Tests"/>
+        <!-- lets Moq proxy the module's internal interfaces in tests -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <Folder Include="Infrastructure\Migrations\"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="NUnit"/>
         <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
     </ItemGroup>
 

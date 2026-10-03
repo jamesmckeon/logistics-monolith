@@ -20,11 +20,11 @@ internal sealed class ReceiptNumber : ValueObject
 
     public static ReceiptNumber Create(ReceiptNumber? lastReceiptNumber)
     {
-        var number = 1;
+        var number = 0;
 
         if (lastReceiptNumber is not null)
         {
-            number = int.Parse(lastReceiptNumber.Value.Split('-')[2]);
+            number = int.Parse(lastReceiptNumber.Value.Split('-')[1]);
         }
 
         return new ReceiptNumber($"RCPT-{(number + 1).ToString().PadLeft(10, '0')}", AppDateTime.Now);
