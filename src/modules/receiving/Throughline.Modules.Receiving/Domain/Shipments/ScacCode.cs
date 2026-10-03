@@ -5,9 +5,16 @@ namespace Throughline.Modules.Receiving.Domain.Shipments;
 
 internal sealed class ScacCode : ValueObject
 {
-    private ScacCode(string value)
+    public ScacCode(string value)
     {
-        Value = value;
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
+        if (value.Trim().Length != 4 || value.Any(a => !char.IsAsciiLetter(a)))
+        {
+            throw new ArgumentException("value must be 4 alpha characters", nameof(value));
+        }
+
+        Value = value.Trim().ToUpperInvariant();
     }
 
     public string Value { get; }
@@ -17,18 +24,20 @@ internal sealed class ScacCode : ValueObject
         yield return Value;
     }
 
-    public static Result<ScacCode> Create(string value)
+    public static Result Validate(string value)
     {
-        if (value.Trim().Length == 0)
+        var errors = new List<FieldError>();
+
+        if (string.IsNullOrWhiteSpace(value))
         {
-            return Result<ScacCode>.Validation("value cannot be blank");
+            errors.Add(new("value must be not be blank"));
         }
 
         if (value.Trim().Length != 4 || value.Any(a => !char.IsAsciiLetter(a)))
         {
-            return Result<ScacCode>.Validation("value must be 4 alpha characters");
+            errors.Add(new("value must be 4 alpha characters"));
         }
 
-        return new ScacCode(value.Trim().ToUpperInvariant());
+        return errors.Any() ? Result.Validation(errors) : Result.Success();
     }
 }

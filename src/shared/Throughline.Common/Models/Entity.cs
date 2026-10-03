@@ -7,10 +7,10 @@ namespace Throughline.Common.Models;
 public abstract class Entity<TId> : ValueObject
     where TId : notnull
 {
-    protected Entity(TId id)
+    protected Entity(TId receiptId)
     {
-        ArgumentNullException.ThrowIfNull(id);
-        Id = id;
+        ArgumentNullException.ThrowIfNull(receiptId);
+        Id = receiptId;
     }
 
     public TId Id { get; }

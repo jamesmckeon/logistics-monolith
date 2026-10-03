@@ -34,7 +34,7 @@ internal sealed class DeliverySubmission
     /// </summary>
     public ReceiveDeliveryResult Result { get; }
 
-    public static DeliverySubmission Create(ReceiveDeliveryCommand command, ReceiveDeliveryResult result)
+    public static DeliverySubmission FromCommandResult(ReceiveDeliveryCommand command, ReceiveDeliveryResult result)
     {
         if (!command.Validate().Succeeded)
         {
@@ -43,7 +43,8 @@ internal sealed class DeliverySubmission
         }
 
         return new DeliverySubmission(
-            command.DeliveryId, command.OwnerId,
+            command.ReceiptId,
+            command.OwnerId,
             NormalizeRequest(command),
             result);
     }
@@ -54,7 +55,7 @@ internal sealed class DeliverySubmission
             command.CarrierScac,
             command.BillOfLading,
             command.ContainerNumber,
-            command.Items,
+            Items = command.Pallets,
             command.ShipperName,
             command.TrailerNumber,
             command.DeliveryReference

@@ -4,18 +4,22 @@ using Throughline.Modules.Receiving.Domain.Shipments;
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 internal sealed record ReceiveDeliveryCommand(
-    Guid DeliveryId,
+    Guid ReceiptId,
     int OwnerId,
     Guid OperatorId,
     string DeliveryReference,
     string BillOfLading,
-    string CarrierName,
     string CarrierScac,
     string TrailerNumber,
     string ContainerNumber,
     string ShipperName,
-    IEnumerable<ReceiveDeliveryCommandItem> Items)
+    IEnumerable<ReceiveDeliveryCommandItem> Pallets)
 {
+    /// <summary>
+    ///     Only performs validation that results in rejection of whole request; more granular/nuanced validation
+    ///     is performed downstream
+    /// </summary>
+    /// <returns></returns>
     public Result Validate()
     {
         var errors = new List<FieldError>();
@@ -29,13 +33,13 @@ internal sealed record ReceiveDeliveryCommand(
         }
 
         AddIfBlank(DeliveryReference, nameof(DeliveryReference));
-        AddIfBlank(BillOfLading, nameof(BillOfLading));
-        AddIfBlank(TrailerNumber, nameof(TrailerNumber));
-        AddIfBlank(ContainerNumber, nameof(ContainerNumber));
-        AddIfBlank(ShipperName, nameof(ShipperName));
-        AddIfBlank(CarrierName, nameof(CarrierName));
 
-        var scacResult = ScacCode.Create(CarrierScac);
+        if (string.IsNullOrWhiteSpace(TrailerNumber) && string.IsNullOrWhiteSpace(ContainerNumber))
+        {
+            errors.Add(new("Either ContainerNumber or TrailerNumber is required"));
+        }
+
+        var scacResult = ScacCode.Validate(CarrierScac);
 
         if (!scacResult.Succeeded)
         {
@@ -43,15 +47,23 @@ internal sealed record ReceiveDeliveryCommand(
                 new FieldError(s.Description, nameof(CarrierScac))));
         }
 
-        var pallets = Items.ToArray();
+        var pallets = Pallets.ToArray();
 
         if (!pallets.Any())
         {
-            errors.Add(new FieldError("Items must contain at least one item", nameof(Items)));
+            errors.Add(new FieldError("Items must contain at least one item", nameof(Pallets)));
         }
         else
         {
-            throw new NotImplementedException("validate pallets");
+            var duplicateLpns = Pallets.GroupBy(grp => grp.Lpn.Trim().ToUpperInvariant())
+                .Select(grp => new { Lpn = grp.Key, Count = grp.Count() })
+                .Where(grp => grp.Count > 1)
+                .ToList();
+
+            if (duplicateLpns.Any())
+            {
+                errors.Add(new("Pallets must contain unique LPNs"));
+            }
         }
 
         return errors.Any() ? Result.Validation(errors) : Result.Success();

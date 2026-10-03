@@ -18,9 +18,15 @@ internal sealed class ReceiptNumber : ValueObject
         yield return Value;
     }
 
-    public static ReceiptNumber Create(ReceiptNumber lastReceiptNumber)
+    public static ReceiptNumber Create(ReceiptNumber? lastReceiptNumber)
     {
-        var number = int.Parse(lastReceiptNumber.Value.Split('-')[2]);
+        var number = 1;
+
+        if (lastReceiptNumber is not null)
+        {
+            number = int.Parse(lastReceiptNumber.Value.Split('-')[2]);
+        }
+
         return new ReceiptNumber($"RCPT-{(number + 1).ToString().PadLeft(10, '0')}", AppDateTime.Now);
     }
 }

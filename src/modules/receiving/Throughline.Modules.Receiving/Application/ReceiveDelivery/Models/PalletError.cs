@@ -1,11 +1,21 @@
-using Throughline.Modules.Receiving.Application.Models;
+using Throughline.Modules.Receiving.Domain.Inventory;
 
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
-internal sealed class PalletError(string Code, string Description)
+internal sealed class PalletError
 {
-    public static PalletError UnrecognizedSku(string sku) =>
-        new(PalletErrorCodes.UnknownSku, $"SKU code '{sku}' is not in the system");
+    private PalletError(string code, string description)
+    {
+        Code = code;
+        Description = description;
+    }
 
-    public static PalletError DamagedPallet() => new(PalletErrorCodes.Damaged, "Pallet was received damaged");
+    public string Code { get; }
+    public string Description { get; }
+
+    public static PalletError Exception(ReceivingExceptions exception) =>
+        new("PALLET_EXCEPTION", exception.ToString());
+
+    public static PalletError OnHold(HoldReason holdReason) =>
+        new("PALLET_ON_HOLD", $"Reason code = {holdReason}");
 }

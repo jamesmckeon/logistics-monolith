@@ -1,15 +1,17 @@
 using Throughline.Common.Models;
+using Throughline.Modules.Receiving.Domain.Common;
 
 namespace Throughline.Modules.Receiving.Domain.Locations;
 
-internal sealed class ReceivingLocation : Entity<string>
+internal sealed class ReceivingLocation : Entity<UpperCaseString>
 {
-    public ReceivingLocation(string id, LocationTypes locationType) : base(id)
+    public ReceivingLocation(UpperCaseString locationId, LocationTypes locationType) : base(locationId)
     {
         LocationType = locationType;
     }
 
     public LocationTypes LocationType { get; }
 
-    public bool IsHoldLocation() => LocationType is LocationTypes.Bulk or LocationTypes.ReceivingException;
+    public bool IsHoldLocation => LocationType is LocationTypes.Bulk;
+    public bool IsExceptionLocation => LocationType == LocationTypes.ReceivingException;
 }

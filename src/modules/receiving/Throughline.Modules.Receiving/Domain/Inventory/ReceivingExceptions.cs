@@ -2,6 +2,8 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 
 internal enum ReceivingExceptions
 {
-    UnknownScacCode,
-    UnkownSkuCode
+    InvalidSkuCode,
+    InvalidLocation,
+    DuplicateLpn,
+    InvalidHoldReason
 }

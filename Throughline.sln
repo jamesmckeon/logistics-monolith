@@ -34,6 +34,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Receiving", "Receiving", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Receiving", "src\modules\receiving\Throughline.Modules.Receiving\Throughline.Modules.Receiving.csproj", "{68CC5F55-F079-4C2C-8E77-C655855012C1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Throughline.Modules.Receiving.Contracts", "src\modules\receiving\Throughline.Modules.Receiving.Contracts\Throughline.Modules.Receiving.Contracts.csproj", "{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -200,6 +202,18 @@ Global
 		{68CC5F55-F079-4C2C-8E77-C655855012C1}.Release|x64.Build.0 = Release|Any CPU
 		{68CC5F55-F079-4C2C-8E77-C655855012C1}.Release|x86.ActiveCfg = Release|Any CPU
 		{68CC5F55-F079-4C2C-8E77-C655855012C1}.Release|x86.Build.0 = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|x64.Build.0 = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Debug|x86.Build.0 = Debug|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|x64.ActiveCfg = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|x64.Build.0 = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|x86.ActiveCfg = Release|Any CPU
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -216,5 +230,6 @@ Global
 		{DAA209AF-A756-4A55-9B06-2947386C1FDC} = {E2F2D019-A1EE-4F9D-B8EC-122A236359E5}
 		{32D436D4-17B4-49EA-AAE2-0E9D283E10D6} = {E2F2D019-A1EE-4F9D-B8EC-122A236359E5}
 		{68CC5F55-F079-4C2C-8E77-C655855012C1} = {41AD4183-F1CC-4EC8-9BE0-7A7A3AF6DBCE}
+		{01F1C4DA-FCDA-4E86-B010-3A4C9B9EA330} = {41AD4183-F1CC-4EC8-9BE0-7A7A3AF6DBCE}
 	EndGlobalSection
 EndGlobal

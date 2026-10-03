@@ -1,7 +1,6 @@
 using Throughline.Common.Models;
-using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Domain.Common;
-using Throughline.Modules.Receiving.Domain.Shipments;
+using Throughline.Modules.Receiving.Domain.Locations;
 
 namespace Throughline.Modules.Receiving.Domain.Inventory;
 
@@ -10,44 +9,53 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 /// </summary>
 internal sealed class InvalidPallet : Entity<UniqueId>
 {
-    private InvalidPallet(
+    public InvalidPallet(
         UniqueId id,
         int ownerId,
-        InvalidShipment shipment,
         UpperCaseString skuCode,
         UpperCaseString lpn,
         int quantity,
+        ReceivingLocation location,
+        string requestLocationId,
         IEnumerable<ReceivingExceptions> exceptions) : base(id)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+
+        var exceptionArray = exceptions.ToArray();
+
+        if (exceptionArray.Length == 0)
+        {
+            throw new ArgumentException("exceptions must contain at least one item", nameof(exceptions));
+        }
+
+        if (!location.IsExceptionLocation)
+        {
+            throw new ArgumentException("location must be able to store pallets with exceptions", nameof(location));
+        }
+
         OwnerId = ownerId;
-        Shipment = shipment;
         SkuCode = skuCode;
         Quantity = quantity;
         LicensePlateNumber = lpn;
-        Exceptions = exceptions.ToArray().AsReadOnly();
+        Exceptions = exceptionArray.AsReadOnly();
+        Location = location;
+        RequestLocationId = requestLocationId;
     }
 
     public int OwnerId { get; }
-    public InvalidShipment Shipment { get; }
     public UpperCaseString SkuCode { get; }
     public UpperCaseString LicensePlateNumber { get; }
     public int Quantity { get; }
     public IReadOnlyCollection<ReceivingExceptions> Exceptions { get; }
 
-    public static Result<InvalidPallet> Create(UniqueId id, int ownerId, InvalidShipment shipment,
-        UpperCaseString skuCode,
-        UpperCaseString lpn, int quantity, params ReceivingExceptions[] exceptions)
-    {
-        if (quantity <= 0)
-        {
-            return Result<InvalidPallet>.Validation(new FieldError("quantity must be greater than zero"));
-        }
+    /// <summary>
+    ///     The location the excepted pallet was received into; not necessarily the same as
+    ///     the location id that was provided with the pallet in the original request
+    /// </summary>
+    public ReceivingLocation Location { get; }
 
-        if (exceptions.Length == 0)
-        {
-            return Result<InvalidPallet>.Validation(new FieldError("exceptions must contain at least one item"));
-        }
-
-        return new InvalidPallet(id, ownerId, shipment, skuCode, lpn, quantity, exceptions.Distinct());
-    }
+    /// <summary>
+    ///     The location id provided with the LPN in the original request
+    /// </summary>
+    public string RequestLocationId { get; }
 }

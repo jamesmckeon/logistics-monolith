@@ -1,8 +1,13 @@
+using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Application.Common;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+using Throughline.Modules.Receiving.Contracts.Events;
+using Throughline.Modules.Receiving.Contracts.Models;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
+using Throughline.Modules.Receiving.Domain.Inventory;
+using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Domain.Skus;
 
@@ -11,6 +16,7 @@ namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
 internal sealed class ReceiveDeliveryHandler
 {
     private readonly ICarrierProvider _carrierProvider;
+    private readonly IDefaultLocationsProvider _locationsProvider;
     private readonly IDeliveryReceiptRepository _receiptRepository;
     private readonly ISkuProvider _skuProvider;
     private readonly IDeliverySubmissionStore _submissionStore;
@@ -21,82 +27,205 @@ internal sealed class ReceiveDeliveryHandler
         IDeliverySubmissionStore submissionStore,
         IUnitOfWork unitOfWork,
         ISkuProvider skuProvider,
-        ICarrierProvider carrierProvider)
+        ICarrierProvider carrierProvider,
+        IDefaultLocationsProvider locationsProvider)
     {
         _receiptRepository = receiptRepository;
         _submissionStore = submissionStore;
         _unitOfWork = unitOfWork;
         _skuProvider = skuProvider;
         _carrierProvider = carrierProvider;
+        _locationsProvider = locationsProvider;
     }
 
 
     public async Task<Result<ReceiveDeliveryResult>> ReceiveDeliveryAsync(ReceiveDeliveryCommand command,
         CancellationToken token)
     {
-        var result = command.Validate();
+        var validationResult = command.Validate();
 
-        if (result.Succeeded)
+        if (validationResult.Succeeded)
         {
-            return Result<ReceiveDeliveryResult>.FromFailureResult(result);
+            return Result<ReceiveDeliveryResult>.FromFailureResult(validationResult);
         }
 
-        var existingSubmissions = await _submissionStore.GetSubmissionAsync(command.OwnerId, command.DeliveryId, token);
+        var existingSubmission = await _submissionStore.GetSubmissionAsync(
+            command.OwnerId, command.ReceiptId, token);
 
-        if (existingSubmissions != null)
+        if (existingSubmission != null)
         {
             var request = DeliverySubmission.NormalizeRequest(command);
-            if (request != existingSubmissions.Request)
+            if (request != existingSubmission.Request)
             {
                 return Result<ReceiveDeliveryResult>.Conflict($"A request for owner id {command.OwnerId}, " +
-                                                              $"delivery id {command.DeliveryId} has already been processed " +
+                                                              $"receipt id {command.ReceiptId} has already been processed " +
                                                               "with a different request body");
             }
 
-            return existingSubmissions.Result;
+            return existingSubmission.Result;
         }
 
-        var scacCodeResult = ScacCode.Create(command.CarrierScac);
-
-        if (!scacCodeResult.Succeeded)
-        {
-            throw new ArgumentException("command.CarrierScac is invalid", nameof(command.CarrierScac));
-        }
-
-        var carrierScac = await _carrierProvider.GetCarrierScacByScacCodeAync(scacCodeResult.Value, token);
+        var scacCode = new ScacCode(command.CarrierScac);
+        var carrierScac = await _carrierProvider.GetCarrierScacByScacCodeAync(scacCode, token);
 
         if (carrierScac is null)
         {
-            throw new NotImplementedException("create excepted deliveryreceipt: scaccode not in system");
+            return Result<ReceiveDeliveryResult>.Validation($"Scac code '{carrierScac}' not found");
         }
 
-        if (!carrierScac.CarrierName.Equals(command.CarrierName.Trim()))
-        {
-            throw new NotImplementedException("create excepted deliveryreceipt: carrier name doesn't match system's");
-        }
+        var existingLpns = (await _receiptRepository.GetReceivedLpnsAsync(command.OwnerId,
+            command.Pallets.Select(p => new UpperCaseString(p.Lpn)), token)).ToArray();
+        var locations = (await _receiptRepository.GetReceivingLocationsAsync(token))
+            .ToArray();
+        var defaultLocations = await _locationsProvider.GetDefaultLocationsAsync(token);
+        var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(command.OwnerId, token))
+            .ToArray();
 
-        var commandSkus = command.Items.Select(i => new UpperCaseString(i.Sku))
+        var commandSkus = command.Pallets.Select(i => new UpperCaseString(i.Sku))
             .ToList();
-        var skus = await _skuProvider.GetSkusByOwnerSkuCodeAsync(
-            command.OwnerId, commandSkus, token);
+        var skus = (await _skuProvider.GetSkusByOwnerSkuCodeAsync(
+            command.OwnerId, commandSkus, token)).ToArray();
 
-        var invalidSkus = commandSkus.Where(w => skus.All(all => !all.Equals(w)))
-            .ToList();
-        if (invalidSkus.Any())
-        {
-            throw new NotImplementedException("create excepted deliveryreceipt: skus not found");
-        }
+        var invalidPallets = GetInvalidPallets(
+            command, skus, existingLpns, locations, holdReasons, defaultLocations);
 
-        // create invalidapallets for those items in command that have an invalid hold reason
-        // create invalidpallets for those items in command in that have a hold reason
-        // create valid pallets for the rest of items
-        // create new DeliverySubmission
-        // create new DeliveryReceipt
-        // save changes and handle race condition if it exists
-        // there should only be one for both the submission and the aggregate, not one vs the other
-        // bc UOW will commit both in a transaction
+        var validPallets = command.Pallets.Where(p =>
+                invalidPallets.All(ep => ep.LicensePlateNumber != new UpperCaseString(p.Lpn)))
+            .ToArray();
+        var pallets = GetValidPallets(validPallets, skus, holdReasons, defaultLocations);
 
+        var shipment = CreateShipment(command, carrierScac);
+        var lastReceiptNumber = await _receiptRepository.GetLastReceiptNumberAsync(command.OwnerId, token);
 
-        throw new NotImplementedException();
+        var deliveryReceipt = new DeliveryReceipt(
+            command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), command.OwnerId, command.OperatorId,
+            AppDateTime.Now, shipment, pallets, invalidPallets);
+        _receiptRepository.Add(deliveryReceipt, ToEvent(deliveryReceipt));
+
+        var result = ToResult(deliveryReceipt);
+
+        var submission = DeliverySubmission.FromCommandResult(command, result);
+        _submissionStore.Add(submission);
+
+        await _unitOfWork.SaveChangesAsync(token);
+
+        return result;
     }
+
+    private IEnumerable<Pallet> GetValidPallets(
+        ReceiveDeliveryCommandItem[] validPallets,
+        OwnerSku[] skus,
+        HoldReason[] holdReasons,
+        DefaultLocations defaultLocations)
+    {
+        var pallets = new List<Pallet>();
+
+        foreach (var validPallet in validPallets)
+        {
+            var sku = skus.Single(s => s.SkuCode == new UpperCaseString(validPallet.Sku));
+            var holdReason = string.IsNullOrWhiteSpace(validPallet.HoldReasonCode)
+                ? null
+                : holdReasons.Single(hr => hr.ReasonCode == new UpperCaseString(validPallet.HoldReasonCode));
+            var location = holdReason is null
+                ? defaultLocations.BulkLocation
+                : defaultLocations.HoldLocation;
+            var expiresOn = validPallet.Expires is null ? null : new AppDateTime(validPallet.Expires.Value);
+            var pallet = new Pallet(UniqueId.Create(), new(validPallet.Lpn), sku, validPallet.Quantity, location,
+                holdReason, expiresOn, validPallet.LotNumber);
+
+            pallets.Add(pallet);
+        }
+
+        return pallets;
+    }
+
+    private IEnumerable<InvalidPallet> GetInvalidPallets(
+        ReceiveDeliveryCommand command,
+        OwnerSku[] allSkus,
+        ReceivedLpn[] existingLpns,
+        ReceivingLocation[] allLocations,
+        HoldReason[] holdReasons,
+        DefaultLocations defaultLocations)
+    {
+        var invalidPallets = new List<InvalidPallet>();
+
+        foreach (var pallet in command.Pallets)
+        {
+            var exceptions = new List<ReceivingExceptions>();
+            if (allSkus.All(a => a.SkuCode != new UpperCaseString(pallet.Sku)))
+            {
+                exceptions.Add(ReceivingExceptions.InvalidSkuCode);
+            }
+
+            if (existingLpns.Any(a => a.Lpn == new UpperCaseString(pallet.Lpn)))
+            {
+                exceptions.Add(ReceivingExceptions.DuplicateLpn);
+            }
+
+            if (allLocations.All(all => all.Id == new UpperCaseString(pallet.LocationId)))
+            {
+                exceptions.Add(ReceivingExceptions.InvalidLocation);
+            }
+
+            if (!string.IsNullOrWhiteSpace(pallet.HoldReasonCode) &&
+                holdReasons.All(a => a.ReasonCode != new UpperCaseString(pallet.HoldReasonCode)))
+            {
+                exceptions.Add(ReceivingExceptions.InvalidHoldReason);
+            }
+
+            if (exceptions.Any())
+            {
+                var exceptedPallet = new InvalidPallet(
+                    UniqueId.Create(),
+                    command.OwnerId,
+                    new(pallet.Sku),
+                    new(pallet.Lpn),
+                    pallet.Quantity,
+                    defaultLocations.ExceptionLocation,
+                    pallet.LocationId,
+                    exceptions.ToArray());
+
+                invalidPallets.Add(exceptedPallet);
+            }
+        }
+
+        return invalidPallets;
+    }
+
+    private ReceiveDeliveryResult ToResult(DeliveryReceipt receipt)
+    {
+        var pallets = receipt.Pallets.Select(p =>
+                p.IsHeld
+                    ? ReceivedPallet.OnHold(p.LicensePlateNumber.Value, p.HoldReason)
+                    : ReceivedPallet.Received(p.LicensePlateNumber.Value))
+            .ToList();
+        pallets.AddRange(receipt.InvalidPallets.Select(ip =>
+            ReceivedPallet.HasExceptions(ip.LicensePlateNumber.Value, ip.Exceptions)));
+
+        return new ReceiveDeliveryResult(receipt.Id, receipt.ReceiptNumber.Value, pallets);
+    }
+
+    private static Shipment CreateShipment(ReceiveDeliveryCommand command, CarrierScac carrierScac)
+    {
+        TrimmedString? toNullString(string? val) => string.IsNullOrWhiteSpace(val) ? null : new(val);
+
+        TrimmedString? bol = string.IsNullOrWhiteSpace(command.BillOfLading) ? null : new(command.BillOfLading);
+        return new(
+            carrierScac,
+            toNullString(command.BillOfLading),
+            new(command.ShipperName),
+            toNullString(command.TrailerNumber),
+            toNullString(command.ContainerNumber),
+            new(command.DeliveryReference));
+    }
+
+    private static DeliveryReceivedIntegrationEvent ToEvent(DeliveryReceipt receipt) =>
+        new(receipt.OwnerId, receipt.Id, receipt.ReceiptNumber.Value, receipt.ReceivedOn.Value,
+            receipt.Pallets.Select(p => new AllocatablePalletModel(
+                    p.LicensePlateNumber.Value,
+                    p.OwnerSku.SkuCode.Value,
+                    p.Quantity,
+                    p.Location.Id.Value))
+                .ToList()
+                .AsReadOnly());
 }
