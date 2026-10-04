@@ -14,6 +14,7 @@ using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Shipments;
+using Throughline.Modules.Receiving.Domain.Skus;
 using Throughline.Modules.Receiving.Infrastructure.Common;
 using Throughline.Modules.Receiving.Infrastructure.Db;
 
@@ -43,6 +44,7 @@ public static class ReceivingExtensions
         services.AddScoped<IDeliveryReceiptRepository>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<IDeliverySubmissionStore>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<ICarrierProvider>(sp => sp.GetRequiredService<ReceivingDbContext>());
+        services.AddScoped<ISkuProvider>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ReceiveDeliveryHandler>();
 

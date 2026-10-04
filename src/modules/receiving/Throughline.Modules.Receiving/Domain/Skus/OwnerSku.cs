@@ -5,9 +5,14 @@ namespace Throughline.Modules.Receiving.Domain.Skus;
 
 internal sealed class OwnerSku : ValueObject
 {
-    private OwnerSku(
+    public OwnerSku(
         int ownerId, UpperCaseString skuCode, Guid id, bool isLotTracked, bool isExpirationTracked)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("id cannot be empty", nameof(id));
+        }
+
         OwnerId = ownerId;
         SkuCode = skuCode;
         Id = id;

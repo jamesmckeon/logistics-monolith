@@ -11,6 +11,7 @@ using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Domain.Shipments;
+using Throughline.Modules.Receiving.Domain.Skus;
 using Throughline.Modules.Receiving.Infrastructure.Common;
 using Throughline.Modules.Receiving.Infrastructure.Db.Converters;
 using Throughline.Modules.Receiving.Infrastructure.Db.Models;
@@ -19,7 +20,7 @@ using Wolverine.EntityFrameworkCore;
 namespace Throughline.Modules.Receiving.Infrastructure.Db;
 
 internal sealed class ReceivingDbContext :
-    DbContext, IDeliveryReceiptRepository, IDeliverySubmissionStore, ICarrierProvider
+    DbContext, IDeliveryReceiptRepository, IDeliverySubmissionStore, ICarrierProvider, ISkuProvider
 {
     private readonly ILogger<ReceivingDbContext> _logger;
     private readonly IDbContextOutbox _outbox;
@@ -56,6 +57,23 @@ internal sealed class ReceivingDbContext :
         return carrier is null
             ? null
             : new CarrierScac(new ScacCode(carrier.ScacCode), carrier.CarrierId, carrier.CarrierName);
+    }
+
+    public DbSet<SkuRecord> Skus => Set<SkuRecord>();
+
+    async Task<IReadOnlyCollection<OwnerSku>> ISkuProvider.GetSkusByOwnerSkuCodeAsync(
+        int ownerId, IEnumerable<UpperCaseString> skuCodes, CancellationToken token)
+    {
+        var codes = skuCodes.Select(c => c.Value).Distinct().ToArray();
+
+        var skus = await Skus
+            .Where(s => s.OwnerId == ownerId && codes.Contains(s.SkuCode))
+            .ToListAsync(token);
+
+        return skus.Select(s => new OwnerSku(
+                s.OwnerId, new UpperCaseString(s.SkuCode), s.SkuId, s.IsLotTracked, s.IsExpirationTracked))
+            .ToList()
+            .AsReadOnly();
     }
 
     public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token)
