@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Options;
 using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Application.Common;
+using Throughline.Modules.Receiving.Application.Configuration;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Contracts.Events;
 using Throughline.Modules.Receiving.Contracts.Models;
@@ -16,7 +18,7 @@ namespace Throughline.Modules.Receiving.Application.ReceiveDelivery;
 internal sealed class ReceiveDeliveryHandler
 {
     private readonly ICarrierProvider _carrierProvider;
-    private readonly IDefaultLocationsProvider _locationsProvider;
+    private readonly IOptions<AppConfiguration> _configuration;
     private readonly IDeliveryReceiptRepository _receiptRepository;
     private readonly ISkuProvider _skuProvider;
     private readonly IDeliverySubmissionStore _submissionStore;
@@ -28,14 +30,14 @@ internal sealed class ReceiveDeliveryHandler
         IUnitOfWork unitOfWork,
         ISkuProvider skuProvider,
         ICarrierProvider carrierProvider,
-        IDefaultLocationsProvider locationsProvider)
+        IOptions<AppConfiguration> configuration)
     {
         _receiptRepository = receiptRepository;
         _submissionStore = submissionStore;
         _unitOfWork = unitOfWork;
         _skuProvider = skuProvider;
         _carrierProvider = carrierProvider;
-        _locationsProvider = locationsProvider;
+        _configuration = configuration;
     }
 
 
@@ -79,7 +81,7 @@ internal sealed class ReceiveDeliveryHandler
             command.Pallets.Select(p => new UpperCaseString(p.Lpn)), token)).ToArray();
         var locations = (await _receiptRepository.GetReceivingLocationsAsync(token))
             .ToArray();
-        var defaultLocations = await _locationsProvider.GetDefaultLocationsAsync(token);
+        var defaultLocations = DefaultLocations.Resolve(_configuration.Value, locations);
         var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(ownerId, token))
             .ToArray();
 
@@ -131,7 +133,7 @@ internal sealed class ReceiveDeliveryHandler
                 ? null
                 : holdReasons.Single(hr => hr.ReasonCode == new UpperCaseString(validPallet.HoldReasonCode));
             var location = holdReason is null
-                ? defaultLocations.BulkLocation
+                ? defaultLocations.AvailableLocation
                 : defaultLocations.HoldLocation;
             var expiresOn = validPallet.Expires is null ? null : new AppDateTime(validPallet.Expires.Value);
             var pallet = new Pallet(UniqueId.Create(), new(validPallet.Lpn), sku, validPallet.Quantity, location,

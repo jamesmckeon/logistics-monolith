@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Throughline.Common.Models;
+using Throughline.Modules.Receiving.Application.Common;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Contracts.Events;
@@ -12,11 +13,13 @@ using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Infrastructure.Common;
 using Throughline.Modules.Receiving.Infrastructure.Db.Converters;
+using Throughline.Modules.Receiving.Infrastructure.Db.Models;
 using Wolverine.EntityFrameworkCore;
 
 namespace Throughline.Modules.Receiving.Infrastructure.Db;
 
-internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository, IDeliverySubmissionStore
+internal sealed class ReceivingDbContext :
+    DbContext, IDeliveryReceiptRepository, IDeliverySubmissionStore, ICarrierProvider
 {
     private readonly ILogger<ReceivingDbContext> _logger;
     private readonly IDbContextOutbox _outbox;
@@ -43,6 +46,17 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
         DeliverySubmissions.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.DeliveryId == deliveryId, token);
 
     void IDeliverySubmissionStore.Add(DeliverySubmission submission) => DeliverySubmissions.Add(submission);
+
+    public DbSet<CarrierRecord> Carriers => Set<CarrierRecord>();
+
+    async Task<CarrierScac?> ICarrierProvider.GetCarrierScacByScacCodeAync(ScacCode scacCode, CancellationToken token)
+    {
+        var carrier = await Carriers.SingleOrDefaultAsync(c => c.ScacCode == scacCode.Value, token);
+
+        return carrier is null
+            ? null
+            : new CarrierScac(new ScacCode(carrier.ScacCode), carrier.CarrierId, carrier.CarrierName);
+    }
 
     public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token)
     {

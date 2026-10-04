@@ -9,9 +9,11 @@ using Throughline.Common.Infrastructure;
 using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Receiving.Application.Common;
+using Throughline.Modules.Receiving.Application.Configuration;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
+using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Infrastructure.Common;
 using Throughline.Modules.Receiving.Infrastructure.Db;
 
@@ -25,11 +27,22 @@ public static class ReceivingExtensions
     {
         services.AddModuleDbContext<ReceivingDbContext>(configuration, InfrastructureSettings.SchemaName);
 
+        // Checked at startup so a missing or malformed default location stops the app, rather than failing the
+        // first delivery received
+        services.AddOptions<AppConfiguration>()
+            .Bind(configuration.GetSection(AppConfiguration.SectionName))
+            .Validate(
+                c => c.HasValidDefaultLocations(),
+                $"{AppConfiguration.SectionName}:DefaultLocations must list exactly one location id for each of " +
+                string.Join(", ", AppConfiguration.DefaultLocationTypes))
+            .ValidateOnStart();
+
         // Forward each interface the context implements to the same scoped instance.
         // AddScoped<TInterface, InventoryDbContext>() would build a separate context per
         // interface, so repositories and the unit of work would track changes in different contexts.
         services.AddScoped<IDeliveryReceiptRepository>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<IDeliverySubmissionStore>(sp => sp.GetRequiredService<ReceivingDbContext>());
+        services.AddScoped<ICarrierProvider>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ReceiveDeliveryHandler>();
 
