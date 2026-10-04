@@ -24,6 +24,13 @@ internal sealed class Pallet : Entity<UniqueId>
             throw new InvalidOperationException("A held pallet must be received into a holding location");
         }
 
+        var isBulk = location is { IsExceptionLocation: false, IsHoldLocation: false };
+        if (holdReason == null && !isBulk)
+        {
+            throw new InvalidOperationException("A pallet without a hold or exception must be placed in " +
+                                                "a non-hold/exception location");
+        }
+
         if (ownerSku.IsExpirationTracked && expiresOn is null)
         {
             throw new InvalidOperationException($"sku #{ownerSku.SkuCode.Value} requires an expiration date");
