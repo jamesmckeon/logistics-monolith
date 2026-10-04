@@ -2,7 +2,7 @@ namespace Throughline.Modules.Receiving.Domain.Locations;
 
 internal enum LocationTypes
 {
-    Bulk,
+    Hold,
     ReceivingException,
-    Available
+    Bulk
 }
