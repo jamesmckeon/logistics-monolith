@@ -39,7 +39,9 @@ internal sealed class ReceiveDeliveryHandler
     }
 
 
-    public async Task<Result<ReceiveDeliveryResult>> ReceiveDeliveryAsync(ReceiveDeliveryCommand command,
+    public async Task<Result<ReceiveDeliveryResult>> ReceiveDeliveryAsync(
+        int ownerId,
+        ReceiveDeliveryCommand command,
         CancellationToken token)
     {
         var validationResult = command.Validate();
@@ -50,14 +52,14 @@ internal sealed class ReceiveDeliveryHandler
         }
 
         var existingSubmission = await _submissionStore.GetSubmissionAsync(
-            command.OwnerId, command.ReceiptId, token);
+            ownerId, command.ReceiptId, token);
 
         if (existingSubmission != null)
         {
             var request = DeliverySubmission.NormalizeRequest(command);
             if (request != existingSubmission.Request)
             {
-                return Result<ReceiveDeliveryResult>.Conflict($"A request for owner id {command.OwnerId}, " +
+                return Result<ReceiveDeliveryResult>.Conflict($"A request for owner id {ownerId}, " +
                                                               $"receipt id {command.ReceiptId} has already been processed " +
                                                               "with a different request body");
             }
@@ -73,21 +75,22 @@ internal sealed class ReceiveDeliveryHandler
             return Result<ReceiveDeliveryResult>.Validation($"Scac code '{command.CarrierScac}' not found");
         }
 
-        var existingLpns = (await _receiptRepository.GetReceivedLpnsAsync(command.OwnerId,
+        var existingLpns = (await _receiptRepository.GetReceivedLpnsAsync(ownerId,
             command.Pallets.Select(p => new UpperCaseString(p.Lpn)), token)).ToArray();
         var locations = (await _receiptRepository.GetReceivingLocationsAsync(token))
             .ToArray();
         var defaultLocations = await _locationsProvider.GetDefaultLocationsAsync(token);
-        var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(command.OwnerId, token))
+        var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(ownerId, token))
             .ToArray();
 
         var commandSkus = command.Pallets.Select(i => new UpperCaseString(i.Sku))
             .ToList();
         var skus = (await _skuProvider.GetSkusByOwnerSkuCodeAsync(
-            command.OwnerId, commandSkus, token)).ToArray();
+            ownerId, commandSkus, token)).ToArray();
 
         var invalidPallets = GetInvalidPallets(
-            command, skus, existingLpns, locations, holdReasons, defaultLocations);
+            ownerId, command, skus, existingLpns, locations,
+            holdReasons, defaultLocations);
 
         var validPallets = command.Pallets.Where(p =>
                 invalidPallets.All(ep => ep.LicensePlateNumber != new UpperCaseString(p.Lpn)))
@@ -95,17 +98,17 @@ internal sealed class ReceiveDeliveryHandler
         var pallets = GetValidPallets(validPallets, skus, holdReasons, defaultLocations);
 
         var shipment = CreateShipment(command, carrierScac);
-        var lastReceiptNumber = await _receiptRepository.GetLastReceiptNumberAsync(command.OwnerId, token);
+        var lastReceiptNumber = await _receiptRepository.GetLastReceiptNumberAsync(ownerId, token);
 
         var deliveryReceipt = new DeliveryReceipt(
-            command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), command.OwnerId, command.OperatorId,
+            command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), ownerId, command.OperatorId,
             AppDateTime.Now, shipment, pallets, invalidPallets);
 
         await _receiptRepository.AddAsync(deliveryReceipt, ToEvent(deliveryReceipt), token);
 
         var result = ToResult(deliveryReceipt);
 
-        var submission = DeliverySubmission.FromCommandResult(command, result);
+        var submission = DeliverySubmission.FromCommandResult(ownerId, command, result);
         _submissionStore.Add(submission);
 
         await _unitOfWork.SaveChangesAsync(token);
@@ -141,6 +144,7 @@ internal sealed class ReceiveDeliveryHandler
     }
 
     private IEnumerable<InvalidPallet> GetInvalidPallets(
+        int ownerId,
         ReceiveDeliveryCommand command,
         OwnerSku[] allSkus,
         ReceivedLpn[] existingLpns,
@@ -193,7 +197,7 @@ internal sealed class ReceiveDeliveryHandler
             {
                 var exceptedPallet = new InvalidPallet(
                     UniqueId.Create(),
-                    command.OwnerId,
+                    ownerId,
                     new(pallet.Sku),
                     new(pallet.Lpn),
                     pallet.Quantity,

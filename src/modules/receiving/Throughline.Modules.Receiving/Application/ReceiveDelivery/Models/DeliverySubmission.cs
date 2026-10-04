@@ -34,7 +34,8 @@ internal sealed class DeliverySubmission
     /// </summary>
     public ReceiveDeliveryResult Result { get; }
 
-    public static DeliverySubmission FromCommandResult(ReceiveDeliveryCommand command, ReceiveDeliveryResult result)
+    public static DeliverySubmission FromCommandResult(
+        int ownerId, ReceiveDeliveryCommand command, ReceiveDeliveryResult result)
     {
         if (!command.Validate().Succeeded)
         {
@@ -44,7 +45,7 @@ internal sealed class DeliverySubmission
 
         return new DeliverySubmission(
             command.ReceiptId,
-            command.OwnerId,
+            ownerId,
             NormalizeRequest(command),
             result);
     }

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Throughline.Common.Models;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Locations;
@@ -9,6 +10,7 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 /// </summary>
 internal sealed class InvalidPallet : Entity<UniqueId>
 {
+    [SetsRequiredMembers]
     public InvalidPallet(
         UniqueId id,
         int ownerId,
@@ -17,10 +19,8 @@ internal sealed class InvalidPallet : Entity<UniqueId>
         int quantity,
         ReceivingLocation location,
         string requestLocationId,
-        IEnumerable<ReceivingExceptions> exceptions) : base(id)
+        IEnumerable<ReceivingExceptions> exceptions) : this(id, ownerId, skuCode, lpn, quantity, requestLocationId)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
-
         var exceptionArray = exceptions.ToArray();
 
         if (exceptionArray.Length == 0)
@@ -33,13 +33,28 @@ internal sealed class InvalidPallet : Entity<UniqueId>
             throw new ArgumentException("location must be able to store pallets with exceptions", nameof(location));
         }
 
+        Exceptions = exceptionArray.AsReadOnly();
+        Location = location;
+    }
+
+    // EF materialization constructor; EF can't pass navigations (Location) to a constructor, so it sets
+    // Location, and Exceptions, after construction
+    private InvalidPallet(
+        UniqueId id,
+        int ownerId,
+        UpperCaseString skuCode,
+        UpperCaseString licensePlateNumber,
+        int quantity,
+        string requestLocationId) : base(id)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+
         OwnerId = ownerId;
         SkuCode = skuCode;
         Quantity = quantity;
-        LicensePlateNumber = lpn;
-        Exceptions = exceptionArray.AsReadOnly();
-        Location = location;
+        LicensePlateNumber = licensePlateNumber;
         RequestLocationId = requestLocationId;
+        Exceptions = [];
     }
 
     public int OwnerId { get; }
@@ -52,7 +67,7 @@ internal sealed class InvalidPallet : Entity<UniqueId>
     ///     The location the excepted pallet was received into; not necessarily the same as
     ///     the location id that was provided with the pallet in the original request
     /// </summary>
-    public ReceivingLocation Location { get; }
+    public required ReceivingLocation Location { get; init; }
 
     /// <summary>
     ///     The location id provided with the LPN in the original request

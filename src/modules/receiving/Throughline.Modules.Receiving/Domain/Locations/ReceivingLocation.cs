@@ -5,7 +5,7 @@ namespace Throughline.Modules.Receiving.Domain.Locations;
 
 internal sealed class ReceivingLocation : Entity<UpperCaseString>
 {
-    public ReceivingLocation(UpperCaseString locationId, LocationTypes locationType) : base(locationId)
+    public ReceivingLocation(UpperCaseString id, LocationTypes locationType) : base(id)
     {
         LocationType = locationType;
     }

@@ -5,7 +5,6 @@ namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 internal sealed record ReceiveDeliveryCommand(
     Guid ReceiptId,
-    int OwnerId,
     Guid OperatorId,
     string DeliveryReference,
     string BillOfLading,

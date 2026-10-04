@@ -4,8 +4,15 @@ namespace Throughline.Modules.Receiving.Domain.Common;
 
 internal sealed class UniqueId : ValueObject
 {
-    private UniqueId(Guid value)
+    /// <param name="value">A version 7 GUID</param>
+    /// <exception cref="ArgumentException"><paramref name="value" /> is not a version 7 GUID</exception>
+    public UniqueId(Guid value)
     {
+        if (value.Version != 7)
+        {
+            throw new ArgumentException("value must be a version 7 GUID", nameof(value));
+        }
+
         Value = value;
     }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Throughline.Common.Models;
 using Throughline.Modules.Receiving.Domain.Common;
 
@@ -5,8 +6,22 @@ namespace Throughline.Modules.Receiving.Domain.Shipments;
 
 internal sealed class Shipment : ValueObject
 {
+    [SetsRequiredMembers]
     public Shipment(
         CarrierScac carrierScac,
+        TrimmedString? billOfLading,
+        TrimmedString? shipperName,
+        TrimmedString? trailerNumber,
+        TrimmedString? containerNumber,
+        TrimmedString shipperReference)
+        : this(billOfLading, shipperName, trailerNumber, containerNumber, shipperReference)
+    {
+        CarrierScac = carrierScac;
+    }
+
+    // EF materialization constructor; EF can't pass complex values (CarrierScac) to a constructor,
+    // so it sets CarrierScac after construction
+    private Shipment(
         TrimmedString? billOfLading,
         TrimmedString? shipperName,
         TrimmedString? trailerNumber,
@@ -18,7 +33,6 @@ internal sealed class Shipment : ValueObject
             throw new InvalidOperationException("Either trailerNumber or containerNumber is required");
         }
 
-        CarrierScac = carrierScac;
         ShipperName = shipperName;
         TrailerNumber = trailerNumber;
         ContainerNumber = containerNumber;
@@ -26,7 +40,7 @@ internal sealed class Shipment : ValueObject
         BillOfLading = billOfLading;
     }
 
-    public CarrierScac CarrierScac { get; }
+    public required CarrierScac CarrierScac { get; init; }
     public TrimmedString? BillOfLading { get; }
     public TrimmedString? ShipperName { get; }
     public TrimmedString? TrailerNumber { get; }

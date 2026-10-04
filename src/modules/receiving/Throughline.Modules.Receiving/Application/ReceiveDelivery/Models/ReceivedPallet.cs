@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Throughline.Modules.Receiving.Domain.Inventory;
 
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
@@ -11,11 +12,14 @@ internal sealed record ReceivedPallet
         Errors = [];
     }
 
-    private ReceivedPallet(string lpn, string outcome, IEnumerable<PalletError> errors)
+    // Also the deserialization constructor for replaying a stored result; System.Text.Json requires each
+    // parameter's type to match its property's type
+    [JsonConstructor]
+    private ReceivedPallet(string lpn, string outcome, IReadOnlyCollection<PalletError> errors)
     {
         Lpn = lpn;
         Outcome = outcome;
-        Errors = errors.ToList().AsReadOnly();
+        Errors = errors;
     }
 
     public string Lpn { get; }
@@ -25,7 +29,7 @@ internal sealed record ReceivedPallet
     public static ReceivedPallet Received(string lpn) => new(lpn, "received_available");
 
     public static ReceivedPallet HasExceptions(string lpn, IEnumerable<ReceivingExceptions> exceptions) =>
-        new(lpn, "receiving_exception", exceptions.Select(PalletError.Exception));
+        new(lpn, "receiving_exception", exceptions.Select(PalletError.Exception).ToList().AsReadOnly());
 
     public static ReceivedPallet OnHold(string lpn, HoldReason holdReason) =>
         new(lpn, "received_on_hold", [PalletError.OnHold(holdReason)]);

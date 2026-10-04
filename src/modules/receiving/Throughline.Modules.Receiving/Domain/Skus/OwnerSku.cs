@@ -6,13 +6,13 @@ namespace Throughline.Modules.Receiving.Domain.Skus;
 internal sealed class OwnerSku : ValueObject
 {
     private OwnerSku(
-        int ownerId, UpperCaseString skuCode, Guid id, bool lotTracked, bool expirationTracked)
+        int ownerId, UpperCaseString skuCode, Guid id, bool isLotTracked, bool isExpirationTracked)
     {
         OwnerId = ownerId;
         SkuCode = skuCode;
         Id = id;
-        IsLotTracked = lotTracked;
-        IsExpirationTracked = expirationTracked;
+        IsLotTracked = isLotTracked;
+        IsExpirationTracked = isExpirationTracked;
     }
 
     public int OwnerId { get; }

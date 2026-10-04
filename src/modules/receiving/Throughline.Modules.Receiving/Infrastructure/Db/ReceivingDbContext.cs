@@ -1,17 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Throughline.Common.Models;
+using Throughline.Modules.Receiving.Application.ReceiveDelivery;
+using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Contracts.Events;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Locations;
+using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Infrastructure.Common;
+using Throughline.Modules.Receiving.Infrastructure.Db.Converters;
 using Wolverine.EntityFrameworkCore;
 
 namespace Throughline.Modules.Receiving.Infrastructure.Db;
 
-internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
+internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository, IDeliverySubmissionStore
 {
     private readonly ILogger<ReceivingDbContext> _logger;
     private readonly IDbContextOutbox _outbox;
@@ -30,6 +35,14 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
     public DbSet<DeliveryReceipt> DeliveryReceipts => Set<DeliveryReceipt>();
     public DbSet<ReceivingLocation> Locations => Set<ReceivingLocation>();
     public DbSet<HoldReason> HoldReasons => Set<HoldReason>();
+    public DbSet<DeliverySubmission> DeliverySubmissions => Set<DeliverySubmission>();
+
+    // Implemented explicitly so this Add doesn't sit among DbContext's own Add overloads
+    Task<DeliverySubmission?> IDeliverySubmissionStore.GetSubmissionAsync(
+        int ownerId, Guid deliveryId, CancellationToken token) =>
+        DeliverySubmissions.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.DeliveryId == deliveryId, token);
+
+    void IDeliverySubmissionStore.Add(DeliverySubmission submission) => DeliverySubmissions.Add(submission);
 
     public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token)
     {
@@ -55,8 +68,6 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
         AllocatablePalletsIntegrationEvent? @event,
         CancellationToken token)
     {
-        throw new NotImplementedException("wire up constraint name (see below)");
-
         DeliveryReceipts.Add(receipt);
 
         _outbox.Enroll(this);
@@ -81,5 +92,16 @@ internal sealed class ReceivingDbContext : DbContext, IDeliveryReceiptRepository
     {
         modelBuilder.HasDefaultSchema(InfrastructureSettings.SchemaName);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ReceivingDbContext).Assembly);
+    }
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<AppDateTime>().HaveConversion<AppDateTimeValueConverter>();
+        configurationBuilder.Properties<NonFutureDateTime>().HaveConversion<NonFutureDateTimeValueConverter>();
+        configurationBuilder.Properties<UniqueId>().HaveConversion<UniqueIdValueConverter>();
+        configurationBuilder.Properties<UpperCaseString>().HaveConversion<UpperCaseStringValueConverter>();
+        configurationBuilder.Properties<TrimmedString>().HaveConversion<TrimmedStringValueConverter>();
+        configurationBuilder.Properties<ScacCode>().HaveConversion<ScacCodeValueConverter>();
+        configurationBuilder.Properties<ReceiptNumber>().HaveConversion<ReceiptNumberValueConverter>();
     }
 }
