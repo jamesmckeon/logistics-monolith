@@ -13,7 +13,7 @@ using Throughline.Modules.Receiving.Infrastructure.Db;
 namespace Throughline.Modules.Receiving.Infrastructure.Migrations
 {
     [DbContext(typeof(ReceivingDbContext))]
-    [Migration("20261005023439_Initial")]
+    [Migration("20261005024018_Initial")]
     partial class Initial
     {
         /// <inheritdoc />

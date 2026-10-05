@@ -5,6 +5,14 @@ using Throughline.Modules.Receiving.Domain.Shipments;
 
 namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 
+/// <summary>
+///     The record of a delivery received for an owner
+/// </summary>
+/// <remarks>
+///     <see cref="Entity{TId}.Id" /> is the client-assigned receipt id, and is treated as globally unique rather
+///     than unique per owner: clients are expected to generate random GUIDs, which makes a collision between
+///     owners practically impossible. If one did occur, the second owner's receipt would be rejected.
+/// </remarks>
 internal sealed class DeliveryReceipt : Entity<Guid>
 {
     private readonly List<InvalidPallet> _invalidPallets;
