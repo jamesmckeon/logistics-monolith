@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -6,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Throughline.Common.Infrastructure;
+using Throughline.Common.Infrastructure.Logging;
 using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Receiving.Application.Common;
@@ -53,17 +53,6 @@ public static class ReceivingExtensions
         return services;
     }
 
-    /// <summary>
-    ///     Adds OwnerId to the request span and logging scope
-    /// </summary>
-    private static IDisposable? OwnerScope(ILoggerFactory loggerFactory, int ownerId)
-    {
-        // owner attribution on the per-request span the ASP.NET Core instrumentation already emits
-        Activity.Current?.SetTag("owner_id", ownerId);
-
-        // owner on every log record in the request
-        return loggerFactory.CreateLogger("Inventory").BeginScope("Owner {OwnerId}", ownerId);
-    }
 
     public static IEndpointRouteBuilder MapReceiving(this IEndpointRouteBuilder app)
     {
@@ -76,7 +65,10 @@ public static class ReceivingExtensions
             ILoggerFactory loggerFactory,
             CancellationToken token) =>
         {
-            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
+            using var _ = LoggerScopeFactory.OwnerScope(
+                loggerFactory.CreateLogger("Inventory"),
+                requestContext.OwnerId);
+            
             var result = await handler.ReceiveDeliveryAsync(requestContext.OwnerId, command, token);
 
             if (!result.Succeeded)
