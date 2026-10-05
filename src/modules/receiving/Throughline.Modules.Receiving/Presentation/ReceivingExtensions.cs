@@ -13,6 +13,7 @@ using Throughline.Modules.Receiving.Application.Configuration;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
+using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Domain.Skus;
 using Throughline.Modules.Receiving.Infrastructure.Common;
@@ -46,6 +47,7 @@ public static class ReceivingExtensions
         services.AddScoped<ICarrierProvider>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<ISkuProvider>(sp => sp.GetRequiredService<ReceivingDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IPalletService, PalletService>();
         services.AddScoped<ReceiveDeliveryHandler>();
 
         return services;
