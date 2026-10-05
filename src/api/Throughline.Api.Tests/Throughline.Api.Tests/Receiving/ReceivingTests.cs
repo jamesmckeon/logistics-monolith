@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
 using Throughline.Modules.Ordering.Application.CreateOrder;
-using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
-using Throughline.Modules.Ordering.Presentation;
+using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Infrastructure.Db;
+using Throughline.Modules.Receiving.Presentation;
 
 namespace Throughline.Api.Tests.Receiving;
 
@@ -45,20 +46,30 @@ public class ReceivingTests
 
     #region Post
 
+    /*  TEST CASES
+     * empty guid receipt id, returns 400
+     * malformed request, returns 400
+     * invalid sku, received with exception
+     * submission exists with same content, returns response (verifies that repeats with duplicate receipt ids don't throw)
+     * submission exists with different content, returns 409
+     * sku requires lot number, received with exception
+     * sku requires expiration, received with exception
+     * existing LPN, received with exception
+     * invalid location, received with exception
+     * invalid hold reason or inactive hold reason, received with exception
+     * all exception pallets should be received to exception location
+     * valid hold reason, is received to hold location
+     * valid pallet without hold, received to bulk? location
+     * test concurrency?
+     */
     [Test]
-    public async Task Post_InvalidRequest_ReturnsProblemDetails()
+    public async Task Post_EmptyRecieptId_ReturnsBadRequest()
     {
-        var command = new CreateOrderCommand(
-            "  ",
-            "testreference",
-            "test address",
-            null,
-            "TestCity",
-            "OR",
-            "97211",
-            [new CreateOrderCommandItem("TestSku", 1)]);
+        var command = new ReceiveDeliveryCommand(Guid.Empty, Guid.NewGuid(), "testreference", "testbol",
+            "testscac", "testtrailer", "testcontainer", "testshipper",
+            [new SubmittedPallet("testlpn", "testsku", 1, "testlocation", null, null, null)]);
 
-        var response = await PostOrder(command, 1);
+        var response = await PostReceipt(command, 1);
 
         var problemDetails = await GetFromResponse(response);
         Assert.That(problemDetails, Is.Not.Null);
@@ -70,6 +81,7 @@ public class ReceivingTests
         });
     }
 
+/*
     [Test]
     public async Task Post_OrderExistsWithDifferentContents_ReturnsConflict()
     {
@@ -84,7 +96,7 @@ public class ReceivingTests
 
         var newCommand = TestCommand("Po2");
 
-        var response = await PostOrder(newCommand, existingRecord.OwnerId);
+        var response = await PostReceipt(newCommand, existingRecord.OwnerId);
         var problemDetails = await GetFromResponse(response);
         Assert.That(problemDetails, Is.Not.Null);
 
@@ -109,7 +121,7 @@ public class ReceivingTests
             return Task.CompletedTask;
         });
 
-        var response = await PostOrder(command, orderRecord.OwnerId);
+        var response = await PostReceipt(command, orderRecord.OwnerId);
         var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
         Assert.That(result, Is.Not.Null);
 
@@ -129,7 +141,7 @@ public class ReceivingTests
         var ownerId = 1;
         var command = TestCommand();
 
-        var response = await PostOrder(command, ownerId);
+        var response = await PostReceipt(command, ownerId);
         var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
         Assert.That(result, Is.Not.Null);
 
@@ -242,6 +254,7 @@ public class ReceivingTests
         var response = await _client.SendAsync(request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
+*/
 
     #endregion
 
@@ -249,14 +262,14 @@ public class ReceivingTests
 
     // Fires all requests "at once": every task parks on the gate, then we release together.
     private async Task<IReadOnlyList<HttpResponseMessage>> PostConcurrently(
-        IReadOnlyList<CreateOrderCommand> commands, int ownerId)
+        IReadOnlyList<ReceiveDeliveryCommand> commands, int ownerId)
     {
         var gate = new TaskCompletionSource();
         var tasks = commands
             .Select(async cmd =>
             {
                 await gate.Task; // park here until released
-                return await PostOrder(cmd, ownerId); // reuses your existing helper
+                return await PostReceipt(cmd, ownerId); // reuses your existing helper
             })
             .ToArray();
 
@@ -344,10 +357,10 @@ public class ReceivingTests
         await dbContext.Orders.ExecuteDeleteAsync();
     }
 
-    private async Task<HttpResponseMessage> PostOrder(CreateOrderCommand command, int ownerId)
+    private async Task<HttpResponseMessage> PostReceipt(ReceiveDeliveryCommand command, int ownerId)
     {
         using var request = new HttpRequestMessage(
-            HttpMethod.Post, OrderingExtensions.OrdersRoute);
+            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts");
         request.Headers.Add("owner_id", ownerId.ToString());
         request.Content = JsonContent.Create(command);
 

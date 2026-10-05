@@ -66,6 +66,9 @@ public sealed class IntegrationEventTests
         });
     }
 
+    [Test]
+    public Task ReceivingToInventory_InventoryReceived_HandledByInventory() => throw new NotImplementedException();
+
     [TearDown]
     public async Task TearDown()
     {
@@ -87,9 +90,8 @@ public sealed class IntegrationEventTests
         return scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
     }
 
-    private static CreateOrderCommand TestCreateOrderCommand()
-    {
-        return new CreateOrderCommand(
+    private static CreateOrderCommand TestCreateOrderCommand() =>
+        new(
             "Test PO",
             "testreference",
             "test address",
@@ -99,7 +101,6 @@ public sealed class IntegrationEventTests
             "97211", [
                 new CreateOrderCommandItem("TESTSKU", 1)
             ]);
-    }
 
     private async Task SeedSkus(CreateOrderCommand command, int ownerId)
     {
