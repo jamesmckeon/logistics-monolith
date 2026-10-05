@@ -5,6 +5,16 @@ namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 
 internal sealed class ReceiptNumber : ValueObject
 {
+    /// <summary>
+    ///     The receipt number prefix
+    /// </summary>
+    public const string Prefix = "RCPT-";
+
+    /// <summary>
+    ///     The total length of a receipt number
+    /// </summary>
+    public const int Length = 15;
+
     /// <param name="value">
     ///     A receipt number in the form <c>RCPT-</c> followed by exactly 10 digits, e.g. <c>RCPT-0000000042</c>;
     ///     upper case, with no surrounding whitespace

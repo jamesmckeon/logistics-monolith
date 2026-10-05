@@ -64,8 +64,14 @@ internal sealed class ReceivingDbContext :
     public async Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token) =>
         (await HoldReasons.ToListAsync(token)).AsReadOnly();
 
+    // Receipt numbers are a fixed prefix plus zero-padded digits, so ordering by the string is ordering by the
+    // number; the (owner_id, receipt_number) unique index serves it without a sort
     public Task<ReceiptNumber?> GetLastReceiptNumberAsync(int ownerId, CancellationToken token) =>
-        throw new NotImplementedException();
+        DeliveryReceipts
+            .Where(r => r.OwnerId == ownerId)
+            .OrderByDescending(r => r.ReceiptNumber)
+            .Select(r => r.ReceiptNumber)
+            .FirstOrDefaultAsync(token);
 
     public async Task AddAsync(
         DeliveryReceipt receipt,

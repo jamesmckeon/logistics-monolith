@@ -29,4 +29,8 @@
         <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Api.Tests"/>
+    </ItemGroup>
+    
 </Project>
