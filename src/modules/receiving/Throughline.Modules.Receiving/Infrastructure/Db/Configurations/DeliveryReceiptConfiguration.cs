@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 
-namespace Throughline.Modules.Receiving.Infrastructure.Db;
+namespace Throughline.Modules.Receiving.Infrastructure.Db.Configurations;
 
 internal sealed class DeliveryReceiptConfiguration : IEntityTypeConfiguration<DeliveryReceipt>
 {
@@ -30,6 +30,7 @@ internal sealed class DeliveryReceiptConfiguration : IEntityTypeConfiguration<De
         builder.Property(r => r.ReceiptNumber).HasColumnName("receipt_number").HasMaxLength(15);
         builder.Property(r => r.OperatorId).HasColumnName("operator_id").HasColumnType("uuid");
         builder.Property(r => r.ReceivedOn).HasColumnName("received_on");
+        builder.Property(r => r.CreatedOn).HasColumnName("created_on");
 
         // Receipt numbers are sequential within an owner, not globally.
         builder.HasIndex(r => new { r.OwnerId, r.ReceiptNumber })

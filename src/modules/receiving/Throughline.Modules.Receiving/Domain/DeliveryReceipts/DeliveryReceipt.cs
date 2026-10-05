@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Throughline.Common.Models;
-using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
 
@@ -20,7 +19,9 @@ internal sealed class DeliveryReceipt : Entity<Guid>
         NonFutureDateTime receivedOn,
         Shipment shipment,
         IEnumerable<Pallet> receivedPallets,
-        IEnumerable<InvalidPallet> invalidPallets) : this(receiptId, receiptNumber, ownerId, operatorId, receivedOn)
+        IEnumerable<InvalidPallet> invalidPallets,
+        NonFutureDateTime createdOn) :
+        this(receiptId, receiptNumber, ownerId, operatorId, receivedOn, createdOn)
     {
         var received = receivedPallets.ToArray();
         var invalid = invalidPallets.ToArray();
@@ -63,12 +64,14 @@ internal sealed class DeliveryReceipt : Entity<Guid>
         ReceiptNumber receiptNumber,
         int ownerId,
         Guid operatorId,
-        NonFutureDateTime receivedOn) : base(id)
+        NonFutureDateTime receivedOn,
+        NonFutureDateTime createdOn) : base(id)
     {
         ReceiptNumber = receiptNumber;
         OwnerId = ownerId;
         OperatorId = operatorId;
         ReceivedOn = receivedOn;
+        CreatedOn = createdOn;
         _pallets = [];
         _invalidPallets = [];
     }
@@ -90,4 +93,5 @@ internal sealed class DeliveryReceipt : Entity<Guid>
     public Guid OperatorId { get; }
 
     public NonFutureDateTime ReceivedOn { get; }
+    public NonFutureDateTime CreatedOn { get; }
 }
