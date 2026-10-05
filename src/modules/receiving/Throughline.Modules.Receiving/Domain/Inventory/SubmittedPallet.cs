@@ -1,6 +1,6 @@
-namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+namespace Throughline.Modules.Receiving.Domain.Inventory;
 
-internal sealed record ReceiveDeliveryCommandItem(
+internal sealed record SubmittedPallet(
     string Lpn,
     string Sku,
     int Quantity,

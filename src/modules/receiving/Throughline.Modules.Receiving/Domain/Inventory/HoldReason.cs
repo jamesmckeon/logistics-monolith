@@ -5,7 +5,7 @@ namespace Throughline.Modules.Receiving.Domain.Inventory;
 
 internal sealed class HoldReason : ValueObject
 {
-    private HoldReason(UpperCaseString reasonCode, bool isActive)
+    public HoldReason(UpperCaseString reasonCode, bool isActive)
     {
         ReasonCode = reasonCode;
         IsActive = isActive;

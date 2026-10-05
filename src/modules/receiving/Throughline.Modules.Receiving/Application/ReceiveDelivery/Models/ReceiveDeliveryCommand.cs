@@ -1,4 +1,5 @@
 using Throughline.Common.Results;
+using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
 
 namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
@@ -12,7 +13,7 @@ internal sealed record ReceiveDeliveryCommand(
     string TrailerNumber,
     string ContainerNumber,
     string ShipperName,
-    IEnumerable<ReceiveDeliveryCommandItem> Pallets)
+    IEnumerable<SubmittedPallet> Pallets)
 {
     /// <summary>
     ///     Only performs validation that results in rejection of whole request; more granular/nuanced validation

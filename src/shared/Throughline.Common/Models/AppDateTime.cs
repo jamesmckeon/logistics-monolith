@@ -28,6 +28,23 @@ public class AppDateTime : ValueObject, IComparable<AppDateTime>
 
     public int CompareTo(AppDateTime? other) => other is null ? 1 : Value.CompareTo(other.Value);
 
+    /// <summary>
+    ///     Creates an AppDateTime from a <see cref="DateTime" /> whose clock value the caller knows to be UTC, but
+    ///     which may not be marked as such; e.g. a date deserialized from JSON without a time zone
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="dateTime" /> has a Kind of Local;
+    /// </exception>
+    public static AppDateTime AssumeUtc(DateTime dateTime)
+    {
+        if (dateTime.Kind == DateTimeKind.Local)
+        {
+            throw new ArgumentException("dateTime must have a Kind of Unspecified or Utc", nameof(dateTime));
+        }
+
+        return new AppDateTime(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc));
+    }
+
 
     protected override IEnumerable<object?> GetAtomicValues()
     {

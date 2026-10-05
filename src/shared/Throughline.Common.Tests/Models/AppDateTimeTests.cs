@@ -47,4 +47,42 @@ public sealed class AppDateTimeTests
     }
 
     #endregion
+
+    #region AssumeUtc
+
+    [Test]
+    public void AssumeUtc_UnspecifiedKind_TreatsClockValueAsUtc()
+    {
+        var unspecified = DateTime.SpecifyKind(UtcInstant, DateTimeKind.Unspecified);
+
+        var appDateTime = AppDateTime.AssumeUtc(unspecified);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(appDateTime.Value, Is.EqualTo(ExpectedValue));
+            Assert.That(appDateTime.Value.Offset, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void AssumeUtc_UtcKind_KeepsSameInstantAtUtc()
+    {
+        var appDateTime = AppDateTime.AssumeUtc(UtcInstant);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(appDateTime.Value, Is.EqualTo(ExpectedValue));
+            Assert.That(appDateTime.Value.Offset, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void AssumeUtc_LocalKind_ThrowsArgumentException()
+    {
+        var local = DateTime.SpecifyKind(UtcInstant, DateTimeKind.Local);
+
+        Assert.That(() => AppDateTime.AssumeUtc(local), Throws.ArgumentException);
+    }
+
+    #endregion
 }

@@ -19,7 +19,10 @@ internal sealed class InvalidPallet : Entity<UniqueId>
         int quantity,
         ReceivingLocation location,
         string requestLocationId,
-        IEnumerable<ReceivingExceptions> exceptions) : this(id, ownerId, skuCode, lpn, quantity, requestLocationId)
+        string? lotNumber,
+        AppDateTime? expiresOn,
+        IEnumerable<ReceivingExceptions> exceptions)
+        : this(id, ownerId, skuCode, lpn, quantity, requestLocationId, lotNumber, expiresOn)
     {
         var exceptionArray = exceptions.ToArray();
 
@@ -45,7 +48,9 @@ internal sealed class InvalidPallet : Entity<UniqueId>
         UpperCaseString skuCode,
         UpperCaseString licensePlateNumber,
         int quantity,
-        string requestLocationId) : base(id)
+        string requestLocationId,
+        string? lotNumber,
+        AppDateTime? expiresOn) : base(id)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
 
@@ -54,6 +59,8 @@ internal sealed class InvalidPallet : Entity<UniqueId>
         Quantity = quantity;
         LicensePlateNumber = licensePlateNumber;
         RequestLocationId = requestLocationId;
+        LotNumber = lotNumber;
+        ExpiresOn = expiresOn;
         Exceptions = [];
     }
 
@@ -61,6 +68,17 @@ internal sealed class InvalidPallet : Entity<UniqueId>
     public UpperCaseString SkuCode { get; }
     public UpperCaseString LicensePlateNumber { get; }
     public int Quantity { get; }
+
+    /// <summary>
+    ///     The lot number submitted with the pallet, kept so the pallet can be received once its exceptions are resolved
+    /// </summary>
+    public string? LotNumber { get; }
+
+    /// <summary>
+    ///     The expiry submitted with the pallet, kept so the pallet can be received once its exceptions are resolved
+    /// </summary>
+    public AppDateTime? ExpiresOn { get; }
+
     public IReadOnlyCollection<ReceivingExceptions> Exceptions { get; }
 
     /// <summary>

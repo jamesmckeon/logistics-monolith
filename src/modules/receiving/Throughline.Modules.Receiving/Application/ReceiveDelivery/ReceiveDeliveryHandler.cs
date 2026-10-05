@@ -9,7 +9,6 @@ using Throughline.Modules.Receiving.Contracts.Models;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Inventory;
-using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Domain.Shipments;
 using Throughline.Modules.Receiving.Domain.Skus;
 
@@ -19,6 +18,7 @@ internal sealed class ReceiveDeliveryHandler
 {
     private readonly ICarrierProvider _carrierProvider;
     private readonly IOptions<AppConfiguration> _configuration;
+    private readonly IPalletService _palletService;
     private readonly IDeliveryReceiptRepository _receiptRepository;
     private readonly ISkuProvider _skuProvider;
     private readonly IDeliverySubmissionStore _submissionStore;
@@ -30,6 +30,7 @@ internal sealed class ReceiveDeliveryHandler
         IUnitOfWork unitOfWork,
         ISkuProvider skuProvider,
         ICarrierProvider carrierProvider,
+        IPalletService palletService,
         IOptions<AppConfiguration> configuration)
     {
         _receiptRepository = receiptRepository;
@@ -38,6 +39,7 @@ internal sealed class ReceiveDeliveryHandler
         _skuProvider = skuProvider;
         _carrierProvider = carrierProvider;
         _configuration = configuration;
+        _palletService = palletService;
     }
 
 
@@ -90,21 +92,17 @@ internal sealed class ReceiveDeliveryHandler
         var skus = (await _skuProvider.GetSkusByOwnerSkuCodeAsync(
             ownerId, commandSkus, token)).ToArray();
 
-        var invalidPallets = GetInvalidPallets(
-            ownerId, command, skus, existingLpns, locations,
-            holdReasons, defaultLocations);
-
-        var validPallets = command.Pallets.Where(p =>
-                invalidPallets.All(ep => ep.LicensePlateNumber != new UpperCaseString(p.Lpn)))
-            .ToArray();
-        var pallets = GetValidPallets(validPallets, skus, holdReasons, defaultLocations);
+        var serviceRequest = new PalletServiceRequest(
+            ownerId, command.Pallets.ToArray(), skus, holdReasons, defaultLocations, existingLpns,
+            locations);
+        var serviceResult = _palletService.BuildPallets(serviceRequest);
 
         var shipment = CreateShipment(command, carrierScac);
         var lastReceiptNumber = await _receiptRepository.GetLastReceiptNumberAsync(ownerId, token);
 
         var deliveryReceipt = new DeliveryReceipt(
             command.ReceiptId, ReceiptNumber.Create(lastReceiptNumber), ownerId, command.OperatorId,
-            AppDateTime.Now, shipment, pallets, invalidPallets);
+            AppDateTime.Now, shipment, serviceResult.ValidPallets, serviceResult.InvalidPallets);
 
         await _receiptRepository.AddAsync(deliveryReceipt, ToEvent(deliveryReceipt), token);
 
@@ -116,102 +114,6 @@ internal sealed class ReceiveDeliveryHandler
         await _unitOfWork.SaveChangesAsync(token);
 
         return result;
-    }
-
-    private IEnumerable<Pallet> GetValidPallets(
-        ReceiveDeliveryCommandItem[] validPallets,
-        OwnerSku[] skus,
-        HoldReason[] holdReasons,
-        DefaultLocations defaultLocations)
-    {
-        var pallets = new List<Pallet>();
-
-        foreach (var validPallet in validPallets)
-        {
-            var sku = skus.Single(s => s.SkuCode == new UpperCaseString(validPallet.Sku));
-            var holdReason = string.IsNullOrWhiteSpace(validPallet.HoldReasonCode)
-                ? null
-                : holdReasons.Single(hr => hr.ReasonCode == new UpperCaseString(validPallet.HoldReasonCode));
-            var location = holdReason is null
-                ? defaultLocations.AvailableLocation
-                : defaultLocations.HoldLocation;
-            var expiresOn = validPallet.Expires is null ? null : new AppDateTime(validPallet.Expires.Value);
-            var pallet = new Pallet(UniqueId.Create(), new(validPallet.Lpn), sku, validPallet.Quantity, location,
-                holdReason, expiresOn, validPallet.LotNumber);
-
-            pallets.Add(pallet);
-        }
-
-        return pallets;
-    }
-
-    private IEnumerable<InvalidPallet> GetInvalidPallets(
-        int ownerId,
-        ReceiveDeliveryCommand command,
-        OwnerSku[] allSkus,
-        ReceivedLpn[] existingLpns,
-        ReceivingLocation[] allLocations,
-        HoldReason[] holdReasons,
-        DefaultLocations defaultLocations)
-    {
-        var invalidPallets = new List<InvalidPallet>();
-
-        foreach (var pallet in command.Pallets)
-        {
-            var exceptions = new List<ReceivingExceptions>();
-            var sku = allSkus.FirstOrDefault(a => a.SkuCode == new UpperCaseString(pallet.Sku));
-
-            if (sku is null)
-            {
-                exceptions.Add(ReceivingExceptions.InvalidSkuCode);
-            }
-            else
-            {
-                if (sku.IsLotTracked && string.IsNullOrWhiteSpace(pallet.LotNumber))
-                {
-                    exceptions.Add(ReceivingExceptions.LotNumberRequired);
-                }
-
-                if (sku.IsExpirationTracked && pallet.Expires == null)
-                {
-                    exceptions.Add(ReceivingExceptions.ExpirationDateRequired);
-                }
-            }
-
-
-            if (existingLpns.Any(a => a.Lpn == new UpperCaseString(pallet.Lpn)))
-            {
-                exceptions.Add(ReceivingExceptions.DuplicateLpn);
-            }
-
-            if (allLocations.All(all => all.Id != new UpperCaseString(pallet.LocationId)))
-            {
-                exceptions.Add(ReceivingExceptions.InvalidLocation);
-            }
-
-            if (!string.IsNullOrWhiteSpace(pallet.HoldReasonCode) &&
-                holdReasons.All(a => a.ReasonCode != new UpperCaseString(pallet.HoldReasonCode)))
-            {
-                exceptions.Add(ReceivingExceptions.InvalidHoldReason);
-            }
-
-            if (exceptions.Any())
-            {
-                var exceptedPallet = new InvalidPallet(
-                    UniqueId.Create(),
-                    ownerId,
-                    new(pallet.Sku),
-                    new(pallet.Lpn),
-                    pallet.Quantity,
-                    defaultLocations.ExceptionLocation,
-                    pallet.LocationId,
-                    exceptions.ToArray());
-
-                invalidPallets.Add(exceptedPallet);
-            }
-        }
-
-        return invalidPallets;
     }
 
     private ReceiveDeliveryResult ToResult(DeliveryReceipt receipt)

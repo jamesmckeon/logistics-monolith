@@ -25,6 +25,8 @@ internal sealed class InvalidPalletConfiguration : IEntityTypeConfiguration<Inva
         builder.Property(p => p.LicensePlateNumber).HasColumnName("license_plate_number");
         builder.Property(p => p.Quantity).HasColumnName("quantity");
         builder.Property(p => p.RequestLocationId).HasColumnName("request_location_id");
+        builder.Property(p => p.LotNumber).HasColumnName("lot_number");
+        builder.Property(p => p.ExpiresOn).HasColumnName("expires_on");
 
         // Stored by name so the column stays readable and enum reordering can't change its meaning.
         builder.PrimitiveCollection(p => p.Exceptions)
