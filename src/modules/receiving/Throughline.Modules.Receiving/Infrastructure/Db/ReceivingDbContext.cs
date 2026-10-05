@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Throughline.Common.Models;
-using Throughline.Modules.Receiving.Application.Common;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Contracts.Events;
@@ -41,14 +40,9 @@ internal sealed class ReceivingDbContext :
     public DbSet<HoldReason> HoldReasons => Set<HoldReason>();
     public DbSet<DeliverySubmission> DeliverySubmissions => Set<DeliverySubmission>();
 
-    // Implemented explicitly so this Add doesn't sit among DbContext's own Add overloads
-    Task<DeliverySubmission?> IDeliverySubmissionStore.GetSubmissionAsync(
-        int ownerId, Guid deliveryId, CancellationToken token) =>
-        DeliverySubmissions.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.DeliveryId == deliveryId, token);
-
-    void IDeliverySubmissionStore.Add(DeliverySubmission submission) => DeliverySubmissions.Add(submission);
-
     public DbSet<CarrierRecord> Carriers => Set<CarrierRecord>();
+
+    public DbSet<SkuRecord> Skus => Set<SkuRecord>();
 
     async Task<CarrierScac?> ICarrierProvider.GetCarrierScacByScacCodeAync(ScacCode scacCode, CancellationToken token)
     {
@@ -59,32 +53,10 @@ internal sealed class ReceivingDbContext :
             : new CarrierScac(new ScacCode(carrier.ScacCode), carrier.CarrierId, carrier.CarrierName);
     }
 
-    public DbSet<SkuRecord> Skus => Set<SkuRecord>();
-
-    async Task<IReadOnlyCollection<OwnerSku>> ISkuProvider.GetSkusByOwnerSkuCodeAsync(
-        int ownerId, IEnumerable<UpperCaseString> skuCodes, CancellationToken token)
-    {
-        var codes = skuCodes.Select(c => c.Value).Distinct().ToArray();
-
-        var skus = await Skus
-            .Where(s => s.OwnerId == ownerId && codes.Contains(s.SkuCode))
-            .ToListAsync(token);
-
-        return skus.Select(s => new OwnerSku(
-                s.OwnerId, new UpperCaseString(s.SkuCode), s.SkuId, s.IsLotTracked, s.IsExpirationTracked))
-            .ToList()
-            .AsReadOnly();
-    }
-
     public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token)
     {
         return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
     }
-
-    public async Task<IReadOnlyCollection<ReceivedLpn>> GetReceivedLpnsAsync(int ownerId,
-        IEnumerable<UpperCaseString> lpns,
-        CancellationToken token) =>
-        throw new NotImplementedException();
 
     public async Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token) =>
         (await Locations.ToListAsync(token)).AsReadOnly();
@@ -118,6 +90,39 @@ internal sealed class ReceivingDbContext :
         {
             _logger.LogInformation("An existing receipt was found for receipt id {@ReceiptId}", receipt.Id);
         }
+    }
+
+    public async Task<IReadOnlyCollection<UpperCaseString>> GetReceivedLpnsAsync(int ownerId,
+        IEnumerable<UpperCaseString> lpns,
+        CancellationToken token)
+    {
+        return await DeliveryReceipts.Where(r => r.OwnerId == ownerId)
+            .SelectMany(s => s.Pallets)
+            .Where(p => lpns.Any(a => a == p.LicensePlateNumber))
+            .Select(p => p.LicensePlateNumber)
+            .ToListAsync(token);
+    }
+
+    // Implemented explicitly so this Add doesn't sit among DbContext's own Add overloads
+    Task<DeliverySubmission?> IDeliverySubmissionStore.GetSubmissionAsync(
+        int ownerId, Guid deliveryId, CancellationToken token) =>
+        DeliverySubmissions.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.DeliveryId == deliveryId, token);
+
+    void IDeliverySubmissionStore.Add(DeliverySubmission submission) => DeliverySubmissions.Add(submission);
+
+    async Task<IReadOnlyCollection<OwnerSku>> ISkuProvider.GetSkusByOwnerSkuCodeAsync(
+        int ownerId, IEnumerable<UpperCaseString> skuCodes, CancellationToken token)
+    {
+        var codes = skuCodes.Select(c => c.Value).Distinct().ToArray();
+
+        var skus = await Skus
+            .Where(s => s.OwnerId == ownerId && codes.Contains(s.SkuCode))
+            .ToListAsync(token);
+
+        return skus.Select(s => new OwnerSku(
+                s.OwnerId, new UpperCaseString(s.SkuCode), s.SkuId, s.IsLotTracked, s.IsExpirationTracked))
+            .ToList()
+            .AsReadOnly();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

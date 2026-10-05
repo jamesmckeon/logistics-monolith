@@ -58,7 +58,7 @@ internal sealed class PalletService : IPalletService
                 }
             }
 
-            if (request.ExistingLpns.Any(a => a.Lpn == new UpperCaseString(pallet.Lpn)))
+            if (request.ExistingLpns.Any(a => a == new UpperCaseString(pallet.Lpn)))
             {
                 exceptions.Add(ReceivingExceptions.DuplicateLpn);
             }

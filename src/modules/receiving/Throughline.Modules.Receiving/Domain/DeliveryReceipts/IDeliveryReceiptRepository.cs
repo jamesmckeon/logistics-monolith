@@ -9,7 +9,7 @@ internal interface IDeliveryReceiptRepository
 {
     Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token);
 
-    Task<IReadOnlyCollection<ReceivedLpn>> GetReceivedLpnsAsync(int ownerId, IEnumerable<UpperCaseString> lpns,
+    Task<IReadOnlyCollection<UpperCaseString>> GetReceivedLpnsAsync(int ownerId, IEnumerable<UpperCaseString> lpns,
         CancellationToken token);
 
     Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token);

@@ -11,6 +11,6 @@ internal sealed record PalletServiceRequest(
     OwnerSku[] OwnerSkus,
     HoldReason[] HoldReasons,
     DefaultLocations DefaultLocations,
-    ReceivedLpn[] ExistingLpns,
+    UpperCaseString[] ExistingLpns,
     ReceivingLocation[] Locations
 );

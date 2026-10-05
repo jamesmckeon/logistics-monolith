@@ -1,4 +1,3 @@
-using Throughline.Common.Models;
 using Throughline.Modules.Receiving.Application.Common;
 using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
@@ -165,7 +164,7 @@ public sealed class PalletServiceTests
     {
         var request = GivenRequest(ValidPallet) with
         {
-            ExistingLpns = [new ReceivedLpn(new UpperCaseString("LPN-1"), AppDateTime.Now)]
+            ExistingLpns = [new UpperCaseString("LPN-1")]
         };
 
         var result = _sut.BuildPallets(request);
@@ -208,7 +207,7 @@ public sealed class PalletServiceTests
     {
         var request = GivenRequest(ValidPallet with { LocationId = "NOWHERE", HoldReasonCode = "UNKNOWN" }) with
         {
-            ExistingLpns = [new ReceivedLpn(new UpperCaseString("LPN-1"), AppDateTime.Now)]
+            ExistingLpns = [new UpperCaseString("LPN-1")]
         };
 
         var result = _sut.BuildPallets(request);
