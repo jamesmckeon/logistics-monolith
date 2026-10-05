@@ -54,15 +54,18 @@ internal sealed class DeliveryReceiptConfiguration : IEntityTypeConfiguration<De
             });
         });
 
+        // Required: a pallet only exists as part of a receipt. A shadow foreign key is optional by default.
         builder.HasMany(r => r.Pallets)
             .WithOne()
             .HasForeignKey("delivery_receipt_id")
+            .IsRequired()
             .HasConstraintName("fk_received_pallets_delivery_receipts_delivery_receipt_id")
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(r => r.InvalidPallets)
             .WithOne()
             .HasForeignKey("delivery_receipt_id")
+            .IsRequired()
             .HasConstraintName("fk_invalid_pallets_delivery_receipts_delivery_receipt_id")
             .OnDelete(DeleteBehavior.Cascade);
 
