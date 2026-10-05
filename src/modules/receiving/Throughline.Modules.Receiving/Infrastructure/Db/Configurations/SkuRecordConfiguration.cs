@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Modules.Receiving.Infrastructure.Db.Models;
 
-namespace Throughline.Modules.Receiving.Infrastructure.Db;
+namespace Throughline.Modules.Receiving.Infrastructure.Db.Configurations;
 
 internal sealed class SkuRecordConfiguration : IEntityTypeConfiguration<SkuRecord>
 {

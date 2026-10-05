@@ -57,6 +57,10 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("delivery_receipt_id");
 
+                    b.Property<DateTimeOffset>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
                     b.Property<Guid>("OperatorId")
                         .HasColumnType("uuid")
                         .HasColumnName("operator_id");

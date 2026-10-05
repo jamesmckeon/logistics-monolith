@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Infrastructure.Db.Converters;
 
-namespace Throughline.Modules.Receiving.Infrastructure.Db;
+namespace Throughline.Modules.Receiving.Infrastructure.Db.Configurations;
 
 internal sealed class DeliverySubmissionConfiguration : IEntityTypeConfiguration<DeliverySubmission>
 {

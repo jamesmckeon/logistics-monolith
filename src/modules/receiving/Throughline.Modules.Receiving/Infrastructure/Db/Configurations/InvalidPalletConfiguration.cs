@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Throughline.Modules.Receiving.Domain.Inventory;
 
-namespace Throughline.Modules.Receiving.Infrastructure.Db;
+namespace Throughline.Modules.Receiving.Infrastructure.Db.Configurations;
 
 internal sealed class InvalidPalletConfiguration : IEntityTypeConfiguration<InvalidPallet>
 {
