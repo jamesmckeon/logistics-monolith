@@ -14,7 +14,7 @@ public sealed class AllocatablePalletsHandler
     public async Task Handle(
         AllocatablePalletsIntegrationEvent message,
         InventoryDbContext db,
-        ILogger<OrderConfirmedHandler> logger,
+        ILogger<AllocatablePalletsHandler> logger,
         CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -33,61 +33,64 @@ public sealed class AllocatablePalletsHandler
             .ToList();
         var validSkus = await inventoryRepository.GetSkusByOwnerIdAsync(
             message.OwnerId, messageSkus, token);
+        var invalidSkus = messageSkus.Where(s => validSkus.All(vs => vs.Code != s))
+            .ToList();
 
-        // exceptions aren't caught and logged here; Wolverine logs handler failures, with the
-        // exception, at Error level
-        if (validSkus.Count != messageSkus.Count)
+        if (invalidSkus.Any())
         {
-            var invalidSkus = messageSkus.Except(validSkus.Select(s => s.Code));
             throw new MissingDependencyException(
                 $"The following skus were not found: {string.Join(", ", invalidSkus)}");
         }
 
-        var receipts = message.Pallets.Select(l =>
-                SkuReceipt.Create(
-                    EntityId.Create(),
-                    validSkus.Single(s => s.Code == l.SkuCode).Id,
-                    l.Quantity,
-                    new AppDateTime(message.ReceivedOn)))
-            .ToList();
+        var validPallets = message.Pallets.Where(p => validSkus.Any(vs => vs.Code == p.SkuCode));
 
-        // permanent (poison) failure; retrying the same data can't succeed, so dead-letter it.
-        var receiptErrors = receipts
-            .Where(r => !r.Succeeded)
-            .SelectMany(r => r.Errors)
-            .Select(e => e.Description)
-            .ToList();
 
-        if (receiptErrors.Count > 0)
+        var receipts = new List<SkuReceipt>();
+        var lpnErrors = new List<LpnError>();
+
+        // for each pallet, create a sku receipt
+        foreach (var pallet in validPallets)
         {
-            throw Poison(message, logger, receiptErrors);
+            var sku = validSkus.First(f => f.Code == pallet.SkuCode);
+            var receiptResult = SkuReceipt.Create(
+                EntityId.Create(), sku.Id, pallet.Quantity, new AppDateTime(message.ReceivedOn));
+
+            if (receiptResult.Succeeded)
+            {
+                inventoryRepository.Add(receiptResult.Value);
+            }
+            else
+            {
+                lpnErrors.Add(new(pallet.Lpn, receiptResult.Errors.Select(e => e.Description)));
+            }
         }
 
-        foreach (var receipt in receipts)
+        // All or nothing: throwing means [Transactional] never saves the receipts added above, so the dead-lettered
+        // message has nothing partially applied and can be replayed once the publisher is fixed
+        if (lpnErrors.Any())
         {
-            // to prevent null ref warnings
-            ArgumentNullException.ThrowIfNull(receipt.Value);
-
-            inventoryRepository.Add(receipt.Value);
-
-            logger.LogInformation(
-                "Added new sku receipt for owner {OwnerId}, sku id {SkuId}",
-                message.OwnerId, receipt.Value.SkuId);
+            throw Poison(message, logger, lpnErrors);
         }
     }
 
     private static UnrecoverableMessageException Poison(
         AllocatablePalletsIntegrationEvent message,
         ILogger logger,
-        IEnumerable<string> errors)
+        IEnumerable<LpnError> errors)
     {
-        var reason = string.Join("; ", errors);
+        var reason = string.Join("; ", errors.Select(e => e.ToExceptionMessage()));
 
         logger.LogError(
             "Invalid AllocatablePallets for owner {OwnerId}, receipt id {ReceiptId}: {Reason}",
             message.OwnerId, message.ReceiptId, reason);
 
         return new UnrecoverableMessageException(
-            $"AllocatablePallets for owner {message.OwnerId}, receipt id {message.ReceiptId} is invalid: {reason}");
+            $"The following pallet LPNs passed by an AllocatablePalletsIntegrationEvent for owner {message.OwnerId}, " +
+            $"receipt id {message.ReceiptId} are invalid: {reason}");
+    }
+
+    private sealed record LpnError(string Lpn, IEnumerable<string> Errors)
+    {
+        public string ToExceptionMessage() => $"LPN {Lpn}: {string.Join("; ", Errors)}";
     }
 }
