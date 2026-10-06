@@ -62,6 +62,10 @@ builder.Host.UseWolverine(opts =>
     opts.UseEntityFrameworkCoreTransactions();
     opts.Policies.UseDurableLocalQueues();
 
+    // Each handler of a message type gets its own subscription and copy of the message, so modules handling the
+    // same integration event succeed, retry and dead-letter independently. 
+    opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+
     // Poison messages (permanent/contract-violating failures) skip retries and go straight
     // to the dead-letter queue. Transient faults are left to throw normally so they retry.
     opts.OnException<UnrecoverableMessageException>().MoveToErrorQueue();
