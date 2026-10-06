@@ -44,6 +44,8 @@ internal sealed class ReceivingDbContext :
 
     public DbSet<SkuRecord> Skus => Set<SkuRecord>();
 
+    public DbSet<ReceiptNumberCounterRecord> ReceiptNumberCounters => Set<ReceiptNumberCounterRecord>();
+
     async Task<CarrierScac?> ICarrierProvider.GetCarrierScacByScacCodeAync(ScacCode scacCode, CancellationToken token)
     {
         var carrier = await Carriers.SingleOrDefaultAsync(c => c.ScacCode == scacCode.Value, token);
@@ -53,18 +55,11 @@ internal sealed class ReceivingDbContext :
             : new CarrierScac(new ScacCode(carrier.ScacCode), carrier.CarrierId, carrier.CarrierName);
     }
 
-    public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, Guid receiptId, CancellationToken token)
-    {
-        return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
-    }
-
     public async Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token) =>
         (await Locations.ToListAsync(token)).AsReadOnly();
 
     public async Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token) =>
         (await HoldReasons.ToListAsync(token)).AsReadOnly();
-
-    public DbSet<ReceiptNumberCounterRecord> ReceiptNumberCounters => Set<ReceiptNumberCounterRecord>();
 
     // One atomic statement: creates the owner's counter at 1 on first use, otherwise increments it, and returns the
     // number issued. Concurrent calls for an owner queue on that owner's row only. It must commit on its own (see
@@ -147,6 +142,11 @@ internal sealed class ReceivingDbContext :
                 s.OwnerId, new UpperCaseString(s.SkuCode), s.SkuId, s.IsLotTracked, s.IsExpirationTracked))
             .ToList()
             .AsReadOnly();
+    }
+
+    public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, UniqueId receiptId, CancellationToken token)
+    {
+        return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

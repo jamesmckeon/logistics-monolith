@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Throughline.Common.Models;
+using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
 
@@ -13,17 +14,17 @@ namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 ///     than unique per owner: clients are expected to generate random GUIDs, which makes a collision between
 ///     owners practically impossible. If one did occur, the second owner's receipt would be rejected.
 /// </remarks>
-internal sealed class DeliveryReceipt : Entity<Guid>
+internal sealed class DeliveryReceipt : Entity<UniqueId>
 {
     private readonly List<InvalidPallet> _invalidPallets;
     private readonly List<Pallet> _pallets;
 
     [SetsRequiredMembers]
     public DeliveryReceipt(
-        Guid receiptId,
+        UniqueId receiptId,
         ReceiptNumber receiptNumber,
         int ownerId,
-        Guid operatorId,
+        UniqueId operatorId,
         NonFutureDateTime receivedOn,
         Shipment shipment,
         IEnumerable<Pallet> receivedPallets,
@@ -68,10 +69,10 @@ internal sealed class DeliveryReceipt : Entity<Guid>
     // EF materialization constructor; EF can't pass complex values (Shipment) or navigations (the pallet
     // collections) to a constructor, so it sets Shipment and fills the collections after construction
     private DeliveryReceipt(
-        Guid id,
+        UniqueId id,
         ReceiptNumber receiptNumber,
         int ownerId,
-        Guid operatorId,
+        UniqueId operatorId,
         NonFutureDateTime receivedOn,
         NonFutureDateTime createdOn) : base(id)
     {
@@ -98,7 +99,7 @@ internal sealed class DeliveryReceipt : Entity<Guid>
     /// <summary>
     ///     The id of the operator that received the delivery
     /// </summary>
-    public Guid OperatorId { get; }
+    public UniqueId OperatorId { get; }
 
     public NonFutureDateTime ReceivedOn { get; }
     public NonFutureDateTime CreatedOn { get; }

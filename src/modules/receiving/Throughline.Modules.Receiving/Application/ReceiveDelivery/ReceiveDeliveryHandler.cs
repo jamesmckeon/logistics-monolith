@@ -102,10 +102,10 @@ internal sealed class ReceiveDeliveryHandler
         var receiptNumber = await _receiptRepository.NextReceiptNumberAsync(ownerId, token);
 
         var deliveryReceipt = new DeliveryReceipt(
-            command.ReceiptId,
+            new UniqueId(command.ReceiptId),
             receiptNumber,
             ownerId,
-            command.OperatorId,
+            new(command.OperatorId),
             AppDateTime.Now,
             shipment,
             serviceResult.ValidPallets,
@@ -134,7 +134,7 @@ internal sealed class ReceiveDeliveryHandler
         pallets.AddRange(receipt.InvalidPallets.Select(ip =>
             ReceivedPallet.HasExceptions(ip.LicensePlateNumber.Value, ip.Exceptions)));
 
-        return new ReceiveDeliveryResult(receipt.Id, receipt.ReceiptNumber.Value, pallets);
+        return new ReceiveDeliveryResult(receipt.Id.Value, receipt.ReceiptNumber.Value, pallets);
     }
 
     private static Shipment CreateShipment(ReceiveDeliveryCommand command, CarrierScac carrierScac)
@@ -162,7 +162,7 @@ internal sealed class ReceiveDeliveryHandler
             return null;
         }
 
-        return new(receipt.OwnerId, receipt.Id, receipt.ReceiptNumber.Value, receipt.ReceivedOn.Value,
+        return new(receipt.OwnerId, receipt.Id.Value, receipt.ReceiptNumber.Value, receipt.ReceivedOn.Value,
             receipt.Pallets.Where(p => p.IsAllocatable)
                 .Select(p => new AllocatablePalletModel(
                     p.LicensePlateNumber.Value,
