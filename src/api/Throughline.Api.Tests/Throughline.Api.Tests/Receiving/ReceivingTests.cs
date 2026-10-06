@@ -1,10 +1,9 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
-using Throughline.Modules.Ordering.Application.CreateOrder;
+using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.Inventory;
@@ -14,35 +13,15 @@ using Throughline.Modules.Receiving.Presentation;
 namespace Throughline.Api.Tests.Receiving;
 
 [Category("Integration")]
-public class ReceivingTests
+internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 {
-    private HttpClient _client;
-    private TestFactory<ReceivingDbContext> _testFactory;
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
-    {
-        _testFactory = new();
-        await _testFactory.InitializeAsync();
-        _client = _testFactory.CreateClient();
-        await _testFactory.ApplyMigrationsAsync();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        _client?.Dispose();
-        if (_testFactory is not null)
-        {
-            await _testFactory.DisposeAsync();
-        }
-    }
-
+    /*
     [TearDown]
     public async Task TearDown()
     {
         await ResetAsync();
     }
+*/
 
     #region Post
 
@@ -62,24 +41,66 @@ public class ReceivingTests
      * valid pallet without hold, received to bulk? location
      * test concurrency?
      */
+
     [Test]
-    public async Task Post_EmptyRecieptId_ReturnsBadRequest()
+    public async Task Post_MalformedRequest_ReturnsBadRequestWithErrors()
     {
-        var command = new ReceiveDeliveryCommand(Guid.Empty, Guid.NewGuid(), "testreference", "testbol",
-            "testscac", "testtrailer", "testcontainer", "testshipper",
-            [new SubmittedPallet("testlpn", "testsku", 1, "testlocation", null, null, null)]);
+        var command = new ReceiveDeliveryCommand(Guid.Empty, Guid.Empty, "test", "",
+            "TESTT", " ", " ", "",
+            [new SubmittedPallet(" ", " ", 0, " ", null, null, null)]);
 
-        var response = await PostReceipt(command, 1);
+        var response = await PostDeliveryReceipt(command, 1);
 
-        var problemDetails = await GetFromResponse(response);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.That(problemDetails, Is.Not.Null);
+
+        var errors = problemDetails.Errors
+            .SelectMany(e => e.Value.Select(description => new FieldError(description, e.Key)))
+            .ToArray();
+
+        FieldError[] expectedErrors =
+        [
+            new("ReceiptId is required", "ReceiptId"),
+            new("OperatorId is required", "OperatorId"),
+            new("Either ContainerNumber or TrailerNumber is required", "TrailerNumber"),
+            new("Either ContainerNumber or TrailerNumber is required", "ContainerNumber"),
+            new("value must be 4 alpha characters", "CarrierScac"),
+            new("Each pallet must have a non-blank sku", "Pallets"),
+            new("Each pallet must have a non-blank lpn", "Pallets"),
+            new("Each pallet must have a non-blank location ID", "Pallets"),
+            new("Each pallet must have quantity greater than zero", "Pallets")
+        ];
 
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That(problemDetails.Title, Is.EqualTo("One or more validation errors occurred"));
+            Assert.That(errors, Is.EquivalentTo(expectedErrors));
         });
     }
+
+    [Test]
+    public async Task Post_EmptyPallets_ReturnsBadRequestWithErrors()
+    {
+        var command = new ReceiveDeliveryCommand(Guid.NewGuid(), Guid.NewGuid(), "test", "test",
+            "TEST", "test", "test", "", []);
+
+        var response = await PostDeliveryReceipt(command, 1);
+
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.That(problemDetails, Is.Not.Null);
+
+        var errors = problemDetails.Errors
+            .SelectMany(e => e.Value.Select(description => new FieldError(description, e.Key)))
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(errors,
+                Is.EqualTo(new[] { new FieldError("Pallets must contain at least one item", "Pallets") }));
+        });
+    }
+
 
 /*
     [Test]
@@ -269,71 +290,13 @@ public class ReceivingTests
             .Select(async cmd =>
             {
                 await gate.Task; // park here until released
-                return await PostReceipt(cmd, ownerId); // reuses your existing helper
+                return await PostDeliveryReceipt(cmd, ownerId); // reuses your existing helper
             })
             .ToArray();
 
         gate.SetResult(); // launch together
         return await Task.WhenAll(tasks);
     }
-
-    private async Task<int> CountOrdersAsync(int ownerId, string reference)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
-        return await db.Orders.CountAsync(o => o.OwnerId == ownerId && o.ReferenceNumber == reference);
-    }
-
-    private static OrderRecord TestOrder(CreateOrderCommand command, int ownerId = 1)
-    {
-        var orderId = Guid.CreateVersion7();
-        var orderRecord = new OrderRecord
-        {
-            OrderId = orderId,
-            OwnerId = ownerId,
-            PurchaseOrderNumber = command.PurchaseOrderNumber,
-            ReferenceNumber = command.ReferenceNumber,
-            StreetAddressOne = command.StreetAddressOne,
-            StreetAddressTwo = command.StreetAddressTwo,
-            City = command.City,
-            State = command.State,
-            Zipcode = command.PostalCode,
-            OrderLines =
-            [
-                new OrderLineRecord
-                {
-                    OrderId = orderId,
-                    SkuCode = "TestSku",
-                    Quantity = 1
-                }
-            ]
-        };
-        return orderRecord;
-    }
-
-    private static CreateOrderCommand TestCommand() =>
-        new(
-            "TESTPO",
-            "testreference",
-            "test address",
-            null,
-            "TestCity",
-            "OR",
-            "97211", [
-                new CreateOrderCommandItem("TestSku", 1)
-            ]);
-
-    private static CreateOrderCommand TestCommand(string purchaseOrderNumber) =>
-        new(
-            purchaseOrderNumber,
-            "testreference",
-            "test address",
-            null,
-            "TestCity",
-            "OR",
-            "97211", [
-                new CreateOrderCommandItem("TestSku", 1)
-            ]);
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
     {
@@ -350,14 +313,17 @@ public class ReceivingTests
         await dbContext.SaveChangesAsync();
     }
 
+    /*
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
     }
+*/
 
-    private async Task<HttpResponseMessage> PostReceipt(ReceiveDeliveryCommand command, int ownerId)
+    private async Task<HttpResponseMessage> PostDeliveryReceipt(
+        ReceiveDeliveryCommand command, int ownerId)
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts");

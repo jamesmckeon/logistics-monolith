@@ -89,7 +89,9 @@ public sealed class ReceiveDeliveryCommandTests
 
         var result = command.Validate();
 
-        AssertValidationErrors(result, new FieldError("Either ContainerNumber or TrailerNumber is required"));
+        AssertValidationErrors(result,
+            new FieldError("Either ContainerNumber or TrailerNumber is required", "TrailerNumber"),
+            new FieldError("Either ContainerNumber or TrailerNumber is required", "ContainerNumber"));
     }
 
     [Test]
@@ -131,7 +133,7 @@ public sealed class ReceiveDeliveryCommandTests
 
         var result = command.Validate();
 
-        AssertValidationErrors(result, new FieldError("Items must contain at least one item", "Pallets"));
+        AssertValidationErrors(result, new FieldError("Pallets must contain at least one item", "Pallets"));
     }
 
     [TestCase("LPN-1", "LPN-1")]
@@ -226,7 +228,8 @@ public sealed class ReceiveDeliveryCommandTests
 
         AssertValidationErrors(result,
             new FieldError("DeliveryReference is required", "DeliveryReference"),
-            new FieldError("Either ContainerNumber or TrailerNumber is required"),
+            new FieldError("Either ContainerNumber or TrailerNumber is required", "TrailerNumber"),
+            new FieldError("Either ContainerNumber or TrailerNumber is required", "ContainerNumber"),
             new FieldError("value must be 4 alpha characters", "CarrierScac"),
             new FieldError("Each pallet must have a non-blank sku", "Pallets"),
             new FieldError("Each pallet must have quantity greater than zero", "Pallets"));

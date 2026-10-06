@@ -20,6 +20,7 @@ internal class TestFactory<T> : WebApplicationFactory<Program> where T : DbConte
         .WithName(Guid.NewGuid().ToString())
         .Build();
 
+
     public async Task InitializeAsync()
     {
         using var cts = new CancellationTokenSource(StartupTimeout);

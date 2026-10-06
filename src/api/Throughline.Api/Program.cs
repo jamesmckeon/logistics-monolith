@@ -106,5 +106,6 @@ app.UseExceptionHandler();
 
 app.MapOrdering();
 app.MapInventory();
+app.MapReceiving();
 
 app.Run();

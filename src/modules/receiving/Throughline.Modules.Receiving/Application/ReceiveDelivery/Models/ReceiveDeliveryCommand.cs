@@ -46,7 +46,8 @@ internal sealed record ReceiveDeliveryCommand(
 
         if (string.IsNullOrWhiteSpace(TrailerNumber) && string.IsNullOrWhiteSpace(ContainerNumber))
         {
-            errors.Add(new("Either ContainerNumber or TrailerNumber is required"));
+            errors.Add(new("Either ContainerNumber or TrailerNumber is required", nameof(TrailerNumber)));
+            errors.Add(new("Either ContainerNumber or TrailerNumber is required", nameof(ContainerNumber)));
         }
 
         AddIfBlank(CarrierScac, nameof(CarrierScac));
@@ -67,7 +68,7 @@ internal sealed record ReceiveDeliveryCommand(
 
         if (!pallets.Any())
         {
-            errors.Add(new FieldError("Items must contain at least one item", nameof(Pallets)));
+            errors.Add(new FieldError("Pallets must contain at least one item", nameof(Pallets)));
         }
         else
         {
