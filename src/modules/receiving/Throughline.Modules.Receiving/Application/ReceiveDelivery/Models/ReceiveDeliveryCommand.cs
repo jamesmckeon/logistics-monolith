@@ -24,6 +24,16 @@ internal sealed record ReceiveDeliveryCommand(
     {
         var errors = new List<FieldError>();
 
+        if (ReceiptId == Guid.Empty)
+        {
+            errors.Add(new("ReceiptId is required", nameof(ReceiptId)));
+        }
+
+        if (OperatorId == Guid.Empty)
+        {
+            errors.Add(new("OperatorId is required", nameof(OperatorId)));
+        }
+
         void AddIfBlank(string value, string fieldName)
         {
             if (value.Trim().Length == 0)
@@ -39,12 +49,18 @@ internal sealed record ReceiveDeliveryCommand(
             errors.Add(new("Either ContainerNumber or TrailerNumber is required"));
         }
 
-        var scacResult = ScacCode.Validate(CarrierScac);
+        AddIfBlank(CarrierScac, nameof(CarrierScac));
 
-        if (!scacResult.Succeeded)
+        var trimmedScac = CarrierScac.Trim();
+        if (trimmedScac.Length != 0)
         {
-            errors.AddRange(scacResult.Errors.Select(s =>
-                new FieldError(s.Description, nameof(CarrierScac))));
+            var scacResult = ScacCode.Validate(trimmedScac);
+
+            if (!scacResult.Succeeded)
+            {
+                errors.AddRange(scacResult.Errors.Select(s =>
+                    new FieldError(s.Description, nameof(CarrierScac))));
+            }
         }
 
         var pallets = Pallets.ToArray();
@@ -55,7 +71,8 @@ internal sealed record ReceiveDeliveryCommand(
         }
         else
         {
-            var duplicateLpns = Pallets.GroupBy(grp => grp.Lpn.Trim().ToUpperInvariant())
+            var duplicateLpns = Pallets.Where(p => !string.IsNullOrWhiteSpace(p.Lpn))
+                .GroupBy(grp => grp.Lpn.Trim().ToUpperInvariant())
                 .Select(grp => new { Lpn = grp.Key, Count = grp.Count() })
                 .Where(grp => grp.Count > 1)
                 .ToList();
