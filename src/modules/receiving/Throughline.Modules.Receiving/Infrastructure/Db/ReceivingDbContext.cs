@@ -64,14 +64,32 @@ internal sealed class ReceivingDbContext :
     public async Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token) =>
         (await HoldReasons.ToListAsync(token)).AsReadOnly();
 
-    // Receipt numbers are a fixed prefix plus zero-padded digits, so ordering by the string is ordering by the
-    // number; the (owner_id, receipt_number) unique index serves it without a sort
-    public Task<ReceiptNumber?> GetLastReceiptNumberAsync(int ownerId, CancellationToken token) =>
-        DeliveryReceipts
-            .Where(r => r.OwnerId == ownerId)
-            .OrderByDescending(r => r.ReceiptNumber)
-            .Select(r => r.ReceiptNumber)
-            .FirstOrDefaultAsync(token);
+    public DbSet<ReceiptNumberCounterRecord> ReceiptNumberCounters => Set<ReceiptNumberCounterRecord>();
+
+    // One atomic statement: creates the owner's counter at 1 on first use, otherwise increments it, and returns the
+    // number issued. Concurrent calls for an owner queue on that owner's row only. It must commit on its own (see
+    // IDeliveryReceiptRepository), so it refuses to run inside a transaction, where it would hold the owner's row
+    // locked until that transaction ended.
+    public async Task<ReceiptNumber> NextReceiptNumberAsync(int ownerId, CancellationToken token)
+    {
+        if (Database.CurrentTransaction is not null)
+        {
+            throw new InvalidOperationException("A receipt number must be issued outside a transaction");
+        }
+
+        // Not composed with LINQ: EF would wrap the SQL in a subquery, and PostgreSQL doesn't allow an
+        // INSERT ... RETURNING there
+        var issued = await Database.SqlQuery<long>(
+                $"""
+                 INSERT INTO receiving.receipt_number_counters AS c (owner_id, last_number)
+                 VALUES ({ownerId}, 1)
+                 ON CONFLICT (owner_id) DO UPDATE SET last_number = c.last_number + 1
+                 RETURNING c.last_number AS "Value"
+                 """)
+            .ToListAsync(token);
+
+        return ReceiptNumber.FromSequence(issued.Single());
+    }
 
     public async Task AddAsync(
         DeliveryReceipt receipt,

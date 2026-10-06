@@ -53,4 +53,31 @@ public sealed class ReceiptNumberTests
     }
 
     #endregion
+
+    #region FromSequence
+
+    [TestCase(1, "RCPT-0000000001")]
+    [TestCase(42, "RCPT-0000000042")]
+    [TestCase(9_999_999_999, "RCPT-9999999999")]
+    public void FromSequence_TenDigitsOrFewer_ReturnsZeroPaddedReceiptNumber(long sequence, string expected)
+    {
+        var receiptNumber = ReceiptNumber.FromSequence(sequence);
+
+        Assert.That(receiptNumber.Value, Is.EqualTo(expected));
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void FromSequence_LessThanOne_ThrowsArgumentOutOfRangeException(long sequence)
+    {
+        Assert.That(() => ReceiptNumber.FromSequence(sequence), Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void FromSequence_MoreThanTenDigits_ThrowsArgumentException()
+    {
+        Assert.That(() => ReceiptNumber.FromSequence(10_000_000_000), Throws.ArgumentException);
+    }
+
+    #endregion
 }

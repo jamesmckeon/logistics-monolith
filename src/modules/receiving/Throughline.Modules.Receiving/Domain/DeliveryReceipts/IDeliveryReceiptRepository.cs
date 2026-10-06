@@ -14,7 +14,12 @@ internal interface IDeliveryReceiptRepository
 
     Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token);
     Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token);
-    Task<ReceiptNumber?> GetLastReceiptNumberAsync(int ownerId, CancellationToken token);
+    /// <summary>
+    ///     Issues the owner's next receipt number. The number is consumed when issued, committed on its own before
+    ///     any receipt is saved: if the receipt then isn't saved, the number is never issued again and the owner's
+    ///     sequence has a gap. Call it once per attempt, after every check that can reject the request.
+    /// </summary>
+    Task<ReceiptNumber> NextReceiptNumberAsync(int ownerId, CancellationToken token);
 
     Task AddAsync(
         DeliveryReceipt receipt,

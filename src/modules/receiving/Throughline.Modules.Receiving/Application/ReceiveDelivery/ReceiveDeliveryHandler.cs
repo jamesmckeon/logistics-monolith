@@ -98,11 +98,12 @@ internal sealed class ReceiveDeliveryHandler
         var serviceResult = _palletService.BuildPallets(serviceRequest);
 
         var shipment = CreateShipment(command, carrierScac);
-        var lastReceiptNumber = await _receiptRepository.GetLastReceiptNumberAsync(ownerId, token);
+        // Issued last, after every check that can reject the request: a number is spent once issued
+        var receiptNumber = await _receiptRepository.NextReceiptNumberAsync(ownerId, token);
 
         var deliveryReceipt = new DeliveryReceipt(
             command.ReceiptId,
-            ReceiptNumber.Create(lastReceiptNumber),
+            receiptNumber,
             ownerId,
             command.OperatorId,
             AppDateTime.Now,

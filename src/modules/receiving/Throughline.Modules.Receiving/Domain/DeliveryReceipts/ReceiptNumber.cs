@@ -38,6 +38,20 @@ internal sealed class ReceiptNumber : ValueObject
         yield return Value;
     }
 
+    /// <summary>
+    ///     Formats a number from an owner's receipt number sequence as a receipt number, e.g. 42 as
+    ///     <c>RCPT-0000000042</c>
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sequence" /> is less than 1</exception>
+    /// <exception cref="ArgumentException"><paramref name="sequence" /> has more than 10 digits</exception>
+    public static ReceiptNumber FromSequence(long sequence)
+    {
+        // Zero is the one out-of-range value the format check below would let through
+        ArgumentOutOfRangeException.ThrowIfLessThan(sequence, 1);
+
+        return new ReceiptNumber($"{Prefix}{sequence:D10}");
+    }
+
     public static ReceiptNumber Create(ReceiptNumber? lastReceiptNumber)
     {
         var number = 0;

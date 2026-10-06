@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Throughline.Modules.Receiving.Infrastructure.Db;
@@ -12,9 +13,11 @@ using Throughline.Modules.Receiving.Infrastructure.Db;
 namespace Throughline.Modules.Receiving.Infrastructure.Migrations
 {
     [DbContext(typeof(ReceivingDbContext))]
-    partial class ReceivingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006004214_AddReceiptNumberCounters")]
+    partial class AddReceiptNumberCounters
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
