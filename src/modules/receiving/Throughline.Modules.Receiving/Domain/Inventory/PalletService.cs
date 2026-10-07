@@ -60,7 +60,7 @@ internal sealed class PalletService : IPalletService
 
             if (request.ExistingLpns.Any(a => a == new UpperCaseString(pallet.Lpn)))
             {
-                exceptions.Add(ReceivingExceptions.DuplicateLpn);
+                exceptions.Add(ReceivingExceptions.ExistingLpn);
             }
 
             if (request.Locations.All(all => all.Id != new UpperCaseString(pallet.LocationId)))

@@ -169,7 +169,7 @@ public sealed class PalletServiceTests
 
         var result = _sut.BuildPallets(request);
 
-        AssertSingleInvalidPallet(result, ReceivingExceptions.DuplicateLpn);
+        AssertSingleInvalidPallet(result, ReceivingExceptions.ExistingLpn);
     }
 
     [Test]
@@ -214,7 +214,7 @@ public sealed class PalletServiceTests
 
         AssertSingleInvalidPallet(
             result,
-            ReceivingExceptions.DuplicateLpn,
+            ReceivingExceptions.ExistingLpn,
             ReceivingExceptions.InvalidLocation,
             ReceivingExceptions.InvalidHoldReason);
     }
