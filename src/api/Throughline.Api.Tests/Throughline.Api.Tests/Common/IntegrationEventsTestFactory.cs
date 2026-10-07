@@ -5,9 +5,9 @@ using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orde
 
 namespace Throughline.Api.Tests.Common;
 
-internal sealed class IntegrationEventsTestFactory : TestFactoryBase
+internal sealed class IntegrationEventsTestFactory : TestFactory
 {
-    public override async Task ApplyMigrationsAsync()
+    public async Task ApplyMigrationsAsync()
     {
         // This test spans both modules (POST to Ordering -> OrderConfirmed -> Inventory),
         // so both schemas must exist.

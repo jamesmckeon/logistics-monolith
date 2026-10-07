@@ -18,24 +18,22 @@ using Throughline.Modules.Receiving.Presentation;
 namespace Throughline.Api.Tests.Receiving;
 
 [Category("Integration")]
-internal class ReceivingTests
+internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 {
     private const string HoldLocationId = "TEST-HOLD";
     private const string ExceptionLocationId = "TEST-EXC";
     private const string BulkLocationId = "TEST-BULK";
 
-    private static readonly Dictionary<string, string?> Settings = new()
-    {
-        ["Receiving:DefaultLocations:0:LocationType"] = nameof(LocationTypes.Hold),
-        ["Receiving:DefaultLocations:0:LocationId"] = HoldLocationId,
-        ["Receiving:DefaultLocations:1:LocationType"] = nameof(LocationTypes.ReceivingException),
-        ["Receiving:DefaultLocations:1:LocationId"] = ExceptionLocationId,
-        ["Receiving:DefaultLocations:2:LocationType"] = nameof(LocationTypes.Bulk),
-        ["Receiving:DefaultLocations:2:LocationId"] = BulkLocationId
-    };
-
-    public HttpClient _client;
-    public TestFactory _testFactory;
+    protected override IDictionary<string, string> AppSettings =>
+        new Dictionary<string, string>
+        {
+            ["Receiving:DefaultLocations:0:LocationType"] = nameof(LocationTypes.Hold),
+            ["Receiving:DefaultLocations:0:LocationId"] = HoldLocationId,
+            ["Receiving:DefaultLocations:1:LocationType"] = nameof(LocationTypes.ReceivingException),
+            ["Receiving:DefaultLocations:1:LocationId"] = ExceptionLocationId,
+            ["Receiving:DefaultLocations:2:LocationType"] = nameof(LocationTypes.Bulk),
+            ["Receiving:DefaultLocations:2:LocationId"] = BulkLocationId
+        };
 
     private static ReceivingLocation HoldLocation => new(new(HoldLocationId), LocationTypes.Hold);
 
@@ -44,31 +42,11 @@ internal class ReceivingTests
 
     private static ReceivingLocation BulkLocation => new(new(BulkLocationId), LocationTypes.Bulk);
 
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
-    {
-        _testFactory = new(Settings);
-        await _testFactory.InitializeAsync();
-        _client = _testFactory.CreateClient();
-        await _testFactory.MigrateAsync<ReceivingDbContext>();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        _client?.Dispose();
-        if (_testFactory is not null)
-        {
-            await _testFactory.DisposeAsync();
-        }
-    }
-
     [TearDown]
     public async Task TearDown()
     {
         await ResetAsync();
     }
-
 
     #region Post
 
@@ -160,14 +138,18 @@ internal class ReceivingTests
         var location = new ReceivingLocation(new("TestLocation"), LocationTypes.Bulk);
         var exceptionLocation = new ReceivingLocation(new("ExceptionLocation"), LocationTypes.ReceivingException);
 
+        var inactiveHold = new HoldReason(new("Inactive"), false);
+
         var invalidSku = TestPallet("LPN1", "InvalidSku", location.Id.Value, 2);
         var invalidLocation = TestPallet("LPN2", testSku.SkuCode.Value, "InvalidLocation", 3);
-
 
         var invalidHoldReason = TestPallet("LPN3", "TestSku", "TestLocation", 6, "InvalidHoldReason", null, null);
         var requiresLot = TestPallet("LPN4", requiresLotSku.SkuCode.Value, location.Id.Value, 7, null, null, null);
         var requiresExp = TestPallet("LPN5", requiresExpirationSku.SkuCode.Value, location.Id.Value, 8, null, null,
             null);
+        var inactiveHoldReasonCode = inactiveHold.ReasonCode;
+        var inactiveHoldReason = TestPallet(
+            "LPN3", "TestSku", "TestLocation", 6, inactiveHoldReasonCode.Value, null, null);
 
         var command = TestCommand([
             invalidSku, invalidLocation, invalidHoldReason, requiresLot, requiresExp
@@ -179,7 +161,7 @@ internal class ReceivingTests
 
         await SeedAsync(
             [requiresLotSku, requiresExpirationSku, testSku, testSku2],
-            [location, exceptionLocation], scac, lastReceiptNumber);
+            [location, exceptionLocation], [inactiveHold], scac, lastReceiptNumber);
 
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
@@ -419,6 +401,7 @@ internal class ReceivingTests
     private async Task SeedAsync(
         IEnumerable<OwnerSku> skus,
         IEnumerable<ReceivingLocation> locations,
+        IEnumerable<HoldReason> holdReasons,
         CarrierScac scac,
         int lastReceiptNumber = 0)
     {
@@ -450,6 +433,8 @@ internal class ReceivingTests
 
         await dbContext.Locations.AddRangeAsync(
             locations.Concat([HoldLocation, BulkLocation, ExceptionLocation]));
+
+        await dbContext.HoldReasons.AddRangeAsync(holdReasons);
 
         await dbContext.SaveChangesAsync();
     }

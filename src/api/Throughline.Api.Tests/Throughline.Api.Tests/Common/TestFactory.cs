@@ -1,18 +1,16 @@
-using System.Collections.ObjectModel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
 namespace Throughline.Api.Tests.Common;
 
 /// <summary>
-///     Hosts the API against a throwaway Postgres container. Each test class passes in the configuration it
-///     depends on and migrates the module schemas it uses.
+///     Initializes postgres container and logging
 /// </summary>
-internal sealed class TestFactory(IReadOnlyDictionary<string, string?> settings) : WebApplicationFactory<Program>
+internal class TestFactory : WebApplicationFactory<Program>
+
 {
     // Pulling the image (cold) and booting the container can take a while on a fresh
     // CI runner, so startup gets a generous budget of its own.
@@ -24,10 +22,6 @@ internal sealed class TestFactory(IReadOnlyDictionary<string, string?> settings)
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:15-alpine")
         .WithName(Guid.NewGuid().ToString())
         .Build();
-
-    public TestFactory() : this(ReadOnlyDictionary<string, string?>.Empty)
-    {
-    }
 
     public async Task InitializeAsync()
     {
@@ -43,11 +37,9 @@ internal sealed class TestFactory(IReadOnlyDictionary<string, string?> settings)
             $"{_dbContainer.GetConnectionString()};Timeout={seconds};Command Timeout={seconds}";
         builder.UseSetting("ConnectionStrings:Throughline", connectionString);
 
-        // Applied after appsettings.json, so these win over the app's own values
-        foreach (var (key, value) in settings)
-        {
-            builder.UseSetting(key, value);
-        }
+        // Requests run on the test's ExecutionContext, so NUnitLoggerProvider's TestContext.Progress
+        // writes from request handling (e.g. GlobalExceptionHandler) are attributed to the test, not dropped.
+        builder.UseTestServer(o => o.PreserveExecutionContext = true);
 
         builder.ConfigureLogging(logging =>
         {
@@ -55,6 +47,12 @@ internal sealed class TestFactory(IReadOnlyDictionary<string, string?> settings)
             logging.AddProvider(new NUnitLoggerProvider());
             logging.SetMinimumLevel(LogLevel.Information);
         });
+
+        OnWebHostConfiguring(builder);
+    }
+
+    protected virtual void OnWebHostConfiguring(IWebHostBuilder builder)
+    {
     }
 
     public new async Task DisposeAsync()
@@ -62,12 +60,5 @@ internal sealed class TestFactory(IReadOnlyDictionary<string, string?> settings)
         // DisposeAsync (not StopAsync) is safe even when startup failed before the
         // container was created, so teardown never masks the real setup error.
         await _dbContainer.DisposeAsync();
-    }
-
-    public async Task MigrateAsync<TContext>() where TContext : DbContext
-    {
-        using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<TContext>();
-        await dbContext.Database.MigrateAsync();
     }
 }
