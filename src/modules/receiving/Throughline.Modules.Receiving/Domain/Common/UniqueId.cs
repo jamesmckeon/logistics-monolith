@@ -8,9 +8,9 @@ internal sealed class UniqueId : ValueObject
     /// <exception cref="ArgumentException"><paramref name="value" /> is not a version 7 GUID</exception>
     public UniqueId(Guid value)
     {
-        if (value.Version != 7)
+        if (value == Guid.Empty)
         {
-            throw new ArgumentException("value must be a version 7 GUID", nameof(value));
+            throw new ArgumentException("value cannot be empty", nameof(value));
         }
 
         Value = value;

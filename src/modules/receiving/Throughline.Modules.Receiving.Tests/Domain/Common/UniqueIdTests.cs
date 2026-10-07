@@ -10,7 +10,7 @@ public sealed class UniqueIdTests
     [Test]
     public void Constructor_NonEmptyGuid_SetsValue()
     {
-        var guid = Guid.CreateVersion7();
+        var guid = Guid.NewGuid();
 
         var uniqueId = new UniqueId(guid);
 
