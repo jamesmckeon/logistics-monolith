@@ -22,8 +22,18 @@ internal interface IDeliveryReceiptRepository
     /// </summary>
     Task<ReceiptNumber> NextReceiptNumberAsync(int ownerId, CancellationToken token);
 
+    /// <summary>
+    ///     For operations that result in allocatable inventory, when an event should be published
+    /// </summary>
     Task AddAsync(
         DeliveryReceipt receipt,
-        AllocatablePalletsIntegrationEvent? @event,
+        AllocatablePalletsIntegrationEvent @event,
+        CancellationToken token);
+
+    /// <summary>
+    ///     For operations that result in only invalid or held pallets, when an event shouldn't be published
+    /// </summary>
+    Task AddAsync(
+        DeliveryReceipt receipt,
         CancellationToken token);
 }

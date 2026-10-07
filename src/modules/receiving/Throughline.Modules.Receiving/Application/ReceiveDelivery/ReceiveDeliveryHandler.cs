@@ -112,7 +112,16 @@ internal sealed class ReceiveDeliveryHandler
             serviceResult.InvalidPallets,
             AppDateTime.Now);
 
-        await _receiptRepository.AddAsync(deliveryReceipt, ToEvent(deliveryReceipt), token);
+        var integrationEvent = ToEvent(deliveryReceipt);
+
+        if (integrationEvent != null)
+        {
+            await _receiptRepository.AddAsync(deliveryReceipt, integrationEvent, token);
+        }
+        else
+        {
+            await _receiptRepository.AddAsync(deliveryReceipt, token);
+        }
 
         var result = ToResult(deliveryReceipt);
 
@@ -131,6 +140,7 @@ internal sealed class ReceiveDeliveryHandler
                     ? ReceivedPallet.OnHold(p.LicensePlateNumber.Value, p.HoldReason)
                     : ReceivedPallet.Received(p.LicensePlateNumber.Value))
             .ToList();
+
         pallets.AddRange(receipt.InvalidPallets.Select(ip =>
             ReceivedPallet.HasExceptions(ip.LicensePlateNumber.Value, ip.Exceptions)));
 

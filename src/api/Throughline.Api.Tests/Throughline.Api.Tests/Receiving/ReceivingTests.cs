@@ -60,6 +60,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
      * valid hold reason, is received to hold location
      * valid pallet without hold, received to bulk? location
      * test concurrency?
+     * if receipt has allocatable pallets, integration event should be published; else not
      */
 
     [Test]
@@ -147,12 +148,11 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var requiresLot = TestPallet("LPN4", requiresLotSku.SkuCode.Value, location.Id.Value, 7, null, null, null);
         var requiresExp = TestPallet("LPN5", requiresExpirationSku.SkuCode.Value, location.Id.Value, 8, null, null,
             null);
-        var inactiveHoldReasonCode = inactiveHold.ReasonCode;
         var inactiveHoldReason = TestPallet(
-            "LPN3", "TestSku", "TestLocation", 6, inactiveHoldReasonCode.Value, null, null);
+            "LPN3", "TestSku", "TestLocation", 6, inactiveHold.ReasonCode.Value, null, null);
 
         var command = TestCommand([
-            invalidSku, invalidLocation, invalidHoldReason, requiresLot, requiresExp
+            invalidSku, invalidLocation, invalidHoldReason, requiresLot, requiresExp, inactiveHoldReason
         ]);
 
         var scac = new CarrierScac(new(command.CarrierScac), 1, "Test Carrier");
@@ -166,6 +166,21 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
 
+        PalletError expectedError(string lpn)
+        {
+            var exception = lpn switch
+            {
+                _ when lpn == invalidSku.Lpn => ReceivingExceptions.InvalidSkuCode,
+                _ when lpn == inactiveHoldReason.Lpn => ReceivingExceptions.InvalidHoldReason,
+                _ when lpn == invalidLocation.Lpn => ReceivingExceptions.InvalidLocation,
+                _ when lpn == requiresLot.Lpn => ReceivingExceptions.LotNumberRequired,
+                _ when lpn == requiresExp.Lpn => ReceivingExceptions.ExpirationDateRequired,
+                _ when lpn == invalidHoldReason.Lpn => ReceivingExceptions.InvalidHoldReason
+            };
+
+            return PalletError.Exception(exception);
+        }
+
         Assert.That(result, Is.Not.Null);
 
         Assert.Multiple(() =>
@@ -173,6 +188,13 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
             Assert.That(result.ReceiptId, Is.EqualTo(command.ReceiptId));
             Assert.That(result.ReceiptNumber,
                 Is.EqualTo(ReceiptNumber.FromSequence(lastReceiptNumber + 1).Value));
+
+            foreach (var receivedPallet in result.Pallets)
+            {
+                var expectedException = expectedError(receivedPallet.Lpn);
+                Assert.That(receivedPallet.Errors.Single().Code, Is.EqualTo(expectedException.Code));
+                Assert.That(receivedPallet.Errors.Single().Description, Is.EqualTo(expectedException.Description));
+            }
         });
     }
 

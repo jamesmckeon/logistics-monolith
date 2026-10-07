@@ -88,10 +88,10 @@ internal sealed class ReceivingDbContext :
 
     public async Task AddAsync(
         DeliveryReceipt receipt,
-        AllocatablePalletsIntegrationEvent? @event,
+        AllocatablePalletsIntegrationEvent @event,
         CancellationToken token)
     {
-        DeliveryReceipts.Add(receipt);
+        await DeliveryReceipts.AddAsync(receipt, token);
 
         _outbox.Enroll(this);
         await _outbox.PublishAsync(@event);
@@ -111,6 +111,13 @@ internal sealed class ReceivingDbContext :
         }
     }
 
+    public async Task AddAsync(
+        DeliveryReceipt receipt,
+        CancellationToken token)
+    {
+        await DeliveryReceipts.AddAsync(receipt, token);
+    }
+
     public async Task<IReadOnlyCollection<UpperCaseString>> GetReceivedLpnsAsync(int ownerId,
         IEnumerable<UpperCaseString> lpns,
         CancellationToken token)
@@ -120,6 +127,11 @@ internal sealed class ReceivingDbContext :
             .Where(p => lpns.Any(a => a == p.LicensePlateNumber))
             .Select(p => p.LicensePlateNumber)
             .ToListAsync(token);
+    }
+
+    public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, UniqueId receiptId, CancellationToken token)
+    {
+        return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
     }
 
     // Implemented explicitly so this Add doesn't sit among DbContext's own Add overloads
@@ -142,11 +154,6 @@ internal sealed class ReceivingDbContext :
                 s.OwnerId, new UpperCaseString(s.SkuCode), s.SkuId, s.IsLotTracked, s.IsExpirationTracked))
             .ToList()
             .AsReadOnly();
-    }
-
-    public async Task<DeliveryReceipt?> GetReceiptByIdAsync(int ownerId, UniqueId receiptId, CancellationToken token)
-    {
-        return await DeliveryReceipts.SingleOrDefaultAsync(s => s.OwnerId == ownerId && s.Id == receiptId, token);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
