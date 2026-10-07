@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Api.Tests.Common;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -11,27 +12,8 @@ using Throughline.Modules.Ordering.Presentation;
 namespace Throughline.Api.Tests.Ordering;
 
 [Category("Integration")]
-public class OrderingTests
+internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
 {
-    private HttpClient _client;
-    private OrderingTestFactory _testFactory;
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
-    {
-        _testFactory = new OrderingTestFactory();
-        await _testFactory.InitializeAsync();
-        _client = _testFactory.CreateClient();
-        await _testFactory.ApplyMigrationsAsync();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        _client?.Dispose();
-        if (_testFactory is not null) await _testFactory.DisposeAsync();
-    }
-
     [TearDown]
     public async Task TearDown()
     {
@@ -161,7 +143,6 @@ public class OrderingTests
     }
 
     #endregion
-
 
     #region Get
 
@@ -293,9 +274,8 @@ public class OrderingTests
         return orderRecord;
     }
 
-    private static CreateOrderCommand TestCommand()
-    {
-        return new CreateOrderCommand(
+    private static CreateOrderCommand TestCommand() =>
+        new(
             "TESTPO",
             "testreference",
             "test address",
@@ -305,11 +285,9 @@ public class OrderingTests
             "97211", [
                 new CreateOrderCommandItem("TestSku", 1)
             ]);
-    }
 
-    private static CreateOrderCommand TestCommand(string purchaseOrderNumber)
-    {
-        return new CreateOrderCommand(
+    private static CreateOrderCommand TestCommand(string purchaseOrderNumber) =>
+        new(
             purchaseOrderNumber,
             "testreference",
             "test address",
@@ -319,7 +297,6 @@ public class OrderingTests
             "97211", [
                 new CreateOrderCommandItem("TestSku", 1)
             ]);
-    }
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
     {
