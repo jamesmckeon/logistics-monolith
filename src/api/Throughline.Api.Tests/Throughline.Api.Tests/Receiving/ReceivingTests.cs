@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
 using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Locations;
@@ -203,7 +204,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     }
 
     [Test]
-    public async Task Post_LpnsExist_CreatesInvalidPallets()
+    public async Task Post_LpnsExist_CreatesInvalidPalletsAndIncrementsReceipt()
     {
         var ownerId = 1;
 
@@ -225,20 +226,23 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         );
 
         var firstResponse = await PostDeliveryReceipt(firstCommand, ownerId);
-        firstResponse.EnsureSuccessStatusCode();
+        var firstResult = await GetResultFromResponse(firstResponse);
 
         var secondCommand = TestCommand([validLpnPallet, inValidLpnPallet]);
 
         var secondResponse = await PostDeliveryReceipt(secondCommand, ownerId);
-        var result = await GetResultFromResponse(secondResponse);
+        var secondResult = await GetResultFromResponse(secondResponse);
 
-        Assert.That(result, Is.Not.Null);
+        Assert.That(firstResult, Is.Not.Null);
+        Assert.That(secondResult, Is.Not.Null);
 
         var expectedException = PalletError.Exception(ReceivingExceptions.ExistingLpn);
 
         Assert.Multiple(() =>
         {
-            foreach (var receivedPallet in result.Pallets)
+            Assert.That(secondResult.ReceiptNumber, Is.GreaterThan(firstResult.ReceiptNumber));
+
+            foreach (var receivedPallet in secondResult.Pallets)
             {
                 Assert.That(receivedPallet.Errors.Single().Code, Is.EqualTo(expectedException.Code));
                 Assert.That(receivedPallet.Errors.Single().Description,
@@ -271,6 +275,69 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var resultPallet = result.Pallets.Single();
 
         Assert.That(resultPallet.Outcome, Is.EqualTo(ReceivedPallet.OnHoldOutcome));
+    }
+
+
+    [Test]
+    public async Task Post_AvailablePallets_CreatesUnheldPallets()
+    {
+        var ownerId = 1;
+
+        var palletOne = new SubmittedPallet("TestLpn", "TestSku", 1, "TestLocation");
+        var palletTwo =
+            new SubmittedPallet("TestLpn2", "TestSku2", 2, "TestLocation2", "test lot", new DateTime(2026, 1, 2));
+        var command = TestCommand([palletOne, palletTwo]);
+
+        await SeedAsync(
+            ownerId,
+            command,
+            [palletOne, palletTwo]
+        );
+
+        var response = await PostDeliveryReceipt(command, ownerId);
+        var result = await GetResultFromResponse(response);
+
+        Assert.That(result, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Pallets.Count, Is.EqualTo(2));
+
+            foreach (var pallet in result.Pallets)
+            {
+                Assert.That(pallet.Outcome, Is.EqualTo(ReceivedPallet.AvailableOutcome));
+                Assert.That(pallet.Errors, Is.Empty);
+                Assert.That(new[]
+                    {
+                        new UpperCaseString(palletOne.Lpn).Value, new UpperCaseString(palletTwo.Lpn).Value
+                    },
+                    Does.Contain(pallet.Lpn));
+            }
+        });
+    }
+
+    [Test]
+    public async Task Post_DuplicateRequests_ReturnsSameResponse()
+    {
+        var ownerId = 1;
+
+        var pallet = new SubmittedPallet("TestLpn", "TestSku", 1, "TestLocation");
+
+        var command = TestCommand([pallet]);
+
+        await SeedAsync(
+            ownerId,
+            command,
+            [pallet]
+        );
+
+        var firstResponse = await PostDeliveryReceipt(command, ownerId);
+        var secondResponse = await PostDeliveryReceipt(command, ownerId);
+
+
+        Assert.That(
+            await secondResponse.Content.ReadAsStringAsync(),
+            Is.EqualTo(await firstResponse.Content.ReadAsStringAsync()));
     }
 
     #endregion
@@ -313,7 +380,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
 
-        var skuRecords = skus.Select(s => new SkuRecord
+        var skuRecords = skus.DistinctBy(d => d.SkuCode).Select(s => new SkuRecord
         {
             IsExpirationTracked = s.IsExpirationTracked,
             IsLotTracked = s.IsLotTracked,
