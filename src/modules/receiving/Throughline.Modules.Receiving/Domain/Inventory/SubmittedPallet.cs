@@ -5,8 +5,8 @@ internal sealed record SubmittedPallet(
     string Sku,
     int Quantity,
     string LocationId,
-    string? LotNumber,
-    DateTime? Expires,
-    string? HoldReasonCode)
+    string? LotNumber = null,
+    DateTime? Expires = null,
+    string? HoldReasonCode = null)
 {
 }

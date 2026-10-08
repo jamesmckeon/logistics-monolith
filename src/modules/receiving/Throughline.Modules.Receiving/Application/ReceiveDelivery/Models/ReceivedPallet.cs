@@ -5,6 +5,10 @@ namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 
 internal sealed record ReceivedPallet
 {
+    public const string ExceptionOutcome = "receiving_exception";
+    public const string OnHoldOutcome = "received_on_hold";
+    public const string AvailableOutcome = "received_available";
+
     private ReceivedPallet(string lpn, string outcome)
     {
         Lpn = lpn;
@@ -26,11 +30,11 @@ internal sealed record ReceivedPallet
     public string Outcome { get; }
     public IReadOnlyCollection<PalletError> Errors { get; }
 
-    public static ReceivedPallet Received(string lpn) => new(lpn, "received_available");
+    public static ReceivedPallet Received(string lpn) => new(lpn, AvailableOutcome);
 
     public static ReceivedPallet HasExceptions(string lpn, IEnumerable<ReceivingExceptions> exceptions) =>
-        new(lpn, "receiving_exception", exceptions.Select(PalletError.Exception).ToList().AsReadOnly());
+        new(lpn, ExceptionOutcome, exceptions.Select(PalletError.Exception).ToList().AsReadOnly());
 
     public static ReceivedPallet OnHold(string lpn, HoldReason holdReason) =>
-        new(lpn, "received_on_hold", [PalletError.OnHold(holdReason)]);
+        new(lpn, OnHoldOutcome, [PalletError.OnHold(holdReason)]);
 }

@@ -56,7 +56,7 @@ public static class ReceivingExtensions
 
     public static IEndpointRouteBuilder MapReceiving(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup(ReceivingRoute).WithTags("Inventory");
+        var group = app.MapGroup(ReceivingRoute).WithTags("Receiving");
 
         group.MapPost("/receipts", async Task<IResult> (
             ReceiveDeliveryCommand command,
@@ -66,9 +66,9 @@ public static class ReceivingExtensions
             CancellationToken token) =>
         {
             using var _ = LoggerScopeFactory.OwnerScope(
-                loggerFactory.CreateLogger("Inventory"),
+                loggerFactory.CreateLogger("Receiving"),
                 requestContext.OwnerId);
-            
+
             var result = await handler.ReceiveDeliveryAsync(requestContext.OwnerId, command, token);
 
             if (!result.Succeeded)

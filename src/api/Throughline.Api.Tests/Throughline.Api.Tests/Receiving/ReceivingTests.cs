@@ -68,7 +68,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     {
         var command = new ReceiveDeliveryCommand(Guid.Empty, Guid.Empty, "test", "",
             "TESTT", " ", " ", "",
-            [new SubmittedPallet(" ", " ", 0, " ", null, null, null)]);
+            [new SubmittedPallet(" ", " ", 0, " ")]);
 
         var response = await PostDeliveryReceipt(command, 1);
 
@@ -125,10 +125,6 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     [Test]
     public async Task Post_PalletsWithExceptions_CreatesInvalidPallets()
     {
-        // TODO: seed existing lpn and then resubmit it to confirm SUT
-        // TODO: also create pallet with hold reason that is inactive
-        // creates pallet with exception
-
         var ownerId = 1;
 
         var requiresLotSku = new OwnerSku(ownerId, new("LotRequired"), Guid.NewGuid(), true, false);
@@ -149,7 +145,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var requiresExp = TestPallet("LPN5", requiresExpirationSku.SkuCode.Value, location.Id.Value, 8, null, null,
             null);
         var inactiveHoldReason = TestPallet(
-            "LPN3", "TestSku", "TestLocation", 6, inactiveHold.ReasonCode.Value, null, null);
+            "LPN6", "TestSku", "TestLocation", 6, inactiveHold.ReasonCode.Value, null, null);
 
         var command = TestCommand([
             invalidSku, invalidLocation, invalidHoldReason, requiresLot, requiresExp, inactiveHoldReason
@@ -160,8 +156,12 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var lastReceiptNumber = 1;
 
         await SeedAsync(
+            ownerId,
             [requiresLotSku, requiresExpirationSku, testSku, testSku2],
-            [location, exceptionLocation], [inactiveHold], scac, lastReceiptNumber);
+            [location, exceptionLocation],
+            [inactiveHold],
+            scac,
+            lastReceiptNumber);
 
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
@@ -175,7 +175,8 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
                 _ when lpn == invalidLocation.Lpn => ReceivingExceptions.InvalidLocation,
                 _ when lpn == requiresLot.Lpn => ReceivingExceptions.LotNumberRequired,
                 _ when lpn == requiresExp.Lpn => ReceivingExceptions.ExpirationDateRequired,
-                _ when lpn == invalidHoldReason.Lpn => ReceivingExceptions.InvalidHoldReason
+                _ when lpn == invalidHoldReason.Lpn => ReceivingExceptions.InvalidHoldReason,
+                _ => throw new NotSupportedException()
             };
 
             return PalletError.Exception(exception);
@@ -188,190 +189,64 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
             Assert.That(result.ReceiptId, Is.EqualTo(command.ReceiptId));
             Assert.That(result.ReceiptNumber,
                 Is.EqualTo(ReceiptNumber.FromSequence(lastReceiptNumber + 1).Value));
+            Assert.That(result.Pallets.Count, Is.EqualTo(6));
 
             foreach (var receivedPallet in result.Pallets)
             {
                 var expectedException = expectedError(receivedPallet.Lpn);
                 Assert.That(receivedPallet.Errors.Single().Code, Is.EqualTo(expectedException.Code));
-                Assert.That(receivedPallet.Errors.Single().Description, Is.EqualTo(expectedException.Description));
+                Assert.That(receivedPallet.Errors.Single().Description,
+                    Is.EqualTo(expectedException.Description));
+                Assert.That(receivedPallet.Outcome, Is.EqualTo(ReceivedPallet.ExceptionOutcome));
             }
         });
     }
 
-/*
     [Test]
-    public async Task Post_OrderExistsWithDifferentContents_ReturnsConflict()
-    {
-        var existingCommand = TestCommand("Po1");
-        var existingRecord = TestOrder(existingCommand);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(existingRecord);
-            return Task.CompletedTask;
-        });
-
-        var newCommand = TestCommand("Po2");
-
-        var response = await PostReceipt(newCommand, existingRecord.OwnerId);
-        var problemDetails = await GetFromResponse(response);
-        Assert.That(problemDetails, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-            Assert.That(problemDetails.Detail,
-                Is.EqualTo(
-                    $"Reference #{newCommand.ReferenceNumber} already identifies an order with different contents."));
-        });
-    }
-
-    [Test]
-    public async Task Post_OrderExists_ReturnsNotCreated()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        var response = await PostReceipt(command, orderRecord.OwnerId);
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
-        Assert.That(result, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(result.OwnerId, Is.EqualTo(orderRecord.OwnerId));
-            Assert.That(result.OrderId, Is.EqualTo(orderRecord.OrderId));
-            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(orderRecord.ReferenceNumber));
-        });
-    }
-
-
-    [Test]
-    public async Task Post_NewOrder_ReturnsCreatedAndFiresEvent()
+    public async Task Post_LpnsExist_CreatesInvalidPallets()
     {
         var ownerId = 1;
-        var command = TestCommand();
 
-        var response = await PostReceipt(command, ownerId);
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
+        // create one processed/saved lpn that was received as valid/allocatable and one
+        // that had an exception, to verify SUT considers both types of pallet
+        var validLpn = "ValidLpn";
+        var invalidLpn = "InvalidLpn";
+
+        var locationId = "TestLocation";
+
+        var validLpnPallet = new SubmittedPallet(validLpn, "ValidLpnSku", 1, locationId);
+        var inValidLpnPallet = new SubmittedPallet(invalidLpn, "InValidLpnSku", 1, locationId);
+        var firstCommand = TestCommand([validLpnPallet, inValidLpnPallet]);
+
+        await SeedAsync(
+            ownerId,
+            firstCommand,
+            [validLpnPallet, inValidLpnPallet]
+        );
+
+        var firstResponse = await PostDeliveryReceipt(firstCommand, ownerId);
+        firstResponse.EnsureSuccessStatusCode();
+
+        var secondCommand = TestCommand([validLpnPallet, inValidLpnPallet]);
+
+        var secondResponse = await PostDeliveryReceipt(secondCommand, ownerId);
+        var result = await GetResultFromResponse(secondResponse);
+
         Assert.That(result, Is.Not.Null);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-            Assert.That(result.OwnerId, Is.EqualTo(ownerId));
-            Assert.That(result.OwnerReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-        });
-    }
-
-
-    [Test]
-    public async Task Post_ConcurrentSubmissions_CreatesOneResult()
-    {
-        const int ownerId = 1;
-        const int concurrency = 2;
-        var commands = Enumerable.Repeat(TestCommand(), concurrency).ToList(); // identical content + ref #
-
-        var responses = await PostConcurrently(commands, ownerId);
-
-        var bodies = await Task.WhenAll(
-            responses.Select(r => r.Content.ReadFromJsonAsync<CreateOrderResponse>()));
-        var distinctOrderIds = bodies.Select(b => b!.OrderId).Distinct().ToList();
-        var rowCount = await CountOrdersAsync(ownerId, commands[0].ReferenceNumber);
+        var expectedException = PalletError.Exception(ReceivingExceptions.ExistingLpn);
 
         Assert.Multiple(() =>
         {
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(concurrency - 1));
-            Assert.That(distinctOrderIds, Has.Count.EqualTo(1)); // every response points at the one winner
-            Assert.That(rowCount, Is.EqualTo(1)); // durable boundary held
+            foreach (var receivedPallet in result.Pallets)
+            {
+                Assert.That(receivedPallet.Errors.Single().Code, Is.EqualTo(expectedException.Code));
+                Assert.That(receivedPallet.Errors.Single().Description,
+                    Is.EqualTo(expectedException.Description));
+                Assert.That(receivedPallet.Outcome, Is.EqualTo(ReceivedPallet.ExceptionOutcome));
+            }
         });
     }
-
-    #endregion
-
-
-    #region Get
-
-    [Test]
-    public async Task Get_OrderExists_ReturnsOk()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", orderRecord.OwnerId.ToString());
-
-        var response = await _client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        var model = await response.Content.ReadFromJsonAsync<OrderModel>();
-
-        Assert.That(model, Is.Not.Null);
-
-        var expectedDestination = new DestinationModel(
-            orderRecord.StreetAddressOne, orderRecord.StreetAddressTwo,
-            orderRecord.City, orderRecord.State, orderRecord.Zipcode);
-        var expectedLines = orderRecord.OrderLines.Select(i => new OrderLineModel(i.SkuCode, i.Quantity));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(model.OwnerId, Is.EqualTo(orderRecord.OwnerId));
-            Assert.That(model.ReferenceNumber, Is.EqualTo(command.ReferenceNumber));
-            Assert.That(model.OrderId, Is.EqualTo(orderRecord.OrderId));
-            Assert.That(model.PurchaseOrderNumber, Is.EqualTo(orderRecord.PurchaseOrderNumber));
-            Assert.That(model.Destination, Is.EqualTo(expectedDestination));
-            Assert.That(model.OrderLines, Is.EquivalentTo(expectedLines));
-        });
-    }
-
-    [Test]
-    public async Task Get_OrderNotFound_ReturnsNotFound()
-    {
-        var orderId = Guid.NewGuid();
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderId}");
-        request.Headers.Add("owner_id", "1");
-
-        var response = await _client.SendAsync(request);
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-    }
-
-    [Test]
-    public async Task Get_OrderExistsForDifferentOwner_ReturnsNotFound()
-    {
-        var command = TestCommand();
-        var orderRecord = TestOrder(command);
-
-        await SeedAsync(db =>
-        {
-            db.Orders.Add(orderRecord);
-            return Task.CompletedTask;
-        });
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{OrderingExtensions.OrdersRoute}/{orderRecord.OrderId}");
-        request.Headers.Add("owner_id", (orderRecord.OwnerId + 1).ToString()); // different owner
-
-        var response = await _client.SendAsync(request);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-    }
-*/
 
     #endregion
 
@@ -382,29 +257,11 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
             "TestContainer", "TestShipper", pallets);
 
     private static SubmittedPallet TestPallet(string lpn, string skuCode, string locationId, int quantity = 1) =>
-        new(lpn, skuCode, quantity, locationId, null, null, null);
+        new(lpn, skuCode, quantity, locationId);
 
     private static SubmittedPallet TestPallet(string lpn, string skuCode, string locationId, int quantity,
         string? holdReason, string? lotNumber, DateTime? expirationDate) =>
         new(lpn, skuCode, quantity, locationId, lotNumber, expirationDate, holdReason);
-
-
-    // Fires all requests "at once": every task parks on the gate, then we release together.
-    private async Task<IReadOnlyList<HttpResponseMessage>> PostConcurrently(
-        IReadOnlyList<ReceiveDeliveryCommand> commands, int ownerId)
-    {
-        var gate = new TaskCompletionSource();
-        var tasks = commands
-            .Select(async cmd =>
-            {
-                await gate.Task; // park here until released
-                return await PostDeliveryReceipt(cmd, ownerId); // reuses your existing helper
-            })
-            .ToArray();
-
-        gate.SetResult(); // launch together
-        return await Task.WhenAll(tasks);
-    }
 
     private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
     {
@@ -421,11 +278,12 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     }
 
     private async Task SeedAsync(
+        int ownerId,
         IEnumerable<OwnerSku> skus,
         IEnumerable<ReceivingLocation> locations,
         IEnumerable<HoldReason> holdReasons,
         CarrierScac scac,
-        int lastReceiptNumber = 0)
+        int lastReceiptNumber = 1)
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
@@ -440,9 +298,9 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         });
         await dbContext.Skus.AddRangeAsync(skuRecords);
 
-
         await dbContext.ReceiptNumberCounters.AddAsync(new ReceiptNumberCounterRecord
         {
+            OwnerId = ownerId,
             LastNumber = lastReceiptNumber
         });
 
@@ -461,15 +319,35 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         await dbContext.SaveChangesAsync();
     }
 
+    private async Task SeedAsync(
+        int ownerId,
+        ReceiveDeliveryCommand command,
+        IEnumerable<SubmittedPallet> pallets)
+    {
+        var palletsArray = pallets.ToArray();
+
+        var skus = palletsArray.Select(p => new OwnerSku(ownerId, new(p.Sku), Guid.NewGuid(), false, false));
+        var locations = palletsArray.Select(p => new ReceivingLocation(new(p.LocationId), LocationTypes.Bulk))
+            .Distinct();
+
+        var holdReasons = palletsArray.Any(a => !string.IsNullOrWhiteSpace(a.HoldReasonCode))
+            ? palletsArray.Where(p => !string.IsNullOrWhiteSpace(p.HoldReasonCode))
+                .Select(p => new HoldReason(new(p.HoldReasonCode!), true))
+            : [new HoldReason(new("TestReason"), true)];
+
+        await SeedAsync(ownerId, skus, locations, holdReasons, new(new(command.CarrierScac), 1, "Test Carrier"));
+    }
+
 
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
 
-        await dbContext.Locations.ExecuteDeleteAsync();
         await dbContext.DeliveryReceipts.ExecuteDeleteAsync();
         await dbContext.DeliverySubmissions.ExecuteDeleteAsync();
+        await dbContext.Locations.ExecuteDeleteAsync();
+
         await dbContext.Carriers.ExecuteDeleteAsync();
         await dbContext.Skus.ExecuteDeleteAsync();
         await dbContext.HoldReasons.ExecuteDeleteAsync();
