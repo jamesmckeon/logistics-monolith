@@ -248,6 +248,31 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         });
     }
 
+    [Test]
+    public async Task Post_PalletsWithHolds_CreatesHeldPallets()
+    {
+        var ownerId = 1;
+        var holdReason = new HoldReason(new("TestHoldReason"), true);
+        // verify SUT does case and whitespace insentive comparison of hold reason
+        var pallet = new SubmittedPallet("TestLpn", "TestSku", 1, "TestLocation", null, null, " tEsthOldrEason ");
+        var command = TestCommand([pallet]);
+
+        await SeedAsync(
+            ownerId,
+            command,
+            [pallet]
+        );
+
+        var response = await PostDeliveryReceipt(command, ownerId);
+        var result = await GetResultFromResponse(response);
+
+        Assert.That(result, Is.Not.Null);
+
+        var resultPallet = result.Pallets.Single();
+
+        Assert.That(resultPallet.Outcome, Is.EqualTo(ReceivedPallet.OnHoldOutcome));
+    }
+
     #endregion
 
     #region Helpers
