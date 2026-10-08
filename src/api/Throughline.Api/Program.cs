@@ -8,6 +8,7 @@ using Throughline.Common.Events;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
+using Throughline.Modules.Receiving.Presentation;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
@@ -46,9 +47,11 @@ builder.Services.AddOpenApi();
 var cs = builder.Configuration.GetConnectionString("Throughline");
 
 if (string.IsNullOrWhiteSpace(cs))
+{
     throw new InvalidOperationException(
         "Connection string 'Throughline' is missing or empty. " +
         "Set ConnectionStrings:Throughline in configuration.");
+}
 
 builder.Host.UseWolverine(opts =>
 {
@@ -58,6 +61,10 @@ builder.Host.UseWolverine(opts =>
     // and the incoming message's Handled status in one transaction.
     opts.UseEntityFrameworkCoreTransactions();
     opts.Policies.UseDurableLocalQueues();
+
+    // Each handler of a message type gets its own subscription and copy of the message, so modules handling the
+    // same integration event succeed, retry and dead-letter independently. 
+    opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
 
     // Poison messages (permanent/contract-violating failures) skip retries and go straight
     // to the dead-letter queue. Transient faults are left to throw normally so they retry.
@@ -77,21 +84,28 @@ builder.Host.UseWolverine(opts =>
 
 // dev convenience — provisions the "wolverine" tables on boot:
 if (builder.Environment.IsDevelopment())
+{
     builder.Host.UseResourceSetupOnStartup();
+}
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<RequestContext>();
 builder.Services.AddOrdering(builder.Configuration);
 builder.Services.AddInventory(builder.Configuration);
+builder.Services.AddReceiving(builder.Configuration);
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment()) app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.UseHttpsRedirection();
 app.UseExceptionHandler();
 
 app.MapOrdering();
 app.MapInventory();
+app.MapReceiving();
 
 app.Run();

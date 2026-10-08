@@ -11,6 +11,7 @@
         <ProjectReference Include="..\..\..\shared\Throughline.Common\Throughline.Common.csproj"/>
         <ProjectReference Include="..\..\..\shared\Throughline.Common.Infrastructure\Throughline.Common.Infrastructure.csproj"/>
         <ProjectReference Include="..\..\..\shared\Throughline.Common.Presentation\Throughline.Common.Presentation\Throughline.Common.Presentation.csproj"/>
+        <ProjectReference Include="..\..\receiving\Throughline.Modules.Receiving.Contracts\Throughline.Modules.Receiving.Contracts.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

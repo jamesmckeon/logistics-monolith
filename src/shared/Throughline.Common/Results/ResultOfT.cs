@@ -34,31 +34,25 @@ public sealed record Result<T>
         var errorArray = errors.ToArray();
 
         if (!errorArray.Any())
+        {
             throw new ArgumentException("errors cannot be empty", nameof(errors));
+        }
 
         return new Result<T>(errorArray, errorType);
     }
 
 
-    public static Result<T> Validation(params FieldError[] errors)
-    {
-        return Failure(errors, Results.ErrorType.Validation);
-    }
+    public static Result<T> Validation(params FieldError[] errors) => Failure(errors, Results.ErrorType.Validation);
 
-    public static Result<T> Validation(IEnumerable<FieldError> errors)
-    {
-        return Failure(errors, Results.ErrorType.Validation);
-    }
+    public static Result<T> Validation(IEnumerable<FieldError> errors) => Failure(errors, Results.ErrorType.Validation);
 
     public static Result<T> Validation(params string[] errors)
     {
         return Failure(errors.Select(e => new FieldError(e)), Results.ErrorType.Validation);
     }
 
-    public static Result<T> NotFound(string errorMessage)
-    {
-        return Failure([new FieldError(errorMessage)], Results.ErrorType.NotFound);
-    }
+    public static Result<T> NotFound(string errorMessage) =>
+        Failure([new FieldError(errorMessage)], Results.ErrorType.NotFound);
 
     public static Result<T> Conflict(params string[] errors)
     {
@@ -68,13 +62,17 @@ public sealed record Result<T>
     }
 
 
-    public static Result<T> Success(T value)
-    {
-        return new Result<T>(value);
-    }
+    public static Result<T> Success(T value) => new(value);
 
-    public static implicit operator Result<T>(T value)
+    public static implicit operator Result<T>(T value) => Success(value);
+
+    public static Result<T> FromFailureResult(Result result)
     {
-        return Success(value);
+        if (result.Succeeded)
+        {
+            throw new ArgumentException("result.Succeeded must be false", nameof(result.Succeeded));
+        }
+
+        return Failure(result.Errors, result.ErrorType.Value);
     }
 }

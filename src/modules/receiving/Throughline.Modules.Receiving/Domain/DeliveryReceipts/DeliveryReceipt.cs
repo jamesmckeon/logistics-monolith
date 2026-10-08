@@ -1,0 +1,106 @@
+using System.Diagnostics.CodeAnalysis;
+using Throughline.Common.Models;
+using Throughline.Modules.Receiving.Domain.Common;
+using Throughline.Modules.Receiving.Domain.Inventory;
+using Throughline.Modules.Receiving.Domain.Shipments;
+
+namespace Throughline.Modules.Receiving.Domain.DeliveryReceipts;
+
+/// <summary>
+///     The record of a delivery received for an owner
+/// </summary>
+/// <remarks>
+///     <see cref="Entity{TId}.Id" /> is the client-assigned receipt id, and is treated as globally unique rather
+///     than unique per owner: clients are expected to generate random GUIDs, which makes a collision between
+///     owners practically impossible. If one did occur, the second owner's receipt would be rejected.
+/// </remarks>
+internal sealed class DeliveryReceipt : Entity<UniqueId>
+{
+    private readonly List<InvalidPallet> _invalidPallets;
+    private readonly List<Pallet> _pallets;
+
+    [SetsRequiredMembers]
+    public DeliveryReceipt(
+        UniqueId receiptId,
+        ReceiptNumber receiptNumber,
+        int ownerId,
+        UniqueId operatorId,
+        NonFutureDateTime receivedOn,
+        Shipment shipment,
+        IEnumerable<Pallet> receivedPallets,
+        IEnumerable<InvalidPallet> invalidPallets,
+        NonFutureDateTime createdOn) :
+        this(receiptId, receiptNumber, ownerId, operatorId, receivedOn, createdOn)
+    {
+        var received = receivedPallets.ToArray();
+        var invalid = invalidPallets.ToArray();
+
+        if (!received.Any() && !invalid.Any())
+        {
+            throw new InvalidOperationException(
+                "Either receivedPallets or invalidPallets must contain at least one item");
+        }
+
+        var duplicateReceived = received.GroupBy(grp => grp.LicensePlateNumber)
+            .Select(s => new { Count = s.Count() })
+            .Where(w => w.Count > 1)
+            .ToList();
+
+        if (duplicateReceived.Any())
+        {
+            throw new ArgumentException("receivedPallets must contain distinct LPNs", nameof(receivedPallets));
+        }
+
+        var duplicateInvalid = invalid.GroupBy(grp => grp.LicensePlateNumber)
+            .Select(s => new { Count = s.Count() })
+            .Where(w => w.Count > 1)
+            .ToList();
+
+        if (duplicateInvalid.Any())
+        {
+            throw new ArgumentException("invalidPallets must contain distinct LPNs", nameof(invalidPallets));
+        }
+
+        Shipment = shipment;
+        _pallets.AddRange(received);
+        _invalidPallets.AddRange(invalid);
+    }
+
+    // EF materialization constructor; EF can't pass complex values (Shipment) or navigations (the pallet
+    // collections) to a constructor, so it sets Shipment and fills the collections after construction
+    private DeliveryReceipt(
+        UniqueId id,
+        ReceiptNumber receiptNumber,
+        int ownerId,
+        UniqueId operatorId,
+        NonFutureDateTime receivedOn,
+        NonFutureDateTime createdOn) : base(id)
+    {
+        ReceiptNumber = receiptNumber;
+        OwnerId = ownerId;
+        OperatorId = operatorId;
+        ReceivedOn = receivedOn;
+        CreatedOn = createdOn;
+        _pallets = [];
+        _invalidPallets = [];
+    }
+
+    public int OwnerId { get; }
+    public ReceiptNumber ReceiptNumber { get; }
+    public required Shipment Shipment { get; init; }
+
+    /// <summary>
+    ///     The valid, not held pallets that were received into inventory as allocatable
+    /// </summary>
+    public IReadOnlyCollection<Pallet> Pallets => _pallets.AsReadOnly();
+
+    public IReadOnlyCollection<InvalidPallet> InvalidPallets => _invalidPallets.AsReadOnly();
+
+    /// <summary>
+    ///     The id of the operator that received the delivery
+    /// </summary>
+    public UniqueId OperatorId { get; }
+
+    public NonFutureDateTime ReceivedOn { get; }
+    public NonFutureDateTime CreatedOn { get; }
+}

@@ -21,7 +21,7 @@ Status legend: 🔷 Open (genuinely undecided) · 🧭 Leaning (a recommended di
 ✅ Decided (ratified → ADR).
 
 _Created 2026-08-16. Update the `Updated` line on any change._
-Updated: 2026-09-19
+Updated: 2026-09-29
 
 ---
 
@@ -66,6 +66,7 @@ Q1 2026; v8 Apache-2.0 maintained only through end of 2026). A copy-me reference
 | MOD-19 | Source generators: `[LoggerMessage]`, System.Text.Json source-gen | 🧭 Leaning | Hot-path / performance pass |
 | MOD-20 | Module extractability contract & deployment posture (host-agnostic; OCI/ACA target, IIS non-goal) | 🧭 Leaning | Anchor for extraction/deploy decisions — see ADR-0008 |
 | MOD-21 | Domain base types: shared equality base `ValueObject` + `Entity<TId> : ValueObject` (kgrzybek keeps two unrelated bases) | ✅ Decided | Decided 2026-09-19 (no ADR; folded here) |
+| MOD-22 | Authorization model: IdP authenticates, Throughline owns permissions (server-side resolution) | ✅ Decided | Decided 2026-09-29 (ADR pending) |
 
 ---
 
@@ -301,6 +302,35 @@ properties, its `Entity` implements no equality (reference/Id only). Here the me
 Fully Allocated) yet needed `==`/`Equals`; it had been sitting on `ValueObject` while comparing on id
 alone — i.e. it was an entity all along. `Order : Entity<OwnerOrderId>`.
 **No ADR** — folded here per its size; base classes carry `<summary>` docs stating the intent.
+
+### MOD-22 — Authorization model · ✅ Decided (IdP authenticates, Throughline owns permissions · 2026-09-29 · ADR pending)
+**Question:** Where do operator permissions (first one: *receive delivery*) live, and how are they
+evaluated?
+**Options:**
+- **(a) Permissions in the token** — IdP issues roles/permission claims; the API checks claims only.
+  Stateless and simple; costs revocation lag until token expiry and token bloat as permissions grow.
+- **(b) Permissions resolved server-side** — IdP proves *who*; Throughline holds user → role →
+  permission and resolves it per request (cached). Changes take effect immediately; costs a lookup.
+  This is kgrzybek's model (UserAccess module + permission attribute + custom authorization handler).
+**Decision (2026-09-29):** **(b).** Rationale: permissions are likely scoped by Throughline's own data
+(facility, possibly owner), which the IdP doesn't know — *assumption, to confirm*. Evaluation is
+two-layered: an endpoint policy answers "may this user receive at all?"; a resource-based check
+(`IAuthorizationService.AuthorizeAsync(user, resource, requirement)`) inside the handler answers "may
+they act on *this* delivery?" once it is loaded.
+**Why it came up:** receiving (issue #14) is the first operation requiring a named permission. Current
+state had no authentication/authorization wired, and `owner_id` was read from an unauthenticated
+header (`RequestContext`).
+**Still open:**
+- Which IdP (Entra ID / Keycloak / Duende / …) and token type.
+- Where user access lives (own module vs shared) — interacts with MOD-04 and MOD-20.
+- Permission scope: facility-scoped vs owner-scoped (STORY-0003 frames 3PL operators as cross-owner).
+- Internal `UserId`: lean is a v7-GUID value object (matching `OrderId`), mapped from the IdP's
+  `(issuer, sub)` external login stored as strings — `sub` is opaque per OIDC, never parsed as a GUID.
+  Business records (`receivedBy`, events, audit) carry the internal `UserId`.
+- Carrying the operator off the HTTP request: explicit in command/event payloads for business records;
+  Wolverine's `EnableRelayOfUserName` (relays `Identity.Name` onto `Envelope.UserName` + `enduser.id`
+  OTel tag, verified via Context7 2026-09-29) is metadata only, and its auto-middleware targets
+  Wolverine.HTTP endpoints — confirm behavior with plain Minimal APIs.
 
 ---
 

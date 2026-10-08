@@ -55,7 +55,9 @@ Charge_WhenIdempotencyKeyReused_DoesNotDoubleCharge
 
 ## Structure
 
-- **Arrange / Act / Assert.** Keep the three phases visually distinct.
+- **Arrange / Act / Assert.** Keep the three phases visually distinct by separating them
+  with a blank line. **Do not label them with `// Arrange`, `// Act`, `// Assert`
+  comments** — the blank lines carry the structure.
 - **When a method has more than 2 tests, wrap them in a `#region` named after the method
   under test** (see `MoneyTests.cs`). Methods with 2 or fewer tests need no region.
 - **One logical behavior per test.** Parameterize input variations with `[TestCase]` /
@@ -154,6 +156,7 @@ Assert.Multiple(() =>
 
 - [ ] Class is `sealed` with `[Category("Unit")]` or `[Category("Integration")]`
 - [ ] Method name is `MethodUnderTest_Condition_ExpectedResult`, ≤ 100 chars
+- [ ] AAA phases separated by blank lines; no `// Arrange` / `// Act` / `// Assert` comments
 - [ ] SUT is a private `_sut` (unless construction forbids it)
 - [ ] `[SetUp]` builds only mocks + `_sut`; no default setup that tests override
 - [ ] Moq used; `It.IsAny` only where argument identity genuinely doesn't matter

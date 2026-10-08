@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Throughline.Api.Tests.Common;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Models;
@@ -16,23 +17,15 @@ using Throughline.Modules.Inventory.Presentation;
 namespace Throughline.Api.Tests.Inventory;
 
 [Category("Integration")]
-public class InventoryTests
+internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 {
-    private HttpClient _client;
-    private InventoryTestFactory _testFactory;
     private List<Sku> TestSkus { get; set; }
     private Owner PartialAllocationOwner { get; set; }
     private Owner ShipCompleteOwner { get; set; }
 
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
+    [SetUp]
+    public async Task SetUp()
     {
-        _testFactory = new();
-        await _testFactory.InitializeAsync();
-
-        _client = _testFactory.CreateClient();
-        await _testFactory.ApplyMigrationsAsync();
-
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
@@ -46,16 +39,6 @@ public class InventoryTests
         dbContext.Owners.Add(ShipCompleteOwner);
 
         await dbContext.SaveChangesAsync();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        _client?.Dispose();
-        if (_testFactory is not null)
-        {
-            await _testFactory.DisposeAsync();
-        }
     }
 
     [TearDown]
@@ -344,34 +327,24 @@ public class InventoryTests
         IReadOnlyCollection<AllocationError> Errors);
 
 
-    private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines)
-    {
-        return OrderAllocation.Create(owner.Id, orderId, lines)
+    private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines) =>
+        OrderAllocation.Create(owner.Id, orderId, lines)
             .Value!;
-    }
 
-    private static OrderLineAllocation CreateLine(Sku sku, int quantityRequested = 1)
-    {
-        return OrderLineAllocation.Create(EntityId.Create(), sku.Id, quantityRequested)
+    private static OrderLineAllocation CreateLine(Sku sku, int quantityRequested = 1) =>
+        OrderLineAllocation.Create(EntityId.Create(), sku.Id, quantityRequested)
             .Value!;
-    }
 
-    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived)
-    {
-        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
+    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived) =>
+        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
             .Value!;
-    }
 
-    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn)
-    {
-        return SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
+    private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn) =>
+        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
             .Value!;
-    }
 
-    private static Task<AllocationError[]?> GetBadRequestErrors(HttpResponseMessage message)
-    {
-        return message.Content.ReadFromJsonAsync<AllocationError[]>();
-    }
+    private static Task<AllocationError[]?> GetBadRequestErrors(HttpResponseMessage message) =>
+        message.Content.ReadFromJsonAsync<AllocationError[]>();
 
     private static async Task<AllocateOrdersResponse?> GetResult(HttpResponseMessage response)
     {
@@ -385,7 +358,8 @@ public class InventoryTests
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.ExecuteDeleteAsync();
         await dbContext.SkuReceipts.ExecuteDeleteAsync();
-        // owners and skus are static lookup data, reused across tests
+        await dbContext.Owners.ExecuteDeleteAsync();
+        await dbContext.Skus.ExecuteDeleteAsync();
     }
 
     private async Task<HttpResponseMessage> PostOrderAllocationsAsync(AllocateOrdersCommand command, int ownerId)

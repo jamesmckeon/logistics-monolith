@@ -13,4 +13,6 @@ internal interface IInventoryRepository
 
     Task<IReadOnlyCollection<Sku>> GetSkusByIdAsync(IEnumerable<EntityId> skuIds,
         CancellationToken token);
+
+    void Add(SkuReceipt receipt);
 }

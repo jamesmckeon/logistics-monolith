@@ -77,6 +77,12 @@ public sealed class InventoryDbContext :
             .ToListAsync(token);
     }
 
+    void IInventoryRepository.Add(SkuReceipt receipt)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        SkuReceipts.Add(receipt);
+    }
+
     void IOrderAllocationRepository.Add(OrderAllocation order)
     {
         ArgumentNullException.ThrowIfNull(order);
