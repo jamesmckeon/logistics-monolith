@@ -5,14 +5,12 @@ using Throughline.Api.Tests.Common;
 using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Common;
-using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
-using Throughline.Modules.Receiving.Domain.Common;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Infrastructure.Db;
@@ -59,7 +57,7 @@ public sealed class IntegrationEventTests
         var ownerId = 1;
         var createOrderCommand = TestCreateOrderCommand();
 
-        await SeedSkus(createOrderCommand, ownerId);
+        await SeedInventorySkus(createOrderCommand, ownerId);
 
         CreateOrderResponse? result = null;
 
@@ -84,62 +82,77 @@ public sealed class IntegrationEventTests
     }
 
     [Test]
-    public async Task ReceivingToInventory_AllocatablePalletReceived_InventoryCreatesReceipt()
+    public async Task ReceivingToInventory_PalletsReceived_InventoryCreatesReceipts()
     {
         var ownerId = 1;
         var now = AppDateTime.Now;
 
-        var pallet = new SubmittedPallet("TestLpn", "TestSku", 99, "TestLocation");
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
 
-        var sku = new Sku(EntityId.Create(), ownerId, pallet.Sku);
-        await SeedSkus([sku]);
+        var skuWithInventory = new Sku(EntityId.Create(), ownerId, "SKU1");
+        var otherSku = new Sku(EntityId.Create(), ownerId, "SKU2");
 
-        // Receiving keeps its own copy of the sku; the same identity as Inventory's
-        await SeedReceivingSkus([
-            new SkuRecord
-            {
-                SkuId = sku.Id.Value,
-                OwnerId = ownerId,
-                SkuCode = new UpperCaseString(pallet.Sku).Value,
-                IsLotTracked = false,
-                IsExpirationTracked = false
-            }
-        ]);
+        await inventoryDbContext.Skus.AddRangeAsync(skuWithInventory, otherSku);
+        await inventoryDbContext.SaveChangesAsync();
 
-        var receivingLocation = new ReceivingLocation(new(pallet.LocationId), LocationTypes.Bulk);
-        await SeedReceivingLocations([receivingLocation, .. DefaultReceivingLocations]);
+        var locationId = "TESTLOCATION";
+        var holdReasonCode = "TESTHOLDCODE";
+
+        var allocatablePallet = new SubmittedPallet("LPN1", skuWithInventory.Code, 1, locationId);
+        // should be received as a receiving exception and not included in integration event
+        var palletWithoutSku = new SubmittedPallet("LPN2", "SKU3", 1, locationId);
+        // should be received as held and not included in integration event
+        var heldPallet = new SubmittedPallet(
+            "LPN3", skuWithInventory.Code, 1, locationId, null, null, holdReasonCode);
 
         var command = new ReceiveDeliveryCommand(
             Guid.NewGuid(), Guid.NewGuid(), "TestReference", "TestBol", "SCAC",
-            "TestTrailer", "TestContainer", "TestShipper", [pallet]);
+            "TestTrailer", "TestContainer", "TestShipper", [allocatablePallet, heldPallet, palletWithoutSku]);
 
-        await SeedCarrier(new CarrierRecord
+        var receivingContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
+
+        var carrierScac = new CarrierRecord
         {
             CarrierId = 1,
             CarrierName = "Test Carrier",
             ScacCode = command.CarrierScac
-        });
+        };
 
-        ReceiveDeliveryResult? result = null;
+        await receivingContext.Carriers.AddAsync(carrierScac);
+
+        var locations = command.Pallets
+            .Select(p => new ReceivingLocation(new(p.LocationId), LocationTypes.Bulk))
+            .Concat(DefaultReceivingLocations)
+            .Distinct()
+            .ToArray();
+        await receivingContext.Locations.AddRangeAsync(locations);
+
+        var skus = new[] { skuWithInventory, otherSku }
+            .Select(p => new SkuRecord
+            {
+                OwnerId = ownerId,
+                SkuCode = new(p.Code),
+                SkuId = Guid.NewGuid(),
+                IsExpirationTracked = false,
+                IsLotTracked = false
+            }).ToArray();
+        await receivingContext.Skus.AddRangeAsync(skus);
+
+        await receivingContext.SaveChangesAsync();
 
         await _testFactory.Services.ExecuteAndWaitAsync(async _ => { await PostDeliveryReceipt(command, ownerId); });
 
-        var inventory = (await GetAvailableInventory(sku.Id))
-            .ToArray();
-        var skuReceipt = inventory.Single();
+        var receipts = await inventoryDbContext.SkuReceipts.ToListAsync();
+        var receipt = receipts.Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(skuReceipt.SkuId, Is.EqualTo(sku.Id));
-            Assert.That(skuReceipt.QuantityAllocated, Is.Zero);
-            Assert.That(skuReceipt.QuantityAvailable, Is.EqualTo(pallet.Quantity));
-            Assert.That(skuReceipt.ReceivedOn, Is.GreaterThanOrEqualTo(now));
+            Assert.That(receipt.QuantityAllocated, Is.Zero);
+            Assert.That(receipt.QuantityAvailable, Is.EqualTo(1));
+            Assert.That(receipt.ReceivedOn, Is.GreaterThanOrEqualTo(now));
         });
     }
-
-    [Test]
-    public Task ReceivingToInventory_NoAllocatablePalletsReceived_DoesntCreateInventory() =>
-        throw new NotImplementedException();
 
     [TearDown]
     public async Task TearDown()
@@ -150,13 +163,26 @@ public sealed class IntegrationEventTests
     private async Task ResetAsync()
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-        await dbContext.Orders.ExecuteDeleteAsync();
+
+        var inventoryContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await inventoryContext.Orders.ExecuteDeleteAsync();
+        await inventoryContext.SkuReceipts.ExecuteDeleteAsync();
+        await inventoryContext.Skus.ExecuteDeleteAsync();
+
+        var receivingContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
+        await receivingContext.DeliveryReceipts.ExecuteDeleteAsync();
+        await receivingContext.DeliverySubmissions.ExecuteDeleteAsync();
+        await receivingContext.Carriers.ExecuteDeleteAsync();
+        await receivingContext.HoldReasons.ExecuteDeleteAsync();
+        await receivingContext.Locations.ExecuteDeleteAsync();
+        await receivingContext.ReceiptNumberCounters.ExecuteDeleteAsync();
+        await receivingContext.Skus.ExecuteDeleteAsync();
     }
+
 
     #region Helpers
 
-    private async Task<HttpResponseMessage> PostDeliveryReceipt(
+    private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
     {
         using var request = new HttpRequestMessage(
@@ -164,7 +190,7 @@ public sealed class IntegrationEventTests
         request.Headers.Add("owner_id", ownerId.ToString());
         request.Content = JsonContent.Create(command);
 
-        return await _client.SendAsync(request);
+        await _client.SendAsync(request);
     }
 
 
@@ -180,43 +206,11 @@ public sealed class IntegrationEventTests
                 new CreateOrderCommandItem("TESTSKU", 1)
             ]);
 
-    private async Task SeedSkus(CreateOrderCommand command, int ownerId)
+    private async Task SeedInventorySkus(CreateOrderCommand command, int ownerId)
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Skus.AddAsync(new Sku(EntityId.Create(), ownerId, command.Items.Single().Sku));
-        await dbContext.SaveChangesAsync();
-    }
-
-    private async Task SeedSkus(IEnumerable<Sku> skus)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-        await dbContext.Skus.AddRangeAsync(skus);
-        await dbContext.SaveChangesAsync();
-    }
-
-    private async Task SeedReceivingSkus(IEnumerable<SkuRecord> skus)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
-        await dbContext.Skus.AddRangeAsync(skus);
-        await dbContext.SaveChangesAsync();
-    }
-
-    private async Task SeedCarrier(CarrierRecord carrier)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
-        await dbContext.Carriers.AddAsync(carrier);
-        await dbContext.SaveChangesAsync();
-    }
-
-    private async Task SeedReceivingLocations(IEnumerable<ReceivingLocation> locations)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ReceivingDbContext>();
-        await dbContext.Locations.AddRangeAsync(locations);
         await dbContext.SaveChangesAsync();
     }
 
@@ -230,14 +224,6 @@ public sealed class IntegrationEventTests
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<OrderAllocationModel>();
-    }
-
-    private async Task<IEnumerable<SkuReceipt>> GetAvailableInventory(EntityId skuId)
-    {
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IInventoryRepository>();
-
-        return await repository.GetAvailableInventoryAsync([skuId], CancellationToken.None);
     }
 
     private async Task<HttpResponseMessage> PostOrder(CreateOrderCommand command, int ownerId)

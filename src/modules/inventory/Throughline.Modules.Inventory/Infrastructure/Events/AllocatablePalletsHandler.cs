@@ -44,8 +44,6 @@ public sealed class AllocatablePalletsHandler
 
         var validPallets = message.Pallets.Where(p => validSkus.Any(vs => vs.Code == p.SkuCode));
 
-
-        var receipts = new List<SkuReceipt>();
         var lpnErrors = new List<LpnError>();
 
         // for each pallet, create a sku receipt
