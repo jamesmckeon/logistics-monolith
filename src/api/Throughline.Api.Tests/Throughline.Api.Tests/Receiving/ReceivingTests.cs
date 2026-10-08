@@ -51,19 +51,6 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
     #region Post
 
-    /*  TEST CASES
-     *
-     * submission exists with same content, returns response (verifies that repeats with duplicate receipt ids don't throw)
-     * submission exists with different content, returns 409
-     * existing LPN, received with exception
-     * inactive hold reason, received with exception
-     * all exception pallets should be received to exception location
-     * valid hold reason, is received to hold location
-     * valid pallet without hold, received to bulk? location
-     * test concurrency?
-     * if receipt has allocatable pallets, integration event should be published; else not
-     */
-
     [Test]
     public async Task Post_MalformedRequest_ReturnsBadRequestWithErrors()
     {
@@ -134,7 +121,10 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var testSku2 = new OwnerSku(ownerId, new("TESTSKU2"), Guid.NewGuid(), false, false);
 
         var location = new ReceivingLocation(new("TestLocation"), LocationTypes.Bulk);
-        var exceptionLocation = new ReceivingLocation(new("ExceptionLocation"), LocationTypes.ReceivingException);
+        // create a second exception type location, to verify SUT stores pallets in default
+        // exception location
+        var otherExceptionLocation = new ReceivingLocation(new("OtherExceptionLocation"),
+            LocationTypes.ReceivingException);
 
         var inactiveHold = new HoldReason(new("Inactive"), false);
 
@@ -159,13 +149,16 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         await SeedAsync(
             ownerId,
             [requiresLotSku, requiresExpirationSku, testSku, testSku2],
-            [location, exceptionLocation],
+            [location, otherExceptionLocation],
             [inactiveHold],
             scac,
             lastReceiptNumber);
 
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
+        var receipt = await GetReceiptAsync(ownerId, command.ReceiptId);
+
+        Assert.That(receipt, Is.Not.Null);
 
         PalletError expectedError(string lpn)
         {
@@ -184,6 +177,7 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         }
 
         Assert.That(result, Is.Not.Null);
+        Assert.That(receipt, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
@@ -194,7 +188,11 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
             foreach (var receivedPallet in result.Pallets)
             {
+                var receiptPallet =
+                    receipt.InvalidPallets.Single(s => s.LicensePlateNumber.Value == receivedPallet.Lpn);
                 var expectedException = expectedError(receivedPallet.Lpn);
+
+                Assert.That(receiptPallet.Location, Is.EqualTo(ExceptionLocation));
                 Assert.That(receivedPallet.Errors.Single().Code, Is.EqualTo(expectedException.Code));
                 Assert.That(receivedPallet.Errors.Single().Description,
                     Is.EqualTo(expectedException.Description));
@@ -256,27 +254,37 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     public async Task Post_PalletsWithHolds_CreatesHeldPallets()
     {
         var ownerId = 1;
-        var holdReason = new HoldReason(new("TestHoldReason"), true);
-        // verify SUT does case and whitespace insentive comparison of hold reason
-        var pallet = new SubmittedPallet("TestLpn", "TestSku", 1, "TestLocation", null, null, " tEsthOldrEason ");
+        // seedAsync will create a hold reason with id/code "TestHoldReason"
+        var pallet = new SubmittedPallet("TestLpn", "TestSku", 1, "TestLocation", null, null, "TestHoldReason");
         var command = TestCommand([pallet]);
+
+        // verify SUT uses default hold location
+        var otherHoldLocation = new ReceivingLocation(new("OTHERHOLDLOCATION"), LocationTypes.Hold);
+        var testLocation = new ReceivingLocation(new(pallet.LocationId), LocationTypes.Bulk);
 
         await SeedAsync(
             ownerId,
             command,
-            [pallet]
+            [pallet],
+            [otherHoldLocation, testLocation]
         );
 
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
+        var receipt = await GetReceiptAsync(ownerId, command.ReceiptId);
 
         Assert.That(result, Is.Not.Null);
+        Assert.That(receipt, Is.Not.Null);
 
         var resultPallet = result.Pallets.Single();
+        var receiptPallet = receipt.Pallets.Single();
 
-        Assert.That(resultPallet.Outcome, Is.EqualTo(ReceivedPallet.OnHoldOutcome));
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultPallet.Outcome, Is.EqualTo(ReceivedPallet.OnHoldOutcome));
+            Assert.That(receiptPallet.Location, Is.EqualTo(HoldLocation));
+        });
     }
-
 
     [Test]
     public async Task Post_AvailablePallets_CreatesUnheldPallets()
@@ -296,8 +304,10 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
         var response = await PostDeliveryReceipt(command, ownerId);
         var result = await GetResultFromResponse(response);
+        var receipt = await GetReceiptAsync(ownerId, command.ReceiptId);
 
         Assert.That(result, Is.Not.Null);
+        Assert.That(receipt, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
@@ -305,6 +315,10 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
             foreach (var pallet in result.Pallets)
             {
+                var receiptPallet = receipt.Pallets.Single(s => s.LicensePlateNumber.Value == pallet.Lpn);
+
+                // Received to the default bulk location, not the location submitted with the pallet
+                Assert.That(receiptPallet.Location, Is.EqualTo(BulkLocation));
                 Assert.That(pallet.Outcome, Is.EqualTo(ReceivedPallet.AvailableOutcome));
                 Assert.That(pallet.Errors, Is.Empty);
                 Assert.That(new[]
@@ -334,7 +348,6 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         var firstResponse = await PostDeliveryReceipt(command, ownerId);
         var secondResponse = await PostDeliveryReceipt(command, ownerId);
 
-
         Assert.That(
             await secondResponse.Content.ReadAsStringAsync(),
             Is.EqualTo(await firstResponse.Content.ReadAsStringAsync()));
@@ -355,18 +368,19 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         string? holdReason, string? lotNumber, DateTime? expirationDate) =>
         new(lpn, skuCode, quantity, locationId, lotNumber, expirationDate, holdReason);
 
-    private static async Task<ProblemDetails?> GetFromResponse(HttpResponseMessage response)
-    {
-        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
-        var details = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        return details;
-    }
-
     private static async Task<ReceiveDeliveryResult?> GetResultFromResponse(HttpResponseMessage response)
     {
         response.EnsureSuccessStatusCode();
         Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
         return await response.Content.ReadFromJsonAsync<ReceiveDeliveryResult>();
+    }
+
+    private async Task<DeliveryReceipt?> GetReceiptAsync(int ownerId, Guid receiptId)
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IDeliveryReceiptRepository>();
+
+        return await repository.GetReceiptByIdAsync(ownerId, new UniqueId(receiptId), CancellationToken.None);
     }
 
     private async Task SeedAsync(
@@ -430,6 +444,23 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
         await SeedAsync(ownerId, skus, locations, holdReasons, new(new(command.CarrierScac), 1, "Test Carrier"));
     }
 
+    private async Task SeedAsync(
+        int ownerId,
+        ReceiveDeliveryCommand command,
+        IEnumerable<SubmittedPallet> pallets,
+        IEnumerable<ReceivingLocation> locations)
+    {
+        var palletsArray = pallets.ToArray();
+
+        var skus = palletsArray.Select(p => new OwnerSku(ownerId, new(p.Sku), Guid.NewGuid(), false, false));
+
+        var holdReasons = palletsArray.Any(a => !string.IsNullOrWhiteSpace(a.HoldReasonCode))
+            ? palletsArray.Where(p => !string.IsNullOrWhiteSpace(p.HoldReasonCode))
+                .Select(p => new HoldReason(new(p.HoldReasonCode!), true))
+            : [new HoldReason(new("TestReason"), true)];
+
+        await SeedAsync(ownerId, skus, locations, holdReasons, new(new(command.CarrierScac), 1, "Test Carrier"));
+    }
 
     private async Task ResetAsync()
     {
