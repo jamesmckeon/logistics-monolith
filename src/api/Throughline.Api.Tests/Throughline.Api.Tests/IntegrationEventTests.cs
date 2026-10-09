@@ -160,7 +160,7 @@ public sealed class IntegrationEventTests
         await ResetAsync();
     }
 
-    private async Task ResetAsync()
+    private async Task ResetAsync()                            
     {
         await using var scope = _testFactory.Services.CreateAsyncScope();
 
