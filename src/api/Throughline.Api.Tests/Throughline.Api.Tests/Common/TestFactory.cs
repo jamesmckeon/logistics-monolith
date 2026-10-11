@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
+using Throughline.Api.Tests.Common.Logging;
 
 namespace Throughline.Api.Tests.Common;
 
