@@ -21,7 +21,7 @@ Status legend: 🔷 Open (genuinely undecided) · 🧭 Leaning (a recommended di
 ✅ Decided (ratified → ADR).
 
 _Created 2026-08-16. Update the `Updated` line on any change._
-Updated: 2026-09-29
+Updated: 2026-10-10
 
 ---
 
@@ -66,7 +66,7 @@ Q1 2026; v8 Apache-2.0 maintained only through end of 2026). A copy-me reference
 | MOD-19 | Source generators: `[LoggerMessage]`, System.Text.Json source-gen | 🧭 Leaning | Hot-path / performance pass |
 | MOD-20 | Module extractability contract & deployment posture (host-agnostic; OCI/ACA target, IIS non-goal) | 🧭 Leaning | Anchor for extraction/deploy decisions — see ADR-0008 |
 | MOD-21 | Domain base types: shared equality base `ValueObject` + `Entity<TId> : ValueObject` (kgrzybek keeps two unrelated bases) | ✅ Decided | Decided 2026-09-19 (no ADR; folded here) |
-| MOD-22 | Authorization model: IdP authenticates, Throughline owns permissions (server-side resolution) | ✅ Decided | Decided 2026-09-29 (ADR pending) |
+| MOD-22 | Authorization model: Entra app roles assign roles; Throughline maps role → permission in code; endpoints check permissions | ✅ Decided | Revised 2026-10-10 (was server-side resolution, 2026-09-29) · [ADR-0009](../../docs/decisions/ADR-0009-authorization-roles-and-owner-grants.md) |
 
 ---
 
@@ -303,7 +303,7 @@ Fully Allocated) yet needed `==`/`Equals`; it had been sitting on `ValueObject` 
 alone — i.e. it was an entity all along. `Order : Entity<OwnerOrderId>`.
 **No ADR** — folded here per its size; base classes carry `<summary>` docs stating the intent.
 
-### MOD-22 — Authorization model · ✅ Decided (IdP authenticates, Throughline owns permissions · 2026-09-29 · ADR pending)
+### MOD-22 — Authorization model · ✅ Decided (roles assigned in Entra, permissions mapped in Throughline · revised 2026-10-10 · [ADR-0009](../../docs/decisions/ADR-0009-authorization-roles-and-owner-grants.md))
 **Question:** Where do operator permissions (first one: *receive delivery*) live, and how are they
 evaluated?
 **Options:**
@@ -320,10 +320,66 @@ they act on *this* delivery?" once it is loaded.
 **Why it came up:** receiving (issue #14) is the first operation requiring a named permission. Current
 state had no authentication/authorization wired, and `owner_id` was read from an unauthenticated
 header (`RequestContext`).
+**Revision (2026-10-10): (c) hybrid, chosen by the user.** Microsoft Entra ID is the IdP.
+- **Role assignment lives in Entra** as app roles on the API's app registration; roles arrive in
+  the token's `roles` claim.
+- **Throughline maps role → permissions in code** (a static map, no user-access tables).
+  Endpoints check **permissions, never roles** (the kgrzybek shape).
+- **The 2026-09-29 second layer (a resource-based check on the loaded record) is withdrawn**
+  (user, 2026-10-10). A caller who may act for an owner may see all of that owner's data; there
+  are no checks on individual orders or receipts. Data is segregated by owner id, every
+  endpoint receives the owner up front, and every query is filtered by it. The
+  owner-level question — may this caller act for the owner they name — is a check on the owner
+  id before any data access (see the owner check, below).
+- **Token validation is in app code**, not platform built-in auth, so it behaves the same on
+  App Service, Container Apps and Container Instances (ADR-0008 host-agnostic clause).
+- **Deny by default** via a fallback policy; the dev-only OpenAPI endpoint needs an explicit
+  anonymous exemption.
+- **Owner check — in scope for #22 (user, 2026-10-10).** A caller may read and write data only
+  for owners it has been granted. `OwnerId` comes from the `owner_id` header today and nothing
+  checks it. An owner's own system acts for one owner; an operator may be granted several, so the
+  request must name the owner. **Design accepted by the user 2026-10-10:** an owner grant is an
+  Entra app role per owner (placeholder name `Owner.7`), assigned to the account beside its
+  functional roles and arriving in the same `roles` claim. It grants no permission; it is
+  compared with the owner named in the request. A caller's roles apply to every owner it is
+  granted — no per-owner roles (Oracle WMS Cloud keeps function and client eligibility as two
+  separate settings; no story needs more). App roles are the one Entra mechanism confirmed to
+  work for both service and user accounts.
+
+**First implementation: issue #22** (the source of truth for scope). Three roles to start, named
+for job functions (user, 2026-10-10): `OrderIntakeIntegration` (service accounts), `Receiving`
+and `OrderPlanning` (operator accounts). They replace the action-named `OrderConfirmer`,
+`DeliveryReceiver`, `OrderAllocator`. **Roles are not tied one-to-one to modules**: each happens
+to cover one module's endpoints today, but roles and permissions will grow as functionality is
+added. State rules per endpoint permission, never as
+"the module's role".
+These are the Entra app roles; they sit alongside the role → permission map above, they do not
+replace it (user, 2026-10-10). Each persona is assigned one or more of them.
+Missing or invalid credentials → 401; authenticated without a role granting the endpoint's
+permission → 403.
+The issue's out-of-scope section was removed by the user on 2026-10-10, and the issue now
+carries the owner-check acceptance criteria and the job-function role names.
+
+**Why (b) was revised:** its rationale was recorded as an unconfirmed assumption (permissions
+scoped by facility/owner data). Facility is not modeled, and owner scoping is handled by the
+resource check under every option. Entra documents app roles as its recommended option and a
+custom store as the most complex. With (c) an extracted module validates a self-contained token
+and needs no shared permission store. **Cost accepted:** a removed role stays effective until
+the token expires. Moving to (b) later changes only the component that produces a caller's
+permissions, because endpoints check permissions.
+Sources: the Security register in [sources.md](../sources.md).
+
+**Callers (user, 2026-10-10):** there are no real users or owners. Requests come only from
+manual Bruno/Insomnia calls and load-testing frameworks, but those tools impersonate personas:
+e.g. an EDI integrator service posting to Ordering (a service identity) and a warehouse
+operations user posting to Receiving (a person). The persona is switched by switching
+credentials in the tool. Design for the persona, not the tool.
+
 **Still open:**
-- Which IdP (Entra ID / Keycloak / Duende / …) and token type.
 - Where user access lives (own module vs shared) — interacts with MOD-04 and MOD-20.
-- Permission scope: facility-scoped vs owner-scoped (STORY-0003 frames 3PL operators as cross-owner).
+- Permission scope for operators: any owner vs an eligible-owner list. Oracle WMS Cloud documents
+  a per-user eligible-companies list; Infor not confirmed. Facility scope is out while Facility
+  is unmodeled.
 - Internal `UserId`: lean is a v7-GUID value object (matching `OrderId`), mapped from the IdP's
   `(issuer, sub)` external login stored as strings — `sub` is opaque per OIDC, never parsed as a GUID.
   Business records (`receivedBy`, events, audit) carry the internal `UserId`.
