@@ -4,6 +4,8 @@ namespace Throughline.Common.Presentation.Http;
 
 public sealed class RequestContext : IRequestContext
 {
+    public const string OwnerIdHeaderKey = "owner_id";
+
     private readonly IHttpContextAccessor _accessor;
 
     public RequestContext(IHttpContextAccessor accessor)
@@ -12,7 +14,7 @@ public sealed class RequestContext : IRequestContext
     }
 
     public int OwnerId =>
-        int.Parse(GetFirstHeaderValue("owner_id"));
+        int.Parse(GetFirstHeaderValue(OwnerIdHeaderKey));
 
     public string? GetHeaderValue(string header)
     {

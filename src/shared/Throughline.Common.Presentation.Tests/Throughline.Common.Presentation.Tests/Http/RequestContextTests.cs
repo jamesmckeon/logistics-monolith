@@ -23,7 +23,7 @@ internal sealed class RequestContextTests
         Accessor.Setup(s => s.HttpContext)
             .Returns(null as HttpContext);
 
-        Assert.That(Sut.GetHeaderValue("OwnerId"), Is.Null);
+        Assert.That(Sut.GetHeaderValue("TestHeader"), Is.Null);
     }
 
     [Test]
@@ -33,11 +33,11 @@ internal sealed class RequestContextTests
         Accessor.Setup(s => s.HttpContext)
             .Returns(context);
 
-        Assert.That(Sut.GetHeaderValue("OwnerId"), Is.Null);
+        Assert.That(Sut.GetHeaderValue("TestHeader"), Is.Null);
     }
 
-    [TestCase("ownerId", "1")]
-    [TestCase("OWNERID", "1")]
+    [TestCase("testheader", "1")]
+    [TestCase("TESTHEADER", "1")]
     public void GetHeaderValue_HeaderExists_ReturnsExpectedValue(string headerKey, string value)
     {
         var context = new DefaultHttpContext();
@@ -45,6 +45,6 @@ internal sealed class RequestContextTests
         Accessor.Setup(s => s.HttpContext)
             .Returns(context);
 
-        Assert.That(Sut.GetHeaderValue("OwnerId"), Is.EqualTo(value));
+        Assert.That(Sut.GetHeaderValue("TestHeader"), Is.EqualTo(value));
     }
 }
