@@ -33,7 +33,7 @@ public sealed class RequestContext : IRequestContext
             throw new InvalidOperationException("No active HttpContext.");
         }
 
-        if (ContainsHeader(key))
+        if (!ContainsHeader(key))
         {
             throw new InvalidOperationException($"No header with key '{key}' found.");
         }

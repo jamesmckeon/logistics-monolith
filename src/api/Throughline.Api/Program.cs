@@ -19,6 +19,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+builder.Services.AddAuthentication().AddJwtBearer();
+builder.Services.AddThroughlineAuthorization();
+
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
         resource.AddService(
@@ -70,9 +73,8 @@ builder.Host.UseWolverine(opts =>
     // to the dead-letter queue. Transient faults are left to throw normally so they retry.
     opts.OnException<UnrecoverableMessageException>().MoveToErrorQueue();
 
-    // A referenced dependency isn't present locally yet — very likely an eventual-consistency
-    // gap (the reference-data event hasn't arrived). Schedule durable, delayed retries so the
-    // reference has time to replicate; dead-letter only after the backoff is exhausted.
+    // Schedules retries when an event handler throws an exception due to a message
+    // containing lookup/reference data that doesn't exist in the module's local data store
     opts.OnException<MissingDependencyException>()
         .ScheduleRetry(1.Minutes(), 5.Minutes(), 15.Minutes())
         .Then.MoveToErrorQueue();
@@ -90,6 +92,8 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<RequestContext>();
+builder.Services.AddScoped<IRequestContext, RequestContext>();
+
 builder.Services.AddOrdering(builder.Configuration);
 builder.Services.AddInventory(builder.Configuration);
 builder.Services.AddReceiving(builder.Configuration);

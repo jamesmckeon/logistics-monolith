@@ -19,6 +19,7 @@
         <PackageReference Include="OpenTelemetry.Instrumentation.Http"/>
         <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
         <PackageReference Include="WolverineFx.Postgresql"/>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer"/>
     </ItemGroup>
 
     <ItemGroup>

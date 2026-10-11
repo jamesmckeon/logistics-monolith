@@ -15,7 +15,7 @@ public sealed class OwnerRoleHandler : AuthorizationHandler<OwnerRoleRequirement
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context, OwnerRoleRequirement requirement)
     {
-        var ownerId = _requestContext.GetHeaderValue("OwnerId");
+        var ownerId = _requestContext.GetHeaderValue(RequestContext.OwnerIdHeaderKey);
         if (ownerId != null && context.User.IsInRole(
                 ThroughlineRoles.OwnerRole(
                     Convert.ToInt32(ownerId))))
