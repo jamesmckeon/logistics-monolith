@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Throughline.Common.Presentation.Http;
 
-public sealed class RequestContext
+public sealed class RequestContext : IRequestContext
 {
     private readonly IHttpContextAccessor _accessor;
 
@@ -14,6 +14,16 @@ public sealed class RequestContext
     public int OwnerId =>
         int.Parse(GetFirstHeaderValue("owner_id"));
 
+    public string? GetHeaderValue(string header)
+    {
+        if (!ContainsHeader(header))
+        {
+            return null;
+        }
+
+        return _accessor.HttpContext?.Request.Headers[header];
+    }
+
     private string GetFirstHeaderValue(string key)
     {
         if (_accessor.HttpContext == null)
@@ -21,7 +31,7 @@ public sealed class RequestContext
             throw new InvalidOperationException("No active HttpContext.");
         }
 
-        if (!_accessor.HttpContext.Request.Headers.ContainsKey(key))
+        if (ContainsHeader(key))
         {
             throw new InvalidOperationException($"No header with key '{key}' found.");
         }
