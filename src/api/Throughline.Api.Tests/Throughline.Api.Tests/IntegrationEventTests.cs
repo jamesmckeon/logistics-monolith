@@ -11,8 +11,6 @@ using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
-using Throughline.Modules.Receiving.Contracts.Events;
-using Throughline.Modules.Receiving.Contracts.Models;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Infrastructure.Db;
@@ -153,57 +151,6 @@ public sealed class IntegrationEventTests
             Assert.That(receipt.QuantityAllocated, Is.Zero);
             Assert.That(receipt.QuantityAvailable, Is.EqualTo(1));
             Assert.That(receipt.ReceivedOn, Is.GreaterThanOrEqualTo(now));
-        });
-    }
-
-    [Test]
-    public async Task ReceivingToInventory_ZeroQuantityReceived_ThrowsExpected()
-    {
-        var sku = new Sku(EntityId.Create(), 1, "TESTSKU");
-
-        await using var scope = _testFactory.Services.CreateAsyncScope();
-        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-        await inventoryDbContext.Skus.AddAsync(sku);
-        await inventoryDbContext.SaveChangesAsync();
-
-        // trigger a skureceipt.create() failure
-        var receiptId = Guid.NewGuid();
-        var palletsEvent = new AllocatablePalletsIntegrationEvent(
-            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
-            [new AllocatablePalletModel("TESTLPN", sku.Code, 0, "BULK-01")]);
-
-        var session = await _testFactory.Services.TrackActivity()
-            .DoNotAssertOnExceptionsDetected()
-            .SendMessageAndWaitAsync(palletsEvent);
-
-        var message = session
-            .MovedToErrorQueue
-            .SingleMessage<AllocatablePalletsIntegrationEvent>();
-
-        Assert.That(message, Is.Not.Null);
-        Assert.That(message.ReceiptId, Is.EqualTo(receiptId));
-    }
-
-    [Test]
-    public async Task ReceivingToInventory_InvalidSku_Retries()
-    {
-        // dont setup any skus in Inventory
-        var receiptId = Guid.NewGuid();
-        var palletsEvent = new AllocatablePalletsIntegrationEvent(
-            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
-            [new AllocatablePalletModel("TESTLPN", "TESTSKU", 0, "BULK-01")]);
-
-        var session = await _testFactory.Services.TrackActivity()
-            .DoNotAssertOnExceptionsDetected()
-            .SendMessageAndWaitAsync(palletsEvent);
-
-        var exception = session.AllExceptions().Single();
-        var failedEvent = session.Scheduled.SingleMessage<AllocatablePalletsIntegrationEvent>();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception, Is.Not.Null);
-            Assert.That(failedEvent.ReceiptId, Is.EqualTo(receiptId));
         });
     }
 

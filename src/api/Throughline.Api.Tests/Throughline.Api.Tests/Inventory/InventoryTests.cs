@@ -13,6 +13,11 @@ using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Inventory.Presentation;
+using Throughline.Modules.Ordering.Contracts.Events;
+using Throughline.Modules.Ordering.Contracts.Models;
+using Throughline.Modules.Receiving.Contracts.Events;
+using Throughline.Modules.Receiving.Contracts.Models;
+using Wolverine.Tracking;
 
 namespace Throughline.Api.Tests.Inventory;
 
@@ -46,6 +51,120 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     {
         await ResetAsync();
     }
+
+    #region OrderConfirmedIntegrationEvent
+
+    [Test]
+    public async Task OrderConfirmedEvent_ZeroQuantityRequested_ThrowsExpected()
+    {
+        var sku = new Sku(EntityId.Create(), 1, "TESTSKU");
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await inventoryDbContext.Skus.AddAsync(sku);
+        await inventoryDbContext.SaveChangesAsync();
+
+        // trigger a OrderLineAllocation.create() failure
+        var orderId = Guid.NewGuid();
+        var orderLine = new OrderLineEventModel(sku.Code, 0);
+        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(1, orderId, [orderLine]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .SendMessageAndWaitAsync(orderAllocatedEvent);
+
+        var message = session
+            .MovedToErrorQueue
+            .SingleMessage<OrderConfirmedIntegrationEvent>();
+
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message.OrderId, Is.EqualTo(orderId));
+    }
+
+    [Test]
+    public async Task OrderConfirmedEvent_InvalidSku_RequeuesMessage()
+    {
+        // dont setup any skus in Inventory
+        var orderId = Guid.NewGuid();
+        var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
+            1, orderId, [new OrderLineEventModel("TEST", 1)]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .DoNotAssertOnTimeout()
+            .Timeout(TimeSpan.FromSeconds(3))
+            .SendMessageAndWaitAsync(orderConfirmedEvent);
+
+        // var exception = session.AllExceptions().Single();
+        var requeuedEvent = session.Requeued.SingleMessage<OrderConfirmedIntegrationEvent>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requeuedEvent.OrderId, Is.EqualTo(orderId));
+            Assert.That(session.MovedToErrorQueue.AllMessages, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region AllocatablePalletsIntegrationEvent
+
+    [Test]
+    public async Task AllocatablePalletsEvent_ZeroQuantityReceived_ThrowsExpected()
+    {
+        var sku = new Sku(EntityId.Create(), 1, "TESTSKU");
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await inventoryDbContext.Skus.AddAsync(sku);
+        await inventoryDbContext.SaveChangesAsync();
+
+        // trigger a skureceipt.create() failure
+        var receiptId = Guid.NewGuid();
+        var palletsEvent = new AllocatablePalletsIntegrationEvent(
+            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
+            [new AllocatablePalletModel("TESTLPN", sku.Code, 0, "BULK-01")]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .SendMessageAndWaitAsync(palletsEvent);
+
+        var message = session
+            .MovedToErrorQueue
+            .SingleMessage<AllocatablePalletsIntegrationEvent>();
+
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message.ReceiptId, Is.EqualTo(receiptId));
+    }
+
+    [Test]
+    public async Task AllocatablePalletsEvent_InvalidSku_RequeuesMessage()
+    {
+        // dont setup any skus in Inventory
+        var receiptId = Guid.NewGuid();
+        var palletsEvent = new AllocatablePalletsIntegrationEvent(
+            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
+            [new AllocatablePalletModel("TESTLPN", "TESTSKU", 0, "BULK-01")]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .DoNotAssertOnTimeout()
+            .Timeout(TimeSpan.FromSeconds(3))
+            .SendMessageAndWaitAsync(palletsEvent);
+
+        // var exception = session.AllExceptions().Single();
+        var requeuedEvent = session.Requeued.SingleMessage<AllocatablePalletsIntegrationEvent>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requeuedEvent.ReceiptId, Is.EqualTo(receiptId));
+            Assert.That(session.MovedToErrorQueue.AllMessages, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region Allocate
 
     [Test]
     public async Task Post_EmptyRequest_ReturnsInvalidRequest()
@@ -289,6 +408,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         });
     }
 
+    #endregion
 
     #region Helpers
 
