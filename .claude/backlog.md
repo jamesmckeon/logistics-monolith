@@ -13,12 +13,12 @@ candidate — ask to add it (dedup runs first)._
 |---|---|---|---|---|---|---|---|
 | T-001 | Domain Events | DDD, EDA | ⬜ Not Started | High | STORY-0001 (optional) | 2026-08-02 | Distinguish domain vs integration events. STORY-0001 touches event *modeling* only (recording, not dispatch). |
 | T-002 | Two-Phase Commit | DIST | ⬜ Not Started | — | — | 2026-07-27 | Learn it *and* why to prefer sagas/TCC. |
-| T-003 | Saga Pattern | EDA, DIST | ⬜ Not Started | — | — | 2026-07-27 | Orchestration vs choreography. |
-| T-004 | Outbox Pattern | EDA, DIST, DATA | ⬜ Not Started | — | — | 2026-07-27 | Pairs with inbox/consumer dedup. |
-| T-005 | Idempotency Keys | DIST, API | ⬜ Not Started | — | — | 2026-07-27 | Retry-safe writes; storage of keys. |
-| T-006 | Inbox Pattern / Consumer Dedup | EDA, DIST | ⬜ Not Started | — | — | 2026-07-27 | Other half of outbox; makes at-least-once safe. |
+| T-003 | Saga Pattern | EDA, DIST | ⬜ Not Started | — | — | 2026-10-09 | All-or-nothing across a multi-module workflow with no spanning transaction, achieved via compensation (semantic rollback). Orchestration vs choreography is the mechanics; the core is what "undo" means per step and what happens when a compensation itself fails. Alias: "atomicity with EDA." Ref: [Mark Richards, Lesson 222 — Transactional Sagas and Atomicity](https://www.developertoarchitect.com/lessons/lesson222.html) (atomic vs eventually consistent sagas; builds on Lesson 221). |
+| T-004 | Outbox Pattern | EDA, DIST, DATA | ⬜ Not Started | — | STORY-0005 | 2026-10-09 | Pairs with inbox/consumer dedup. |
+| T-005 | Idempotency Keys | DIST, API | ⬜ Not Started | — | STORY-0005 | 2026-10-09 | Retry-safe writes; storage of keys. |
+| T-006 | Inbox Pattern / Consumer Dedup | EDA, DIST | ⬜ Not Started | — | STORY-0005 | 2026-10-09 | Other half of outbox; makes at-least-once safe. |
 | T-007 | CQRS + Read Models | EDA, SYSD, DATA | ⬜ Not Started | — | — | 2026-08-02 | Scale reads (tracking/dashboards) independently. Includes read-vs-write model separation: when the read shape should differ from the write shape — and the judgment to *not* separate when the ratio doesn't justify it. |
-| T-008 | Delivery Semantics | DIST, EDA | ⬜ Not Started | — | — | 2026-07-27 | At-least/at-most/exactly-once; ties to T-004/T-005. |
+| T-008 | Delivery Semantics | DIST, EDA | ⬜ Not Started | — | STORY-0005 | 2026-10-09 | At-least/at-most/exactly-once; ties to T-004/T-005. |
 | T-009 | Schema/Contract Evolution & Versioning | EDA, API | ⬜ Not Started | — | — | 2026-07-27 | Independent producer/consumer deploys; contract tests. |
 | T-010 | Optimistic vs Pessimistic Concurrency | DATA, DIST | ⬜ Not Started | — | — | 2026-07-27 | Row versioning/ETags under contention. |
 | T-011 | Inventory Reservation / Overselling Prevention | DATA, SYSD | ⬜ Not Started | — | — | 2026-07-27 | Classic high-volume logistics correctness bug. |
@@ -36,7 +36,7 @@ candidate — ask to add it (dedup runs first)._
 | T-023 | Domain Services vs Application Services | DDD, OOAD | 🟡 In Progress | — | STORY-0001, STORY-0002 | 2026-08-24 | Where logic lives; orchestration vs domain rules. |
 | T-024 | Specification pattern | DDD, OOAD | ⬜ Not Started | High | — | 2026-07-28 | Composable, reusable business rules/queries. |
 | T-025 | Factories for complex aggregate creation | DDD, OOAD | ⬜ Not Started | — | — | 2026-07-28 | Enforce invariants at construction time. |
-| T-026 | Consistency Boundary Identification | DIST, SYSD, DATA | ⬜ Not Started | — | — | 2026-08-02 | Place strong- vs eventual-consistency boundaries *explicitly*; reason about races there (pick decrement vs cycle count); relocate an invariant so the race stops existing rather than defending it at write time. |
+| T-026 | Consistency Boundary Identification | DIST, SYSD, DATA | ⬜ Not Started | — | STORY-0005 | 2026-10-09 | Place strong- vs eventual-consistency boundaries *explicitly*; reason about races there (pick decrement vs cycle count); relocate an invariant so the race stops existing rather than defending it at write time. |
 | T-027 | High-Write-Throughput / Access-Pattern-Driven Data Modeling | DATA, SYSD | ⬜ Not Started | — | — | 2026-08-02 | Enumerate read/write paths and characterize each (read/write-heavy, append/mutate, hot/cold) *before* designing tables. Inventory-by-location ≠ inventory-by-SKU — separate design problems. |
 | T-028 | Index Design for Specific Queries | DATA | ⬜ Not Started | — | — | 2026-08-02 | Key order + covering columns for the queries that actually run; seek vs scan; be able to state the resulting plan, not assume an index on the column is fast. |
 | T-029 | Narrating Schema as Scale Reasoning | STAFF, DATA, SYSD | ⬜ Not Started | — | — | 2026-08-02 | Present a schema via access patterns + consistency boundaries, not a domain model rendered into tables. Declining to discuss the schema forfeits the vehicle for the scale conversation. |

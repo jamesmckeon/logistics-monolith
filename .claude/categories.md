@@ -152,6 +152,7 @@ confirms that a new phrasing means an existing concept.
 | Idempotency key, dedup key, request key, Idempotency-Key header | Idempotency Keys |
 | Transactional outbox, outbox | Outbox Pattern |
 | Process manager, orchestrator saga, choreography saga | Saga Pattern |
+| Atomicity with EDA, cross-workflow atomicity, compensation, compensating actions, semantic rollback | Saga Pattern (T-003) |
 | Domain event, integration event* | Domain Events (*note: integration events are related but distinct — confirm) |
 | Optimistic locking, row versioning, `xmin`/`rowversion` | Optimistic vs pessimistic concurrency |
 | OTel, tracing, spans, traceparent, correlation id | Distributed tracing & correlation IDs (T-036) |
