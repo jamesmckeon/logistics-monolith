@@ -3,10 +3,14 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **three source registers**: the **design / architecture / DDD** set (the
-table below) and an **Observability & Logging** set, both under the Confirmed/Pending status
-legend; and a **WMS Functional / Vendor Reference** register (at the end of the file) under
-its own tier legend. Read the observability register before designing, building, or reviewing
+This file holds **five source registers**: the **design / architecture / DDD** set (the
+table below), an **Observability & Logging** set, a **Testing — Messaging & Error
+Handling** set, and a **Security — Authentication & Authorization** set, all under the
+Confirmed/Pending status legend; and a **WMS Functional / Vendor
+Reference** register (at the end of the file) under its own tier legend. Read the testing
+register before writing or reviewing tests for integration-event handlers. Read the security
+register before designing, building, or reviewing authentication, authorization (RBAC), or
+owner scoping of a caller. Read the observability register before designing, building, or reviewing
 any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
 so these are the sources that govern both how it gets built and how it gets reviewed. Read the
 **WMS Functional / Vendor Reference** register before writing any story or requirement, and
@@ -139,6 +143,119 @@ measure).
 6. **One OTel-shaped pipeline.** Traces, metrics, and logs all flow through the OTel SDK with
    OTLP export and OTel semantic-convention attribute names, so a future collector/backend
    swap is config, not code. *(O-1, O-4, O-9)*
+
+---
+
+# Testing — Messaging & Error Handling (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register above. Scope: testing
+Wolverine integration-event handlers — in particular their failure paths (which exception a
+handler throws, and therefore whether the message retries or dead-letters per the policies in
+`src/api/Throughline.Api/Program.cs`). Binding test *conventions* (naming, structure, Moq)
+remain in `docs/testing.md`; this register governs *what* to test on the messaging seam.
+Added 2026-10-09 after a web review; both sources are Pending until the user confirms them.
+
+## Sources
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| TS-1 | **Wolverine docs** — [Test Automation Support](https://wolverinefx.net/guide/testing.html) · [Error Handling](https://wolverinefx.net/guide/handlers/error-handling.html) | How to observe handler failures and error-policy outcomes in tests (tracked sessions); how `OnException<T>()` policies are evaluated. Framework docs for the messaging library this project uses. | ⏳ Pending |
+| TS-2 | **Khorikov — [When to Mock](https://enterprisecraftsmanship.com/posts/when-to-mock/)** (and *Unit Testing Principles, Practices, and Patterns* — book cited from knowledge, not verified against the text) | Managed vs unmanaged out-of-process dependencies: use real instances of managed ones (the app's own DB) and assert resulting state; mock unmanaged ones (a shared bus) and verify the interaction. | ⏳ Pending |
+
+## Findings from the 2026-10-09 review (apply when testing handler failure paths)
+
+1. **Error-path tests need `DoNotAssertOnExceptionsDetected()`.** A tracked session fails on
+   any handler exception by default; the docs call this setting out for error-handling tests.
+   *(TS-1)*
+2. **`InvokeAsync` won't exercise dead-lettering.** Inline invocation applies only Retry /
+   Retry-With-Cooldown automatically, so `MoveToErrorQueue` and `ScheduleRetry` never fire.
+   A test of the dead-letter path must publish/send the event through the queue.
+   *(TS-1, Error Handling)*
+3. **Dead-lettering is observable on the tracked session.** `MovedToErrorQueue`,
+   `MessageFailed` and `Requeued` are recorded event types — no need to query the dead-letter
+   table. Default session timeout is 5 s; first-use handler compilation can consume it.
+   *(TS-1)*
+   **Correction (2026-10-10, from Wolverine source `MessageContext.ReScheduleAsync` /
+   `EnvelopeHistory`, main branch):** a `ScheduleRetry` records the envelope as **`Requeued`**,
+   not `Scheduled`, and `Requeued` is not a terminal tracking event — so the tracked session
+   never completes and **times out**. A retry test needs `DoNotAssertOnTimeout()` (plus a
+   short `Timeout(...)`) and asserts on `session.Requeued`.
+4. **Assert "nothing saved" against the real DB.** The Inventory DB is a managed dependency →
+   real instance + state assertion. Backs the all-or-nothing claim in
+   `AllocatablePalletsHandler` (the precondition for safely replaying a dead-lettered message).
+   *(TS-2)*
+5. **Unverified:** what Wolverine does with an exception that matches no `OnException` policy.
+   The Error Handling page doesn't say — don't assert a default without checking.
+6. **Ungoverned (Claude's reasoning, not doctrine):** treating the thrown exception *type* as
+   the handler's contract with the error policy, and asserting it per failure path. No source
+   found argues for or against it. Whether Wolverine's local durable queues count as
+   "managed" under TS-2 (only this app reads them; stored in this app's `wolverine` schema) is
+   also an inference — Khorikov doesn't address in-process module queues.
+
+---
+
+# Security — Authentication & Authorization (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register above. Scope:
+authenticating callers, role-based access control (RBAC), and deriving/enforcing the owner a
+caller may act for, across all modules. Hosting path this register assumes: Azure App Service
+first, then one or more modules on Azure Container Apps or Azure Container Instances.
+Added and confirmed by the user 2026-10-10. The project decision these sources back is the
+**authorization model** entry in
+[MODERNIZATION-REGISTER.md](decisions/MODERNIZATION-REGISTER.md).
+
+## Sources
+
+"Read" = read on 2026-10-10. "Resolves" = the URL loaded that day but the content is cited
+from knowledge — flag "not verified against the text this turn" until read.
+
+### Tier 1 — Standards (the ground truth)
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| SEC-1 | **NIST RBAC model** — [csrc.nist.gov project page](https://csrc.nist.gov/projects/role-based-access-control) (standardized as ANSI/INCITS 359) | Vocabulary: user, role, permission, role hierarchy, separation of duty. | ✅ Confirmed *(resolves)* |
+| SEC-2 | **OWASP API Security Top 10 (2023)** — [API1 Broken Object Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/) · [API5 Broken Function Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/); **OWASP [Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)** | The two failure classes every endpoint is reviewed against: wrong owner's data (object level) and wrong function (function level). | ✅ Confirmed *(resolves)* |
+| SEC-3 | **IETF** — [RFC 9068](https://datatracker.ietf.org/doc/html/rfc9068) (JWT access-token profile) · [RFC 8725](https://datatracker.ietf.org/doc/html/rfc8725) (JWT best current practice) · [RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700) (OAuth 2.0 security best current practice) | What an access token contains and how it must be validated. | ✅ Confirmed *(resolves)* |
+
+### Tier 2 — Platform docs (how we do it)
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| SEC-4 | **ASP.NET Core 10** — [Auth in Minimal APIs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/security) · [Policy-based authorization](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/policies?view=aspnetcore-10.0) · [Resource-based authorization](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/resourcebased?view=aspnetcore-10.0) · [Custom authorization policy providers](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/iauthorizationpolicyprovider?view=aspnetcore-10.0) | How policies, requirements, handlers, the fallback policy, and imperative resource checks are built; `dotnet user-jwts` for local tokens. | ✅ Confirmed *(read)* |
+| SEC-5 | **Microsoft Entra** — [Custom RBAC for developers](https://learn.microsoft.com/en-us/entra/identity-platform/custom-rbac-for-developers) · [Implement RBAC in applications](https://learn.microsoft.com/en-us/entra/identity-platform/howto-implement-rbac-for-apps) · [Verify scopes and app roles](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-verification-scope-app-roles) | Where role assignments live (app roles / groups / custom store); how roles reach the API (`roles` claim); user versus application callers. | ✅ Confirmed *(read)* |
+| SEC-6 | **Azure hosting** — [App Service authentication](https://learn.microsoft.com/en-us/azure/app-service/overview-authentication-authorization) · [Container Apps authentication](https://learn.microsoft.com/en-us/azure/container-apps/authentication) | What the platform's built-in auth does and doesn't do. | ✅ Confirmed *(read)* |
+| SEC-7 | **Azure Architecture Center** — [Identity in a multitenant solution](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/identity) | Mapping callers to tenants (owners); where tenant authorization data is stored; workload identities. | ✅ Confirmed *(read)* |
+
+### Tier 3 — Reference implementation
+
+[kgrzybek/modular-monolith-with-ddd](https://github.com/kgrzybek/modular-monolith-with-ddd)
+is already ✅ Confirmed in the design register. For this topic use
+[§3.9 Security](https://github.com/kgrzybek/modular-monolith-with-ddd#39-security) and its
+[`HasPermissionAuthorizationHandler`](https://github.com/kgrzybek/modular-monolith-with-ddd/blob/master/src/API/CompanyName.MyMeetings.API/Configuration/Authorization/HasPermissionAuthorizationHandler.cs)
+(read 2026-10-10) for the **shape** user → roles → permissions, with endpoints checking
+permissions and never roles. **Do not copy the handler:** it returns `true` for every check
+outside DEBUG builds.
+
+## Findings from the 2026-10-10 review
+
+1. **Built-in platform auth authenticates; it does not authorize.** App Service says so
+   directly, and Container Apps uses the same system as a sidecar that hands claims to the app
+   in headers. No equivalent was found in the Container Instances overview (only managed
+   identity). Validating the token in app code behaves the same on all three hosts. *(SEC-6)*
+2. **Entra's stated default is app roles; a custom role store is its most complex option**, and
+   Entra cannot put custom-store roles into its tokens. *(SEC-5)*
+3. **Roles assigned to users and to applications arrive in the same `roles` claim.** Entra
+   recommends declaring different roles for each so the two can't be confused. *(SEC-5)*
+4. **A fallback policy is the secure default** for endpoints that carry no authorization
+   metadata. *(SEC-4)*
+5. **Endpoint-level checks run before the resource is loaded**, so a rule that depends on the
+   loaded record needs an imperative check (`IAuthorizationService`) after loading. *(SEC-4)*
+   **Not needed on Throughline today (user, 2026-10-10):** access is per owner, the owner is
+   known before any query, and queries are owner-filtered — so there is no per-record rule.
+6. **Ungoverned (Claude's reasoning, not doctrine):** every approach needs a Throughline-side
+   mapping from caller to owner, because Entra does not know Throughline's owner ids.
+   SEC-7 says a tenant identifier is typically carried as a token claim and that workload
+   identities must state which tenant they act for; it does not prescribe the mapping.
 
 ---
 

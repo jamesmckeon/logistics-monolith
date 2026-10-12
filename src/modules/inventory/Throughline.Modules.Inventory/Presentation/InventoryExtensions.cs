@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Queries;
+using Throughline.Modules.Inventory.Auth;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Inventory;
 using Throughline.Modules.Inventory.Domain.Owners;
@@ -36,6 +38,12 @@ public static class InventoryExtensions
         services.AddScoped<IOrderAllocationService, OrderAllocationService>();
         services.AddScoped<AllocateOrdersHandler>();
         services.AddScoped<GetOrderQuery>();
+
+        services.AddAuthorizationBuilder()
+            .AddPolicy(InventoryPolicies.AllocateOrders, p =>
+                p.RequireRole(ThroughlineRoles.Inventory))
+            .AddPolicy(InventoryPolicies.ReadAllocatedOrder, p =>
+                p.RequireRole(ThroughlineRoles.Inventory));
 
         return services;
     }
@@ -68,7 +76,7 @@ public static class InventoryExtensions
             return await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
                 ? Results.Ok(order)
                 : Results.NotFound();
-        });
+        }).RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
 
 
         group.MapPost("/orders/allocate", async Task<IResult> (
@@ -87,7 +95,7 @@ public static class InventoryExtensions
             }
 
             return TypedResults.Ok(result);
-        });
+        }).RequireAuthorization(InventoryPolicies.AllocateOrders);
 
         return app;
     }

@@ -8,10 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Throughline.Common.Infrastructure;
 using Throughline.Common.Presentation;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Application.Queries;
+using Throughline.Modules.Ordering.Auth;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
 
 namespace Throughline.Modules.Ordering.Presentation;
@@ -27,6 +29,10 @@ public static class OrderingExtensions
         services.AddScoped<IOrdersRepository, OrdersRepository>();
         services.AddScoped<CreateOrderHandler>();
         services.AddScoped<GetOrderByIdQuery>();
+
+        services.AddAuthorizationBuilder()
+            .AddPolicy(OrderingPolicies.CreateOrder, p => p.RequireRole(ThroughlineRoles.OrderIntakeIntegrator))
+            .AddPolicy(OrderingPolicies.ReadOrder, p => p.RequireRole(ThroughlineRoles.OrderIntakeIntegrator));
 
         return services;
     }
@@ -59,13 +65,15 @@ public static class OrderingExtensions
             var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
 
             if (!result.Succeeded)
+            {
                 return result.ToFailureResponse();
+            }
 
             var uri = $"{OrdersRoute}/{result.Value.OrderId}";
             var response = CreateOrderResponse.FromResult(result.Value);
 
             return result.Value.Created ? TypedResults.Created(uri, response) : TypedResults.Ok(response);
-        });
+        }).RequireAuthorization(OrderingPolicies.CreateOrder);
 
         group.MapGet("/{orderId}", async Task<Results<Ok<OrderModel>, NotFound>> (
             CancellationToken token,
@@ -78,10 +86,12 @@ public static class OrderingExtensions
             var model = await query.GetOrderByIdAsync(orderId, requestContext.OwnerId, token);
 
             if (model is null)
+            {
                 return TypedResults.NotFound();
+            }
 
             return TypedResults.Ok(model);
-        });
+        }).RequireAuthorization(OrderingPolicies.ReadOrder);
 
 
         return app;

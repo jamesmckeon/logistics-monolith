@@ -14,4 +14,9 @@
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Throughline.Api.Tests"/>
+        <InternalsVisibleTo Include="Throughline.Common.Presentation.Tests"/>
+    </ItemGroup>
+
 </Project>

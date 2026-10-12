@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
 using Throughline.Common.Models;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
@@ -13,6 +14,11 @@ using Throughline.Modules.Inventory.Domain.Owners;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Inventory.Presentation;
+using Throughline.Modules.Ordering.Contracts.Events;
+using Throughline.Modules.Ordering.Contracts.Models;
+using Throughline.Modules.Receiving.Contracts.Events;
+using Throughline.Modules.Receiving.Contracts.Models;
+using Wolverine.Tracking;
 
 namespace Throughline.Api.Tests.Inventory;
 
@@ -45,6 +51,148 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     public async Task TearDown()
     {
         await ResetAsync();
+    }
+
+    #region OrderConfirmedIntegrationEvent
+
+    [Test]
+    public async Task OrderConfirmedEvent_ZeroQuantityRequested_ThrowsExpected()
+    {
+        var sku = new Sku(EntityId.Create(), 1, "TESTSKU");
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await inventoryDbContext.Skus.AddAsync(sku);
+        await inventoryDbContext.SaveChangesAsync();
+
+        // trigger a OrderLineAllocation.create() failure
+        var orderId = Guid.NewGuid();
+        var orderLine = new OrderLineEventModel(sku.Code, 0);
+        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(1, orderId, [orderLine]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .SendMessageAndWaitAsync(orderAllocatedEvent);
+
+        var message = session
+            .MovedToErrorQueue
+            .SingleMessage<OrderConfirmedIntegrationEvent>();
+
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message.OrderId, Is.EqualTo(orderId));
+    }
+
+    [Test]
+    public async Task OrderConfirmedEvent_InvalidSku_RequeuesMessage()
+    {
+        // dont setup any skus in Inventory
+        var orderId = Guid.NewGuid();
+        var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
+            1, orderId, [new OrderLineEventModel("TEST", 1)]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .DoNotAssertOnTimeout()
+            .Timeout(TimeSpan.FromSeconds(3))
+            .SendMessageAndWaitAsync(orderConfirmedEvent);
+
+        // var exception = session.AllExceptions().Single();
+        var requeuedEvent = session.Requeued.SingleMessage<OrderConfirmedIntegrationEvent>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requeuedEvent.OrderId, Is.EqualTo(orderId));
+            Assert.That(session.MovedToErrorQueue.AllMessages, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region AllocatablePalletsIntegrationEvent
+
+    [Test]
+    public async Task AllocatablePalletsEvent_ZeroQuantityReceived_ThrowsExpected()
+    {
+        var sku = new Sku(EntityId.Create(), 1, "TESTSKU");
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var inventoryDbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        await inventoryDbContext.Skus.AddAsync(sku);
+        await inventoryDbContext.SaveChangesAsync();
+
+        // trigger a skureceipt.create() failure
+        var receiptId = Guid.NewGuid();
+        var palletsEvent = new AllocatablePalletsIntegrationEvent(
+            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
+            [new AllocatablePalletModel("TESTLPN", sku.Code, 0, "BULK-01")]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .SendMessageAndWaitAsync(palletsEvent);
+
+        var message = session
+            .MovedToErrorQueue
+            .SingleMessage<AllocatablePalletsIntegrationEvent>();
+
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message.ReceiptId, Is.EqualTo(receiptId));
+    }
+
+    [Test]
+    public async Task AllocatablePalletsEvent_InvalidSku_RequeuesMessage()
+    {
+        // dont setup any skus in Inventory
+        var receiptId = Guid.NewGuid();
+        var palletsEvent = new AllocatablePalletsIntegrationEvent(
+            1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
+            [new AllocatablePalletModel("TESTLPN", "TESTSKU", 0, "BULK-01")]);
+
+        var session = await _testFactory.Services.TrackActivity()
+            .DoNotAssertOnExceptionsDetected()
+            .DoNotAssertOnTimeout()
+            .Timeout(TimeSpan.FromSeconds(3))
+            .SendMessageAndWaitAsync(palletsEvent);
+
+        // var exception = session.AllExceptions().Single();
+        var requeuedEvent = session.Requeued.SingleMessage<AllocatablePalletsIntegrationEvent>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requeuedEvent.ReceiptId, Is.EqualTo(receiptId));
+            Assert.That(session.MovedToErrorQueue.AllMessages, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region Allocate
+
+    [Test]
+    public async Task Allocate_NotInInventoryRole_ReturnsForbidden()
+    {
+        var command = new AllocateOrdersCommand([Guid.NewGuid()]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.OwnerRole(1));
+        request.Content = JsonContent.Create(command);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Post_NotInOwnerRole_ReturnsForbidden()
+    {
+        var command = new AllocateOrdersCommand([Guid.NewGuid()]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.Inventory);
+        request.Content = JsonContent.Create(command);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
     [Test]
@@ -99,7 +247,6 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.AddAsync(order);
         await dbContext.SaveChangesAsync();
-
 
         var command = new AllocateOrdersCommand([orderId]);
         var response = await PostOrderAllocationsAsync(command, PartialAllocationOwner.Id);
@@ -289,6 +436,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         });
     }
 
+    #endregion
 
     #region Helpers
 
@@ -364,15 +512,22 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     private async Task<HttpResponseMessage> PostOrderAllocationsAsync(AllocateOrdersCommand command, int ownerId)
     {
-        var url = $"{InventoryExtensions.InventoryRoute}/orders/allocate";
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            AllocationRoute,
+            ownerId,
+            ThroughlineRoles.OwnerRole(ownerId),
+            ThroughlineRoles.Inventory);
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, url);
-        request.Headers.Add("owner_id", ownerId.ToString());
         request.Content = JsonContent.Create(command);
 
         return await _client.SendAsync(request);
     }
+
+    private static string AllocationRoute => $"{InventoryExtensions.InventoryRoute}/orders/allocate";
+
+    internal static string GetAllocatedOrderRoute(Guid orderId) =>
+        $"{InventoryExtensions.InventoryRoute}/orders/{orderId}";
 
     #endregion
 }

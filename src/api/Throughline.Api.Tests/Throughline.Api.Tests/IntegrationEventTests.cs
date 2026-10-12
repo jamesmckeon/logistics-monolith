@@ -2,12 +2,14 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
+using Throughline.Api.Tests.Inventory;
+using Throughline.Api.Tests.Ordering;
 using Throughline.Common.Models;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
-using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
@@ -17,13 +19,14 @@ using Throughline.Modules.Receiving.Infrastructure.Db;
 using Throughline.Modules.Receiving.Infrastructure.Db.Models;
 using Throughline.Modules.Receiving.Presentation;
 using Wolverine.Tracking;
+using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orders.OrdersDbContext;
 
 namespace Throughline.Api.Tests;
 
 [Category("Integration")]
-public sealed class IntegrationEventTests
+internal sealed class IntegrationEventTests : IntegrationTestsBase
 {
-    // The Receiving:DefaultLocations in appsettings.json; this factory doesn't override them
+    // The Receiving:DefaultLocations in appsettings.json; this class doesn't override them
     private static readonly ReceivingLocation[] DefaultReceivingLocations =
     [
         new(new("HOLD-01"), LocationTypes.Hold),
@@ -31,24 +34,13 @@ public sealed class IntegrationEventTests
         new(new("BULK-01"), LocationTypes.Bulk)
     ];
 
-    private HttpClient _client;
-    private IntegrationEventsTestFactory _testFactory;
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
+    // These tests span all three modules (e.g. POST to Ordering -> OrderConfirmed -> Inventory),
+    // so every schema must exist.
+    protected override async Task MigrateAsync()
     {
-        _testFactory = new IntegrationEventsTestFactory();
-        await _testFactory.InitializeAsync();
-        _client = _testFactory.CreateClient();
-        await _testFactory.ApplyMigrationsAsync();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        _client?.Dispose();
-
-        await _testFactory.DisposeAsync();
+        await _testFactory.MigrateAsync<OrderingOrdersDbContext>();
+        await _testFactory.MigrateAsync<InventoryDbContext>();
+        await _testFactory.MigrateAsync<ReceivingDbContext>();
     }
 
     [Test]
@@ -63,7 +55,7 @@ public sealed class IntegrationEventTests
 
         await _testFactory.Services.ExecuteAndWaitAsync(async _ =>
         {
-            var response = await PostOrder(createOrderCommand, ownerId);
+            var response = await OrderingTests.PostOrderAsync(_client, createOrderCommand, ownerId);
             result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
         });
 
@@ -185,9 +177,13 @@ public sealed class IntegrationEventTests
     private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts");
-        request.Headers.Add("owner_id", ownerId.ToString());
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"{ReceivingExtensions.ReceivingRoute}/receipts",
+            ownerId,
+            ThroughlineRoles.Receiving,
+            ThroughlineRoles.OwnerRole(ownerId));
+
         request.Content = JsonContent.Create(command);
 
         await _client.SendAsync(request);
@@ -216,24 +212,14 @@ public sealed class IntegrationEventTests
 
     private async Task<OrderAllocationModel?> GetInventoryOrder(Guid orderId, int ownerId)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{InventoryExtensions.InventoryRoute}/orders/{orderId}");
-        request.Headers.Add("owner_id", ownerId.ToString());
+        using var request = CreateRequest(
+            HttpMethod.Get, InventoryTests.GetAllocatedOrderRoute(orderId), ownerId,
+            ThroughlineRoles.OwnerRole(ownerId), ThroughlineRoles.Inventory);
 
         using var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<OrderAllocationModel>();
-    }
-
-    private async Task<HttpResponseMessage> PostOrder(CreateOrderCommand command, int ownerId)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, OrderingExtensions.OrdersRoute);
-        request.Headers.Add("owner_id", ownerId.ToString());
-        request.Content = JsonContent.Create(command);
-
-        return await _client.SendAsync(request);
     }
 
     #endregion

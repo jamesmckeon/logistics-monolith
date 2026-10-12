@@ -1,10 +1,11 @@
-# ADR-0008 — Module extractability contract & deployment posture
+# ADR-0002 — Module extractability contract
 
 ## Status
 
-Proposed — 2026-08-19. Ratify when the first module is actually extracted to its own host, or
-the first cross-module integration event is built — whichever first tests the contract against
-reality.
+Accepted — 2026-10-11 (proposed 2026-08-19).
+
+Not yet met: the host does not collect messaging spans (clause B.5), no health or readiness
+endpoints exist (clause B.6), and container publishing (clause B.7) has not been exercised.
 
 ## Context
 
@@ -21,7 +22,7 @@ A module inside the monolith is a set
 of class libraries with no deployment target of its own.It gains one only when wrapped in a
 host. 
 
-This ADR settles two things the register left implicit across MOD-07/09/10/13/16/18:
+This ADR settles two things that were otherwise left implicit:
 
 1. **What justifies extracting a module** — so we neither pre-split nor drift into a distributed
    big-ball-of-mud, and
@@ -50,48 +51,34 @@ driver, lowest risk — not a request/response module.
 ### B. The extractability contract — every module complies from day one
 
 1. **Host-agnostic module code.** No host-specific APIs: no `System.Web`, no `HttpContext` past the
-   `.Api` layer into Application/Domain, no `web.config`-driven behaviour. Configuration comes from
-   `IConfiguration` / env vars / `IOptions`, never machine config.
-2. **Cross-module communication only through the transport-swappable seam** (MOD-13): in-process
+   module's `Presentation` layer into Application/Domain, no `web.config`-driven behaviour.
+   Configuration comes from `IConfiguration` / env vars / `IOptions`, never machine config.
+2. **Cross-module communication only through the transport-swappable seam**: in-process
    today, RabbitMQ / Azure Service Bus tomorrow, **same contract**. No module reaches into another
    module's internals — inbound cross-module calls go through its published `*.Contracts`.
-3. **Data ownership** (MOD-07): schema-per-module in one Postgres now → database-per-module on
+3. **Data ownership**: schema-per-module in one Postgres now → database-per-module on
    extraction. No cross-module foreign keys, joins, or shared writes. Shared tables are un-splittable.
-4. **Integration is hostile-from-day-one** (MOD-16 / MOD-02): at-least-once, idempotent,
+4. **Integration is hostile-from-day-one**: at-least-once, idempotent,
    duplicate- and reorder-tolerant, inbox/outbox. The in-proc version must **not** assume reliable,
    ordered, exactly-once delivery — the network will violate every one of those on extraction.
-5. **Observability crosses the async boundary** (MOD-09): OTel context propagation is already wired
-   across the messaging seam, so a single-process trace becomes an N-process trace with no code change.
+5. **Observability crosses the async boundary**: trace context travels with every integration
+   event and the host collects the messaging spans, so a handler's work appears in the same trace
+   as the request that caused it — within one process now, across processes after extraction,
+   with no code change.
 6. **Stateless + graceful shutdown**: no in-process session state; `BackgroundService`s honour
-   cancellation (drain); health/readiness endpoints exist. Required for horizontal scale, scale-to-zero,
-   and clean SIGTERM on ACA/k8s.
-7. **Container-publishable** (MOD-18): `dotnet publish /t:PublishContainer`, linux, non-root — no Dockerfile.
+   cancellation (drain); every host exposes health and readiness endpoints. Required for
+   horizontal scale and a clean shutdown when a host is stopped.
+7. **Container-publishable**: `dotnet publish /t:PublishContainer`, linux, non-root — no Dockerfile.
 
-Enforcement is not optional: clauses 1–3 rot without **architecture tests** (MOD-12, NetArchTest).
-
-### C. Deployment posture
-
-- **Target OCI (linux) containers as the lowest common denominator.** Hold the contract above and
-  every target below is reachable with **no module code change** — only infra/manifest differs.
-- **Primary home: Azure Container Apps** (KEDA autoscale incl. scale-to-zero and scale-on-queue-depth,
-  optional Dapr sidecar, managed ingress) — the natural fit for event-driven logistics workers.
-  **Container Apps Jobs / Azure Functions** for the pure outbox/ingest workers; **AKS** only where
-  full k8s control is genuinely needed; **App Service (Web App for Containers)** as a simpler fallback.
-- **IIS / on-prem Windows is a non-goal** for this greenfield .NET 10 repo and is deliberately
-  designed *away* from — but remains **possible for free**, because clause B.1 forbids exactly the
-  host-specific couplings that would block it. If a client ever demanded on-prem IIS, a module runs
-  under Kestrel as a Windows service or behind IIS as a reverse proxy, with no module change.
-- **The presentation structure makes extraction cheap.** Because each module owns its `.Api`
-  endpoints and exposes `Add{Module}()` / `Map{Module}()` extensions (the MOD-08 direction),
-  extracting a module is a **new ~20-line host** that references that one module and calls those two
-  extensions. **.NET Aspire (MOD-10)** is the local rehearsal of this multi-process topology.
+**What extraction then costs.** Because each module owns its endpoints and exposes
+`Add{Module}()` / `Map{Module}()` extensions, extracting a module is a **new ~20-line host** that
+references that one module and calls those two extensions.
 
 ## Consequences
 
 **Positive**
 
-- Extraction is a deployment change, not a rewrite; the deployment target is late-bound and swappable.
-- IIS-compatibility is a free by-product of host-agnosticism, not a design tax we pay up front.
+- Extraction is a deployment change, not a rewrite.
 - The contract forces the right distributed-systems habits (idempotency, data ownership, context
   propagation) *early*, while they are cheap — instead of discovering them under load after a split.
 - Every future module gets a concrete compliance checklist; "is this module extractable?" becomes testable.
@@ -104,8 +91,6 @@ Enforcement is not optional: clauses 1–3 rot without **architecture tests** (M
 - **Schema-per-module forbids convenient cross-module joins.** Data another module owns is reached via
   contracts / read models, not a SQL join. This is a genuine ergonomic cost paid for splittability.
 - **OTel-across-the-boundary must exist before it visibly pays off** — wiring cost with deferred benefit.
-- **The contract is only as strong as its enforcement.** Without NetArchTest (MOD-12) guarding clauses
-  1–3, the boundaries erode silently and the contract becomes aspirational.
 
 **Alternatives considered**
 
@@ -115,28 +100,17 @@ Enforcement is not optional: clauses 1–3 rot without **architecture tests** (M
   dear to retrofit — this is the rare case where a little up-front design is the YAGNI-honest choice.
 - **Pre-split into microservices now.** Rejected: contradicts the monolith-first positioning and pays
   the distributed-systems tax before any driver justifies it.
-- **Target a specific host as a first-class goal** (build for ACA specifically, or hold IIS as a
-  primary target). Rejected: couples the design to a deployment choice that should stay late-bound;
-  host-agnosticism reaches all targets at once and keeps IIS possible without making it a constraint.
-- **Centralised presentation (kgrzybek's single `API` project).** Rejected in the presentation
-  discussion: a shared host becomes the carve-out point on extraction, whereas a per-module `.Api`
-  means the module's HTTP surface leaves with the module.
+- **Centralised presentation (kgrzybek's single `API` project).** Rejected: a shared host becomes the
+  carve-out point on extraction, whereas per-module presentation means the module's HTTP surface
+  leaves with the module.
 
 **Revisit when**
 
-- The first module is actually extracted (ratify, or amend the contract against what reality demanded).
+- The first module is actually extracted (amend the contract against what reality demanded).
 - A driver appears that section A's list does not cover.
-- A hard on-prem / IIS requirement materialises (reopens the section C non-goal).
-- The transport seam (MOD-13 / MOD-02) is built — may tighten clauses B.2 and B.4 with specifics.
 
 ## Related
 
-- **Modernization Register** — anchored by **MOD-20**; binds **MOD-13** (transport-swappable events),
-  **MOD-07** (data ownership), **MOD-09** (observability across the boundary), **MOD-18** (container
-  publish), **MOD-10** (Aspire rehearsal), **MOD-16 / MOD-02** (hostile-from-day-one integration),
-  **MOD-12** (boundary enforcement).
-- **MOD-08 / per-module presentation** — the `.Api` + `Add{Module}`/`Map{Module}` structure this ADR
+- **Per-module presentation** — the `Presentation` + `Add{Module}`/`Map{Module}` structure this ADR
   relies on to make extraction a ~20-line host.
-- **ADR-0006** — module internal structure (layered vs vertical slice); either way the module stays a
-  self-contained vertical, including its HTTP surface, which is what makes it extractable.
 - kgrzybek/modular-monolith-with-ddd — the reference implementation this repo modernizes.
