@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Results;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.Common;
@@ -50,6 +51,30 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     }
 
     #region Post
+
+    [Test]
+    public async Task Post_NotInReceivingRole_ReturnsForbidden()
+    {
+        var command = TestCommand([]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts", 1, ThroughlineRoles.OwnerRole(1));
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Post_NotInOwnerRole_ReturnsForbidden()
+    {
+        var command = TestCommand([]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts", 1, ThroughlineRoles.Receiving);
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
 
     [Test]
     public async Task Post_MalformedRequest_ReturnsBadRequestWithErrors()
@@ -481,9 +506,13 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
     private async Task<HttpResponseMessage> PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts");
-        request.Headers.Add("owner_id", ownerId.ToString());
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"{ReceivingExtensions.ReceivingRoute}/receipts",
+            ownerId,
+            ThroughlineRoles.OwnerRole(ownerId),
+            ThroughlineRoles.Receiving);
+
         request.Content = JsonContent.Create(command);
 
         return await _client.SendAsync(request);
