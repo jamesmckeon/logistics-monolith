@@ -31,6 +31,23 @@ internal sealed class OwnerRoleHandlerTests
         Assert.That(context.HasSucceeded, Is.False);
     }
 
+    [TestCase("2.1")]
+    [TestCase("A")]
+    public async Task HandleRequirementAsync_NonIntegerOwnerId_DoesntSucceed(string headerValue)
+    {
+        var ownerClaim = new Claim(ClaimTypes.Role, ThroughlineRoles.OwnerRole(1));
+        var identity = new ClaimsIdentity([ownerClaim], "TestAuthType");
+        var user = new ClaimsPrincipal(identity);
+        var context = new AuthorizationHandlerContext([new OwnerRoleRequirement()], user, null);
+
+        Context.Setup(s => s.GetHeaderValue(RequestContext.OwnerIdHeaderKey))
+            .Returns(headerValue);
+
+        await Sut.HandleAsync(context);
+
+        Assert.That(context.HasSucceeded, Is.False);
+    }
+
     [Test]
     public async Task HandleRequirementAsync_DifferentOwner_DoesntSucceed()
     {
