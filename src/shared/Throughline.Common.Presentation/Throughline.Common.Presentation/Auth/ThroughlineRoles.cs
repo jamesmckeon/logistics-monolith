@@ -8,6 +8,7 @@ public static class ThroughlineRoles
     public const string OrderIntakeIntegrator = "OrderIntakeIntegrator";
 
     public const string Receiving = "Receiving";
+    public const string Inventory = "Inventory";
 
     /// <summary>
     ///     Membership in this role, in combination with function specific roles, grants

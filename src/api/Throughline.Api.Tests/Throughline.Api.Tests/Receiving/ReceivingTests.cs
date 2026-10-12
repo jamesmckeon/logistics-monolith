@@ -59,6 +59,8 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
         using var request = CreateRequest(
             HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts", 1, ThroughlineRoles.OwnerRole(1));
+        request.Content = JsonContent.Create(command);
+
         var response = await _client.SendAsync(request);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -71,6 +73,8 @@ internal class ReceivingTests : IntegrationTestsBase<ReceivingDbContext>
 
         using var request = CreateRequest(
             HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts", 1, ThroughlineRoles.Receiving);
+        request.Content = JsonContent.Create(command);
+
         var response = await _client.SendAsync(request);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));

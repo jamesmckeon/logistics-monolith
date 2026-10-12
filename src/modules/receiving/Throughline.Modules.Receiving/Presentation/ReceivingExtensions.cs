@@ -55,8 +55,7 @@ public static class ReceivingExtensions
         services.AddAuthorizationBuilder()
             .AddPolicy(ReceivingPolicies.ReceiveDelivery, p =>
                 p.RequireRole(ThroughlineRoles.Receiving));
-
-
+        
         return services;
     }
 
@@ -86,7 +85,6 @@ public static class ReceivingExtensions
 
             return TypedResults.Ok(result.Value);
         }).RequireAuthorization(ReceivingPolicies.ReceiveDelivery);
-        ;
 
         return app;
     }

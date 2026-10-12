@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
 using Throughline.Common.Models;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
@@ -167,6 +168,34 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     #region Allocate
 
     [Test]
+    public async Task Allocate_NotInInventoryRole_ReturnsForbidden()
+    {
+        var command = new AllocateOrdersCommand([Guid.NewGuid()]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.OwnerRole(1));
+        request.Content = JsonContent.Create(command);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Post_NotInOwnerRole_ReturnsForbidden()
+    {
+        var command = new AllocateOrdersCommand([Guid.NewGuid()]);
+
+        using var request = CreateRequest(
+            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.Inventory);
+        request.Content = JsonContent.Create(command);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
     public async Task Post_EmptyRequest_ReturnsInvalidRequest()
     {
         var response = await PostOrderAllocationsAsync(new AllocateOrdersCommand([]), 1);
@@ -218,7 +247,6 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Orders.AddAsync(order);
         await dbContext.SaveChangesAsync();
-
 
         var command = new AllocateOrdersCommand([orderId]);
         var response = await PostOrderAllocationsAsync(command, PartialAllocationOwner.Id);
@@ -484,15 +512,19 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     private async Task<HttpResponseMessage> PostOrderAllocationsAsync(AllocateOrdersCommand command, int ownerId)
     {
-        var url = $"{InventoryExtensions.InventoryRoute}/orders/allocate";
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            AllocationRoute,
+            ownerId,
+            ThroughlineRoles.OwnerRole(ownerId),
+            ThroughlineRoles.Inventory);
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, url);
-        request.Headers.Add("owner_id", ownerId.ToString());
         request.Content = JsonContent.Create(command);
 
         return await _client.SendAsync(request);
     }
+
+    private static string AllocationRoute => $"{InventoryExtensions.InventoryRoute}/orders/allocate";
 
     #endregion
 }
