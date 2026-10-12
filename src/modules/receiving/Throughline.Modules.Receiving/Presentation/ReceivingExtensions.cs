@@ -7,11 +7,13 @@ using Microsoft.Extensions.Logging;
 using Throughline.Common.Infrastructure;
 using Throughline.Common.Infrastructure.Logging;
 using Throughline.Common.Presentation;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Receiving.Application.Common;
 using Throughline.Modules.Receiving.Application.Configuration;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
+using Throughline.Modules.Receiving.Auth;
 using Throughline.Modules.Receiving.Domain.DeliveryReceipts;
 using Throughline.Modules.Receiving.Domain.Inventory;
 using Throughline.Modules.Receiving.Domain.Shipments;
@@ -50,6 +52,11 @@ public static class ReceivingExtensions
         services.AddScoped<IPalletService, PalletService>();
         services.AddScoped<ReceiveDeliveryHandler>();
 
+        services.AddAuthorizationBuilder()
+            .AddPolicy(ReceivingPolicies.ReceiveDelivery, p =>
+                p.RequireRole(ThroughlineRoles.Receiving));
+
+
         return services;
     }
 
@@ -57,6 +64,7 @@ public static class ReceivingExtensions
     public static IEndpointRouteBuilder MapReceiving(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(ReceivingRoute).WithTags("Receiving");
+        group.RequireAuthorization(ThroughlinePolicies.OwnerRole);
 
         group.MapPost("/receipts", async Task<IResult> (
             ReceiveDeliveryCommand command,
@@ -77,7 +85,8 @@ public static class ReceivingExtensions
             }
 
             return TypedResults.Ok(result.Value);
-        });
+        }).RequireAuthorization(ReceivingPolicies.ReceiveDelivery);
+        ;
 
         return app;
     }

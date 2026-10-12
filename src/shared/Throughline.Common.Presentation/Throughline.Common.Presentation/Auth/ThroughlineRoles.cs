@@ -7,6 +7,8 @@ public static class ThroughlineRoles
     /// </summary>
     public const string OrderIntakeIntegrator = "OrderIntakeIntegrator";
 
+    public const string Receiving = "Receiving";
+
     /// <summary>
     ///     Membership in this role, in combination with function specific roles, grants
     ///     access to endpoints for a specific owner
