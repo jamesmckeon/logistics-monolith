@@ -13,7 +13,7 @@ internal interface IDeliveryReceiptRepository
         CancellationToken token);
 
     Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token);
-    Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token);
+    Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(CancellationToken token);
 
     /// <summary>
     ///     Issues the owner's next receipt number. The number is consumed when issued, committed on its own before

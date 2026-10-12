@@ -84,7 +84,7 @@ internal sealed class ReceiveDeliveryHandler
         var locations = (await _receiptRepository.GetReceivingLocationsAsync(token))
             .ToArray();
         var defaultLocations = DefaultLocations.Resolve(_configuration.Value, locations);
-        var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(ownerId, token))
+        var holdReasons = (await _receiptRepository.GetHoldReasonsAsync(token))
             .ToArray();
 
         var commandSkus = command.Pallets.Select(i => new UpperCaseString(i.Sku))
