@@ -48,11 +48,12 @@ candidate — ask to add it (dedup runs first)._
 | T-035 | Structured Logging | OBS | ⬜ Not Started | High | STORY-0003 | 2026-09-05 | Message templates with named, queryable properties (owner, order id, outcome, reason) — not interpolated strings. `ILogger` + `BeginScope` for ambient context; `[LoggerMessage]` source-gen on hot paths; level discipline (business rejection ≠ Error); never log PII. Judged against the Observability & Logging register in [sources.md](sources.md) (O-5). |
 | T-036 | Distributed Tracing & Correlation IDs | OBS, DIST | ⬜ Not Started | High | STORY-0003 | 2026-09-05 | One trace spanning endpoint→handler→DB via W3C Trace Context (`traceparent`); adopt inbound context, propagate to child work, join logs to the trace. Built in-process now so a module→service split needs no new correlation scheme. `System.Diagnostics.ActivitySource`/`Activity`. Alias: "OTel, tracing, spans." Register O-1/O-2/O-6. |
 | T-037 | Metrics (RED/USE) & Bottleneck Diagnosis | OBS, RESIL | ⬜ Not Started | High | — | 2026-09-05 | Instrument then diagnose: RED (Rate/Errors/Duration) for request paths, USE (Utilization/Saturation/Errors) for resources (DB pool, lock waits, channel/queue depth). `System.Diagnostics.Metrics.Meter` — counters + histograms (latency p50/p95/p99) + observable gauges; `AddMeter(...)` via `WithMetrics`. The skill is *localizing a bottleneck from signals*: metrics narrow the saturated resource, traces pinpoint the span. Motivating target = the inventory-availability hot path under §2 peak. Completes the OBS triad (logs T-035, traces T-036). Alias: "RED/USE, p99, bottleneck, profiling via metrics." |
+| T-038 | Load Testing (NBomber) | RESIL, SYSD | ⬜ Not Started | — | — | 2026-10-11 | Load test the deployed system with NBomber, the .NET load-testing framework. Load profiles (ramp-up, steady state, spike, soak) and open vs closed workload models; reading throughput, latency percentiles and error rate against targets at the §2 scale baseline. Planned after the Azure deployment. Links T-013 (the targets a run is judged against) and T-037 (diagnosing what a run exposes). |
 
 <!--
 ADD-ITEM CHECKLIST (see CLAUDE.md §5A):
 1. Dedup against this table + categories.md alias table. If a possible match, STOP and confirm.
 2. Assign next T-### (never reuse). Confirm Categories if ambiguous.
 3. Status ⬜ Not Started, Added=today, append row, keep sorted by ID.
-Next free ID: T-038
+Next free ID: T-039
 -->
