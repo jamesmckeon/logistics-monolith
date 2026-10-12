@@ -63,7 +63,6 @@ public static class InventoryExtensions
     public static IEndpointRouteBuilder MapInventory(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(InventoryRoute).WithTags("Inventory");
-        group.RequireAuthorization(ThroughlinePolicies.OwnerRole);
 
         group.MapGet("/orders/{orderId}", async (
             Guid orderId,

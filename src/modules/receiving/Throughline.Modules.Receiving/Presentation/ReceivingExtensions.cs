@@ -63,7 +63,6 @@ public static class ReceivingExtensions
     public static IEndpointRouteBuilder MapReceiving(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(ReceivingRoute).WithTags("Receiving");
-        group.RequireAuthorization(ThroughlinePolicies.OwnerRole);
 
         group.MapPost("/receipts", async Task<IResult> (
             ReceiveDeliveryCommand command,

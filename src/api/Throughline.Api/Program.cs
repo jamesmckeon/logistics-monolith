@@ -4,6 +4,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
+using Throughline.Api.Auth;
 using Throughline.Common.Events;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Presentation;
@@ -102,7 +103,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
 app.UseHttpsRedirection();

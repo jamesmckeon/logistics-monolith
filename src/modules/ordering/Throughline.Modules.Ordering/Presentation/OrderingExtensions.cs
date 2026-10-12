@@ -53,7 +53,6 @@ public static class OrderingExtensions
     public static IEndpointRouteBuilder MapOrdering(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup(OrdersRoute).WithTags("Ordering");
-        group.RequireAuthorization(ThroughlinePolicies.OwnerRole);
 
         group.MapPost("/", async (
             CreateOrderCommand command,
