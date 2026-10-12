@@ -32,9 +32,9 @@ owner cannot be inferred from who is calling; the request must name it.
 
    | Role | Held by | Permissions today |
    |---|---|---|
-   | `OrderIntakeIntegration` | Service accounts | Create order, Read order |
+   | `OrderIntakeIntegrator` | Service accounts | Create order, Read order |
    | `Receiving` | Operator accounts | Receive delivery |
-   | `OrderPlanning` | Operator accounts | Allocate orders, Read allocation |
+   | `Inventory` | Operator accounts | Allocate orders, Read allocation |
 
    Roles are not tied one-to-one to modules. As functionality is added, a role gains
    permissions, and a new role appears only when an endpoint needs one.
@@ -49,7 +49,7 @@ owner cannot be inferred from who is calling; the request must name it.
 
 5. **A caller's functional roles apply to every owner whose owner role it holds.** A
    functional role cannot be limited to one owner: an operator cannot be given Receiving for
-   one owner and Order planning for another.
+   one owner and Inventory for another.
 
 6. **Both checks are required on every endpoint.** Missing or invalid credentials → 401. A
    caller without a role granting the endpoint's permission, or without the owner role for
