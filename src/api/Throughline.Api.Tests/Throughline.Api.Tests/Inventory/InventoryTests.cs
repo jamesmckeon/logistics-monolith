@@ -526,5 +526,8 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     private static string AllocationRoute => $"{InventoryExtensions.InventoryRoute}/orders/allocate";
 
+    internal static string GetAllocatedOrderRoute(Guid orderId) =>
+        $"{InventoryExtensions.InventoryRoute}/orders/{orderId}";
+
     #endregion
 }

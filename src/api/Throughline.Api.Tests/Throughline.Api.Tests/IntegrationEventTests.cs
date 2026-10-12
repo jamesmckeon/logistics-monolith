@@ -2,13 +2,14 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
+using Throughline.Api.Tests.Inventory;
 using Throughline.Api.Tests.Ordering;
 using Throughline.Common.Models;
+using Throughline.Common.Presentation.Auth;
 using Throughline.Modules.Inventory.Application.Models;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
-using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Presentation;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
@@ -180,9 +181,13 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
     private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post, $"{ReceivingExtensions.ReceivingRoute}/receipts");
-        request.Headers.Add("owner_id", ownerId.ToString());
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"{ReceivingExtensions.ReceivingRoute}/receipts",
+            ownerId,
+            ThroughlineRoles.Receiving,
+            ThroughlineRoles.OwnerRole(ownerId));
+
         request.Content = JsonContent.Create(command);
 
         await _client.SendAsync(request);
@@ -211,9 +216,9 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
     private async Task<OrderAllocationModel?> GetInventoryOrder(Guid orderId, int ownerId)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, $"{InventoryExtensions.InventoryRoute}/orders/{orderId}");
-        request.Headers.Add("owner_id", ownerId.ToString());
+        using var request = CreateRequest(
+            HttpMethod.Get, InventoryTests.GetAllocatedOrderRoute(orderId), ownerId,
+            ThroughlineRoles.OwnerRole(ownerId), ThroughlineRoles.Inventory);
 
         using var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();
