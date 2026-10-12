@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 using Throughline.Api.Tests.Common.Logging;
@@ -8,9 +10,9 @@ using Throughline.Api.Tests.Common.Logging;
 namespace Throughline.Api.Tests.Common;
 
 /// <summary>
-///     Initializes postgres container and logging
+///     Initializes postgres container and logging, and applies the app settings it is given
 /// </summary>
-internal class TestFactory : WebApplicationFactory<Program>
+internal sealed class TestFactory : WebApplicationFactory<Program>
 
 {
     // Pulling the image (cold) and booting the container can take a while on a fresh
@@ -24,10 +26,29 @@ internal class TestFactory : WebApplicationFactory<Program>
         .WithName(Guid.NewGuid().ToString())
         .Build();
 
+    private readonly IReadOnlyDictionary<string, string> _appSettings;
+
+    public TestFactory(IReadOnlyDictionary<string, string> appSettings)
+    {
+        _appSettings = appSettings;
+    }
+
     public async Task InitializeAsync()
     {
         using var cts = new CancellationTokenSource(StartupTimeout);
         await _dbContainer.StartAsync(cts.Token);
+    }
+
+    /// <summary>
+    ///     Applies the migrations of one module's DbContext. Every module's context is registered in the
+    ///     host, so a test class migrates only the schemas it uses.
+    /// </summary>
+    public async Task MigrateAsync<TContext>()
+        where TContext : DbContext
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TContext>();
+        await dbContext.Database.MigrateAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -37,6 +58,11 @@ internal class TestFactory : WebApplicationFactory<Program>
         var connectionString =
             $"{_dbContainer.GetConnectionString()};Timeout={seconds};Command Timeout={seconds}";
         builder.UseSetting("ConnectionStrings:Throughline", connectionString);
+
+        foreach (var setting in _appSettings)
+        {
+            builder.UseSetting(setting.Key, setting.Value);
+        }
 
         // Requests run on the test's ExecutionContext, so NUnitLoggerProvider's TestContext.Progress
         // writes from request handling (e.g. GlobalExceptionHandler) are attributed to the test, not dropped.
@@ -48,12 +74,6 @@ internal class TestFactory : WebApplicationFactory<Program>
             logging.AddProvider(new NUnitLoggerProvider());
             logging.SetMinimumLevel(LogLevel.Information);
         });
-
-        OnWebHostConfiguring(builder);
-    }
-
-    protected virtual void OnWebHostConfiguring(IWebHostBuilder builder)
-    {
     }
 
     public new async Task DisposeAsync()

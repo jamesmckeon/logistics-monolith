@@ -1,13 +1,10 @@
 ﻿using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
-using Throughline.Api.Tests.Common.Auth;
 using Throughline.Common.Presentation.Auth;
-using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Application.Models;
 using Throughline.Modules.Ordering.Infrastructure.Orders;
@@ -18,15 +15,6 @@ namespace Throughline.Api.Tests.Ordering;
 [Category("Integration")]
 internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
 {
-    protected override IDictionary<string, string> AppSettings =>
-        new Dictionary<string, string>
-        {
-            ["Authentication:Schemes:Bearer:ValidIssuer"] = TestTokens.Issuer,
-            ["Authentication:Schemes:Bearer:ValidAudiences:0"] = TestTokens.Audience,
-            ["Authentication:Schemes:Bearer:SigningKeys:0:Issuer"] = TestTokens.Issuer,
-            ["Authentication:Schemes:Bearer:SigningKeys:0:Value"] = TestTokens.SigningKeyBase64
-        };
-
     [TearDown]
     public async Task TearDown()
     {
@@ -401,28 +389,6 @@ internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
         request.Content = JsonContent.Create(command);
 
         return await client.SendAsync(request);
-    }
-
-    /// <summary>
-    ///     Builds a request that names an owner and carries a signed token for a caller holding the given
-    ///     roles.
-    /// </summary>
-    /// <param name="method">The HTTP method.</param>
-    /// <param name="uri">The request URI, relative to the test host.</param>
-    /// <param name="ownerId">The owner the request acts for, sent in the <c>owner_id</c> header.</param>
-    /// <param name="roles">
-    ///     The caller's roles, written to the token.
-    /// </param>
-    /// <returns>The request. The caller disposes it and sets any content.</returns>
-    private static HttpRequestMessage CreateRequest(
-        HttpMethod method, string uri, int ownerId, params string[] roles)
-    {
-        var request = new HttpRequestMessage(method, uri);
-        request.Headers.Add(RequestContext.OwnerIdHeaderKey, ownerId.ToString());
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue("Bearer", TestTokens.Create(roles));
-
-        return request;
     }
 
     #endregion

@@ -13,6 +13,19 @@ internal static class TestTokens
     public static readonly string SigningKeyBase64 = Convert.ToBase64String(SigningKey);
 
     /// <summary>
+    ///     The app settings a test host needs to accept tokens from <see cref="Create" />: the issuer and
+    ///     audience it trusts, and the key that proves a token came from that issuer.
+    /// </summary>
+    public static IDictionary<string, string> HostSettings =>
+        new Dictionary<string, string>
+        {
+            ["Authentication:Schemes:Bearer:ValidIssuer"] = Issuer,
+            ["Authentication:Schemes:Bearer:ValidAudiences:0"] = Audience,
+            ["Authentication:Schemes:Bearer:SigningKeys:0:Issuer"] = Issuer,
+            ["Authentication:Schemes:Bearer:SigningKeys:0:Value"] = SigningKeyBase64
+        };
+
+    /// <summary>
     ///     Creates a signed access token for a test caller holding the given app roles. The token is
     ///     issued by <see cref="Issuer" /> for <see cref="Audience" />, signed with
     ///     <see cref="SigningKey" />, and expires after five minutes.
