@@ -182,6 +182,22 @@ internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
     #region Get
 
     [Test]
+    public async Task Get_NotInIntegratorRole_ReturnsForbidden()
+    {
+        var orderRecord = TestOrder(TestCommand());
+        await SeedAsync(db =>
+        {
+            db.Orders.Add(orderRecord);
+            return Task.CompletedTask;
+        });
+
+        var (statusCode, _) = await GetOrderAsync(
+            orderRecord.OrderId, orderRecord.OwnerId, [ThroughlineRoles.OwnerRole(orderRecord.OwnerId)]);
+
+        Assert.That(statusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
     public async Task Get_OrderExists_ReturnsOk()
     {
         var command = TestCommand();
@@ -245,15 +261,18 @@ internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
     private async Task<(HttpStatusCode StatusCode, OrderModel? Model)> GetOrderAsync(OrderRecord orderRecord) =>
         await GetOrderAsync(orderRecord.OrderId, orderRecord.OwnerId);
 
-    private async Task<(HttpStatusCode StatusCode, OrderModel? Model)> GetOrderAsync(Guid orderId, int ownerId)
+    private async Task<(HttpStatusCode StatusCode, OrderModel? Model)> GetOrderAsync(Guid orderId, int ownerId) =>
+        await GetOrderAsync(
+            orderId, ownerId, [ThroughlineRoles.OrderIntakeIntegrator, ThroughlineRoles.OwnerRole(ownerId)]);
+
+    private async Task<(HttpStatusCode StatusCode, OrderModel? Model)> GetOrderAsync(
+        Guid orderId, int ownerId, string[] roles)
     {
         using var request = CreateRequest(
             HttpMethod.Get,
             $"{OrderingExtensions.OrdersRoute}/{orderId}",
             ownerId,
-            ThroughlineRoles.OrderIntakeIntegrator,
-            ThroughlineRoles.OwnerRole(ownerId)
-        );
+            roles);
 
         var response = await _client.SendAsync(request);
 
@@ -364,18 +383,8 @@ internal class OrderingTests : IntegrationTestsBase<OrdersDbContext>
         await dbContext.Orders.ExecuteDeleteAsync();
     }
 
-    private async Task<HttpResponseMessage> PostOrderAsync(CreateOrderCommand command, int ownerId)
-    {
-        using var request = CreateRequest(
-            HttpMethod.Post,
-            OrderingExtensions.OrdersRoute,
-            ownerId,
-            ThroughlineRoles.OrderIntakeIntegrator,
-            ThroughlineRoles.OwnerRole(ownerId));
-        request.Content = JsonContent.Create(command);
-
-        return await _client.SendAsync(request);
-    }
+    private async Task<HttpResponseMessage> PostOrderAsync(CreateOrderCommand command, int ownerId) =>
+        await PostOrderAsync(_client, command, ownerId);
 
     internal static async Task<HttpResponseMessage> PostOrderAsync(
         HttpClient client, CreateOrderCommand command, int ownerId)

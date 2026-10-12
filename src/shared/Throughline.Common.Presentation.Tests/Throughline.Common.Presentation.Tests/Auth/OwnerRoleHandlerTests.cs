@@ -79,4 +79,25 @@ internal sealed class OwnerRoleHandlerTests
 
         Assert.That(context.HasSucceeded, Is.True);
     }
+
+    [TestCase("1")]
+    [TestCase("2")]
+    public async Task HandleRequirementAsync_SeveralOwnerRoles_SucceedsForEachOwner(string ownerId)
+    {
+        var identity = new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.Role, ThroughlineRoles.OwnerRole(1)),
+                new Claim(ClaimTypes.Role, ThroughlineRoles.OwnerRole(2))
+            ],
+            "TestAuthType");
+        var user = new ClaimsPrincipal(identity);
+        var context = new AuthorizationHandlerContext([new OwnerRoleRequirement()], user, null);
+
+        Context.Setup(s => s.GetHeaderValue(RequestContext.OwnerIdHeaderKey))
+            .Returns(ownerId);
+
+        await Sut.HandleAsync(context);
+
+        Assert.That(context.HasSucceeded, Is.True);
+    }
 }

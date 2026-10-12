@@ -174,10 +174,6 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
     #region Helpers
 
-    private static ReceiveDeliveryCommand ReceiveDeliveryCommand(params SubmittedPallet[] pallets) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "TestReference", "TestBol", "SCAC",
-            "TestTrailer", "TestContainer", "TestShipper", pallets);
-
     private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
     {
