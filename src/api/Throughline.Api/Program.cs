@@ -5,6 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
 using Throughline.Api.Auth;
+using Throughline.Api.Health;
 using Throughline.Common.Events;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Presentation;
@@ -56,6 +57,8 @@ if (string.IsNullOrWhiteSpace(cs))
         "Connection string 'Throughline' is missing or empty. " +
         "Set ConnectionStrings:Throughline in configuration.");
 }
+
+builder.Services.AddThroughlineHealthChecks(cs);
 
 builder.Host.UseWolverine(opts =>
 {
@@ -112,5 +115,6 @@ app.UseExceptionHandler();
 app.MapOrdering();
 app.MapInventory();
 app.MapReceiving();
+app.MapThroughlineHealthChecks();
 
 app.Run();
