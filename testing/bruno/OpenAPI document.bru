@@ -1,0 +1,15 @@
+meta {
+  name: OpenAPI document
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/openapi/v1.json
+  body: none
+  auth: none
+}
+
+docs {
+  Mapped in the Development environment only; returns `401` elsewhere.
+}

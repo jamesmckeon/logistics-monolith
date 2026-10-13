@@ -1,0 +1,15 @@
+meta {
+  name: Readiness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+docs {
+  Returns `200 Healthy` when the API can reach Postgres, `503 Unhealthy` when it cannot.
+}
