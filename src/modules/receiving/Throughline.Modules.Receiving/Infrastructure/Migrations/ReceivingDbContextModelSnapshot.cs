@@ -140,10 +140,6 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
 
             modelBuilder.Entity("Throughline.Modules.Receiving.Domain.Inventory.HoldReason", b =>
                 {
-                    b.Property<int>("owner_id")
-                        .HasColumnType("integer")
-                        .HasColumnName("owner_id");
-
                     b.Property<string>("ReasonCode")
                         .HasColumnType("text")
                         .HasColumnName("reason_code");
@@ -152,7 +148,7 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.HasKey("owner_id", "ReasonCode")
+                    b.HasKey("ReasonCode")
                         .HasName("pk_hold_reasons");
 
                     b.ToTable("hold_reasons", "receiving");
@@ -257,10 +253,6 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("hold_reason_code");
 
-                    b.Property<int?>("hold_reason_owner_id")
-                        .HasColumnType("integer")
-                        .HasColumnName("hold_reason_owner_id");
-
                     b.Property<string>("location_id")
                         .IsRequired()
                         .HasColumnType("text")
@@ -298,11 +290,11 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
                     b.HasIndex("delivery_receipt_id")
                         .HasDatabaseName("ix_received_pallets_delivery_receipt_id");
 
+                    b.HasIndex("hold_reason_code")
+                        .HasDatabaseName("ix_received_pallets_hold_reason_code");
+
                     b.HasIndex("location_id")
                         .HasDatabaseName("ix_received_pallets_location_id");
-
-                    b.HasIndex("hold_reason_owner_id", "hold_reason_code")
-                        .HasDatabaseName("ix_received_pallets_hold_reason_owner_id_hold_reason_code");
 
                     b.ToTable("received_pallets", "receiving", t =>
                         {
@@ -528,18 +520,18 @@ namespace Throughline.Modules.Receiving.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_received_pallets_delivery_receipts_delivery_receipt_id");
 
+                    b.HasOne("Throughline.Modules.Receiving.Domain.Inventory.HoldReason", "HoldReason")
+                        .WithMany()
+                        .HasForeignKey("hold_reason_code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_received_pallets_hold_reasons_hold_reason");
+
                     b.HasOne("Throughline.Modules.Receiving.Domain.Locations.ReceivingLocation", "Location")
                         .WithMany()
                         .HasForeignKey("location_id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_received_pallets_receiving_locations_location_id");
-
-                    b.HasOne("Throughline.Modules.Receiving.Domain.Inventory.HoldReason", "HoldReason")
-                        .WithMany()
-                        .HasForeignKey("hold_reason_owner_id", "hold_reason_code")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_received_pallets_hold_reasons_hold_reason");
 
                     b.Navigation("HoldReason");
 

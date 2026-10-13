@@ -96,6 +96,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Timeout budgets / deadline propagation `[backlogged: T-012]`
 - Backpressure & flow control
 - Load shedding
+- Load testing (NBomber): load profiles, workload models, reading results against targets `[backlogged: T-038]`
 - SLIs / SLOs / error budgets `[backlogged: T-013]`
 
 ### DATA — Data & Storage

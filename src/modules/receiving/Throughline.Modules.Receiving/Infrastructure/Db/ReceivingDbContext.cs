@@ -58,7 +58,7 @@ internal sealed class ReceivingDbContext :
     public async Task<IReadOnlyCollection<ReceivingLocation>> GetReceivingLocationsAsync(CancellationToken token) =>
         (await Locations.ToListAsync(token)).AsReadOnly();
 
-    public async Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(int ownerId, CancellationToken token) =>
+    public async Task<IReadOnlyCollection<HoldReason>> GetHoldReasonsAsync(CancellationToken token) =>
         (await HoldReasons.ToListAsync(token)).AsReadOnly();
 
     // One atomic statement: creates the owner's counter at 1 on first use, otherwise increments it, and returns the

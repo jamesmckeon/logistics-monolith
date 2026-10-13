@@ -39,9 +39,9 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
             .ToList();
         await dbContext.Skus.AddRangeAsync(TestSkus);
 
-        PartialAllocationOwner = new Owner(1, AllocationPolicies.Partial);
+        PartialAllocationOwner = new Owner(1, "Partial Allocation Owner", AllocationPolicies.Partial);
         dbContext.Owners.Add(PartialAllocationOwner);
-        ShipCompleteOwner = new Owner(2, AllocationPolicies.ShipComplete);
+        ShipCompleteOwner = new Owner(2, "Ship Complete Owner", AllocationPolicies.ShipComplete);
         dbContext.Owners.Add(ShipCompleteOwner);
 
         await dbContext.SaveChangesAsync();

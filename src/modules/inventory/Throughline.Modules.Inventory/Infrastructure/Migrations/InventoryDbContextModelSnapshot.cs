@@ -111,6 +111,12 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("allocation_policy");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
                     b.HasKey("Id")
                         .HasName("pk_owners");
 

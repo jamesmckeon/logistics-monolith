@@ -39,10 +39,9 @@ internal sealed class PalletConfiguration : IEntityTypeConfiguration<Pallet>
             .HasConstraintName("fk_received_pallets_receiving_locations_location_id")
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Hold reasons are keyed by owner + code, so the foreign key is too.
         builder.HasOne(p => p.HoldReason)
             .WithMany()
-            .HasForeignKey("hold_reason_owner_id", "hold_reason_code")
+            .HasForeignKey("hold_reason_code")
             .IsRequired(false)
             .HasConstraintName("fk_received_pallets_hold_reasons_hold_reason")
             .OnDelete(DeleteBehavior.Restrict);

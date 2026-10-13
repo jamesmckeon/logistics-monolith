@@ -14,6 +14,8 @@ internal sealed class OwnerConfiguration : IEntityTypeConfiguration<Owner>
         builder.HasKey(k => k.Id);
         builder.Property(p => p.Id).ValueGeneratedNever();
 
+        builder.Property(p => p.Name).HasColumnName("name").HasMaxLength(100);
+
         builder.Property(p => p.AllocationPolicy)
             .HasColumnName("allocation_policy")
             .HasConversion<string>();
