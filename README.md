@@ -42,6 +42,70 @@ is green.
 **Next up:** receiving exceptions, holds and returns; inbound stock-transfer advice (EDI
 943); and quote validity windows.
 
+## Running locally
+
+Needs the .NET 10 SDK, Docker, and the EF Core tools (`dotnet tool install --global dotnet-ef`).
+
+**1. Start Postgres**
+
+```bash
+docker compose up -d
+```
+
+This also starts the Aspire dashboard at <http://localhost:18888>, where the API's traces and
+logs show up.
+
+**2. Create the schemas.** Each module owns its own schema and migrations, so there is one
+command per module:
+
+```bash
+dotnet ef database update --project src/modules/ordering/Throughline.Modules.Ordering --startup-project src/api/Throughline.Api --context OrdersDbContext
+dotnet ef database update --project src/modules/inventory/Throughline.Modules.Inventory --startup-project src/api/Throughline.Api --context InventoryDbContext
+dotnet ef database update --project src/modules/receiving/Throughline.Modules.Receiving --startup-project src/api/Throughline.Api --context ReceivingDbContext
+```
+
+**3. Load the reference data:** three client-owners with their SKUs, plus locations, carriers
+and hold reasons. The scripts are safe to re-run.
+
+```bash
+for f in db/seed/0*.sql; do docker exec -i throughline-pg psql -U postgres -d throughline -v ON_ERROR_STOP=1 < "$f"; done
+```
+
+**4. Run the API**
+
+```bash
+dotnet run --project src/api/Throughline.Api --launch-profile http
+```
+
+It listens on <http://localhost:5026>. `/health`, `/alive` and `/openapi/v1.json` answer
+without a token.
+
+**5. Create a token.** Every other endpoint needs a bearer token and an `owner_id` header. The
+token must hold the role for the endpoint (`OrderIntakeIntegrator`, `Inventory` or `Receiving`)
+and `Owner.{id}` for the owner named in the header:
+
+```bash
+dotnet user-jwts create --project src/api/Throughline.Api --role OrderIntakeIntegrator --role Owner.1
+```
+
+The signing key is stored in your user profile, not in the repo, so each clone creates its own
+tokens. The role model is described in
+[ADR-0003](docs/decisions/ADR-0003-authorization-functional-and-owner-roles.md).
+
+**6. Send requests.** [testing/bruno](testing/bruno) is a [Bruno](https://www.usebruno.com)
+collection with a request for every endpoint. Open that folder as a collection, select the
+`Local` environment, and paste the token into its `authToken` secret. The collection sends the
+token and the `owner_id` header on every request.
+
+### Tests
+
+```bash
+dotnet test
+```
+
+The integration tests start their own Postgres through Testcontainers, so Docker has to be
+running. `dotnet test --filter "Category=Unit"` runs the unit tests alone.
+
 # Modelling
 
 I'm not a purist. If an approach or framework isn't immediately appropriate for a scenario, I most likely will find one that's better suited. Consistency is crucial for making code navigable *within* a bounded context, but forcing one pattern across every context can make the code less readable and understandable.
