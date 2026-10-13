@@ -1,0 +1,19 @@
+meta {
+  name: Allocate orders
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/inventory/orders/allocate
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "orderIds": [
+      "{{orderId}}"
+    ]
+  }
+}

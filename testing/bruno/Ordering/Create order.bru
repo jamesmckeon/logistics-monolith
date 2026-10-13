@@ -1,0 +1,31 @@
+meta {
+  name: Create order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/orders
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "purchaseOrderNumber": "PO-{{$timestamp}}",
+    "referenceNumber": "REF-{{$timestamp}}",
+    "streetAddressOne": "100 Example Street",
+    "streetAddressTwo": null,
+    "city": "Portland",
+    "state": "OR",
+    "postalCode": "97211",
+    "items": [
+      { "sku": "HFO-JKT-ALPINE-BLK-M", "quantity": 2 },
+      { "sku": "HFO-SOCK-MERINO-GRY-L", "quantity": 6 }
+    ]
+  }
+}
+
+vars:post-response {
+  orderId: res.body.orderId
+}

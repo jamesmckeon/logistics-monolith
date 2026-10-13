@@ -1,0 +1,15 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/alive
+  body: none
+  auth: none
+}
+
+docs {
+  Returns `200 Healthy` whenever the process is answering HTTP. Runs no dependency checks.
+}
