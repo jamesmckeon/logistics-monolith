@@ -15,5 +15,9 @@ internal sealed class OrderLineRecordConfiguration : IEntityTypeConfiguration<Or
 
         builder.Property(l => l.SkuCode)
             .HasMaxLength(50);
+
+        builder.Property(l => l.CreatedDate)
+            .HasDefaultValueSql("now()")
+            .ValueGeneratedOnAdd();
     }
 }

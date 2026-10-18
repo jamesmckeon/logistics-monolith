@@ -38,6 +38,10 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
         builder.Property(o => o.Zipcode)
             .HasMaxLength(10);
 
+        builder.Property(o => o.CreatedDate)
+            .HasDefaultValueSql("now()")
+            .ValueGeneratedOnAdd();
+
         builder.HasMany(o => o.OrderLines)
             .WithOne()
             .HasForeignKey(l => l.OrderId);

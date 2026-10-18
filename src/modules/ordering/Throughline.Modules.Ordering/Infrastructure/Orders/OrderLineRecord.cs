@@ -6,4 +6,7 @@ internal sealed class OrderLineRecord
     public Guid OrderId { get; set; } // FK back to OrderRecord
     public string SkuCode { get; set; } = null!;
     public int Quantity { get; set; }
+
+    // When the row was inserted; set by the database, never by the application
+    public DateTimeOffset CreatedDate { get; set; }
 }
