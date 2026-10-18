@@ -62,15 +62,10 @@ public sealed class SizeProfile
 }
 
 /// <summary>
-///     The customer's item master, built the same way as <c>db/seed/05_skus.sql</c>: the named
-///     SKUs first, then <c>{GeneratedSkuPrefix}000001</c> through <c>{GeneratedSkuCount}</c>
+///     How the customer's order lines spread across its SKUs, which are read from Throughline
 /// </summary>
 public sealed class CatalogProfile
 {
-    public string[] NamedSkus { get; set; } = [];
-    public string GeneratedSkuPrefix { get; set; } = "";
-    public int GeneratedSkuCount { get; set; }
-
     /// <summary>
     ///     Share of the catalog, most popular first, that receives <see cref="HotLineShare" /> of
     ///     order lines

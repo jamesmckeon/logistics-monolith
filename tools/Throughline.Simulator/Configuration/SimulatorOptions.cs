@@ -27,6 +27,11 @@ public sealed class SimulatorOptions
     public string ApiScope { get; set; } = "";
 
     /// <summary>
+    ///     Throughline's database, signed in as a role that can only read <c>inventory.skus</c>
+    /// </summary>
+    public string CatalogConnectionString { get; set; } = "";
+
+    /// <summary>
     ///     Customer profiles keyed by a short name, e.g. <c>HarrowFinch</c>
     /// </summary>
     public Dictionary<string, CustomerProfile> Customers { get; set; } = new();

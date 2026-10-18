@@ -7,24 +7,19 @@ namespace Throughline.Simulator.Tests.Orders;
 public sealed class SkuCatalogTests
 {
     [Test]
-    public void From_NamedAndGeneratedSkus_NamedFirstThenGeneratedInOrder()
+    public void From_SkusAndProfile_KeepsSkusInPopularityOrder()
     {
-        var profile = new CatalogProfile
-        {
-            NamedSkus = ["HFO-JKT-ALPINE-BLK-M", "HFO-SOCK-MERINO-GRY-L"],
-            GeneratedSkuPrefix = "HFO-",
-            GeneratedSkuCount = 6000
-        };
+        var skus = Skus(50);
 
-        var actual = SkuCatalog.From(profile);
+        var actual = SkuCatalog.From(skus, new CatalogProfile { HotSkuShare = 0.2, HotLineShare = 0.8 });
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(actual.Count, Is.EqualTo(6002));
-            Assert.That(actual.Skus[0], Is.EqualTo("HFO-JKT-ALPINE-BLK-M"));
-            Assert.That(actual.Skus[2], Is.EqualTo("HFO-000001"));
-            Assert.That(actual.Skus[^1], Is.EqualTo("HFO-006000"));
-        });
+        Assert.That(actual.Skus, Is.EqualTo(skus));
+    }
+
+    [Test]
+    public void Constructor_NoSkus_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => _ = new SkuCatalog([], 0.2, 0.8));
     }
 
     [Test]

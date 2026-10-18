@@ -12,6 +12,9 @@ namespace Throughline.Simulator.Oms;
 /// </summary>
 internal sealed class OmsWorker : BackgroundService
 {
+    private static readonly TimeSpan CatalogRefreshInterval = TimeSpan.FromDays(1);
+
+    private readonly ISkuCatalogSource _catalogSource;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<OmsWorker> _logger;
     private readonly SimulatorMetrics _metrics;
@@ -20,12 +23,14 @@ internal sealed class OmsWorker : BackgroundService
 
     public OmsWorker(
         IOptions<SimulatorOptions> options,
+        ISkuCatalogSource catalogSource,
         IHttpClientFactory httpClientFactory,
         SimulatorMetrics metrics,
         TimeProvider time,
         ILogger<OmsWorker> logger)
     {
         _options = options.Value;
+        _catalogSource = catalogSource;
         _httpClientFactory = httpClientFactory;
         _metrics = metrics;
         _time = time;
@@ -47,16 +52,19 @@ internal sealed class OmsWorker : BackgroundService
 
     private async Task RunCustomerAsync(string customer, CustomerProfile profile, CancellationToken stoppingToken)
     {
-        var random = new Random();
-        var schedule = ArrivalSchedule.From(profile);
-        var generator = new OrderGenerator(profile, SkuCatalog.From(profile.Catalog), random, _time);
-        var client = new OmsClient(_httpClientFactory.CreateClient(OmsHttpClients.NameFor(customer)));
-
         using var _ = _logger.BeginScope(new Dictionary<string, object>
         {
             ["Customer"] = customer,
             ["OwnerId"] = profile.OwnerId
         });
+
+        // a catalog that can't be loaded at startup stops the simulator; there's nothing to order
+        var random = new Random();
+        var schedule = ArrivalSchedule.From(profile);
+        var generator = new OrderGenerator(
+            profile, await LoadCatalogAsync(customer, profile, stoppingToken), random, _time);
+        var catalogLoadedAt = _time.GetUtcNow();
+        var client = new OmsClient(_httpClientFactory.CreateClient(OmsHttpClients.NameFor(customer)));
 
         _logger.LogInformation(
             "OMS for {Customer} started: {OrdersPerDay} orders on an average day, {TimeZone}",
@@ -76,7 +84,44 @@ internal sealed class OmsWorker : BackgroundService
                 break;
             }
 
+            if (_time.GetUtcNow() - catalogLoadedAt >= CatalogRefreshInterval)
+            {
+                catalogLoadedAt = _time.GetUtcNow();
+                await RefreshCatalogAsync(customer, profile, generator, stoppingToken);
+            }
+
             await SendAsync(customer, profile.OwnerId, generator, client, stoppingToken);
+        }
+    }
+
+    private async Task<SkuCatalog> LoadCatalogAsync(
+        string customer, CustomerProfile profile, CancellationToken cancellationToken)
+    {
+        var skus = await _catalogSource.GetSkusAsync(profile.OwnerId, cancellationToken);
+
+        // an order can't repeat a SKU, so a typical large order needs at least this many
+        if (skus.Count < profile.LinesPerOrder.P95)
+            throw new InvalidOperationException(
+                $"Throughline has {skus.Count} SKUs for owner {profile.OwnerId} ({customer}); " +
+                $"the simulator needs at least {profile.LinesPerOrder.P95}");
+
+        _logger.LogInformation("Loaded {SkuCount} SKUs for {Customer} from Throughline", skus.Count, customer);
+
+        return SkuCatalog.From(skus, profile.Catalog);
+    }
+
+    private async Task RefreshCatalogAsync(
+        string customer, CustomerProfile profile, OrderGenerator generator, CancellationToken cancellationToken)
+    {
+        try
+        {
+            generator.UseCatalog(await LoadCatalogAsync(customer, profile, cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // keep ordering from yesterday's catalog rather than stopping
+            _logger.LogWarning(ex, "Couldn't reload the SKUs for {Customer}; keeping the ones already loaded",
+                customer);
         }
     }
 

@@ -28,6 +28,9 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         if (string.IsNullOrWhiteSpace(options.ApiScope))
             failures.Add("Simulator:ApiScope is required");
 
+        if (string.IsNullOrWhiteSpace(options.CatalogConnectionString))
+            failures.Add("Simulator:CatalogConnectionString is required");
+
         var enabledCustomers = options.Customers.Where(c => c.Value.Enabled).ToList();
 
         if (enabledCustomers.Count == 0)
@@ -61,7 +64,7 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         if (profile.LinesPerOrder.P95 > MaxLinesPerOrder)
             failures.Add($"{path}:LinesPerOrder:P95 must be at most {MaxLinesPerOrder}");
 
-        ValidateCatalog($"{path}:Catalog", profile.Catalog, profile.LinesPerOrder, failures);
+        ValidateCatalog($"{path}:Catalog", profile.Catalog, failures);
         ValidateFaults($"{path}:Faults", profile.Faults, failures);
 
         if (profile.Retry.MaxRetryAttempts is < 1 or > 10)
@@ -97,20 +100,8 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
             failures.Add($"{path}:P95 must not be less than P50");
     }
 
-    private static void ValidateCatalog(string path, CatalogProfile catalog, SizeProfile lines, List<string> failures)
+    private static void ValidateCatalog(string path, CatalogProfile catalog, List<string> failures)
     {
-        if (catalog.GeneratedSkuCount < 0)
-            failures.Add($"{path}:GeneratedSkuCount must not be negative");
-
-        if (catalog.GeneratedSkuCount > 0 && string.IsNullOrWhiteSpace(catalog.GeneratedSkuPrefix))
-            failures.Add($"{path}:GeneratedSkuPrefix is required when GeneratedSkuCount is greater than 0");
-
-        var size = catalog.NamedSkus.Length + Math.Max(catalog.GeneratedSkuCount, 0);
-
-        // an order can't repeat a SKU, so the catalog must hold at least the largest order
-        if (size < Math.Min(lines.P95 * 2, MaxLinesPerOrder))
-            failures.Add($"{path} must hold at least {Math.Min(lines.P95 * 2, MaxLinesPerOrder)} SKUs");
-
         if (catalog.HotSkuShare is <= 0 or > 1)
             failures.Add($"{path}:HotSkuShare must be greater than 0 and at most 1");
 

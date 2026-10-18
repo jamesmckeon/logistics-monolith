@@ -10,12 +10,11 @@ public sealed class OrderGeneratorTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 19, 15, 0, 0, TimeSpan.Zero);
 
-    private static readonly SkuCatalog Catalog = SkuCatalog.From(new CatalogProfile
-    {
-        NamedSkus = ["HFO-JKT-ALPINE-BLK-M", "HFO-SOCK-MERINO-GRY-L"],
-        GeneratedSkuPrefix = "HFO-",
-        GeneratedSkuCount = 200
-    });
+    private static readonly SkuCatalog Catalog = new(
+        Enumerable.Range(1, 200).Select(n => $"HFO-{n:D6}").ToList(), 0.2, 0.8);
+
+    private static readonly SkuCatalog OtherCatalog = new(
+        Enumerable.Range(1, 50).Select(n => $"HFO-NEW-{n:D3}").ToList(), 0.2, 0.8);
 
     private Mock<TimeProvider> _time = null!;
 
@@ -173,6 +172,17 @@ public sealed class OrderGeneratorTests
     }
 
     #endregion
+
+    [Test]
+    public void UseCatalog_ReloadedCatalog_NewOrdersUseIt()
+    {
+        GivenNow();
+        var sut = CreateSut(new FaultRates());
+
+        sut.UseCatalog(OtherCatalog);
+
+        Assert.That(sut.Next().Request.Items.Select(i => i.Sku), Is.SubsetOf(OtherCatalog.Skus));
+    }
 
     private void GivenNow()
     {

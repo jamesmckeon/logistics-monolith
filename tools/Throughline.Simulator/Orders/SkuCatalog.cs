@@ -30,15 +30,11 @@ internal sealed class SkuCatalog
 
     public IReadOnlyList<string> Skus => _skus;
 
-    public static SkuCatalog From(CatalogProfile profile)
+    public static SkuCatalog From(IReadOnlyList<string> skusByPopularity, CatalogProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        var generated = Enumerable.Range(1, profile.GeneratedSkuCount)
-            .Select(n => $"{profile.GeneratedSkuPrefix}{n:D6}");
-
-        return new SkuCatalog(
-            profile.NamedSkus.Concat(generated).ToList(), profile.HotSkuShare, profile.HotLineShare);
+        return new SkuCatalog(skusByPopularity, profile.HotSkuShare, profile.HotLineShare);
     }
 
     public bool Contains(string sku) => _skuSet.Contains(sku);

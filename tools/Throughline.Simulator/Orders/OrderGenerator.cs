@@ -11,7 +11,6 @@ internal sealed class OrderGenerator
     private const int RecentCapacity = 200;
     private const int MaxQuantity = 999;
 
-    private readonly SkuCatalog _catalog;
     private readonly FaultRates _faults;
 
     // distinguishes this process's reference numbers from a previous run's
@@ -22,6 +21,7 @@ internal sealed class OrderGenerator
     private readonly Random _random;
     private readonly List<OrderRequest> _recentlyAccepted = [];
     private readonly TimeProvider _time;
+    private SkuCatalog _catalog;
     private long _sequence;
 
     public OrderGenerator(CustomerProfile profile, SkuCatalog catalog, Random random, TimeProvider time)
@@ -54,6 +54,16 @@ internal sealed class OrderGenerator
             OrderKind.InvalidQuantity => new GeneratedOrder(kind, WithInvalidQuantity(NewOrder())),
             _ => new GeneratedOrder(OrderKind.New, NewOrder())
         };
+    }
+
+    /// <summary>
+    ///     Switches to a reloaded catalog; orders already accepted stay available for resending
+    /// </summary>
+    public void UseCatalog(SkuCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        _catalog = catalog;
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Throughline.Simulator.Configuration;
 using Throughline.Simulator.Oms;
+using Throughline.Simulator.Orders;
 using Throughline.Simulator.Telemetry;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -17,6 +18,7 @@ builder.Services.AddSingleton<IValidateOptions<SimulatorOptions>, SimulatorOptio
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<SimulatorMetrics>();
+builder.Services.AddSingleton<ISkuCatalogSource, PostgresSkuCatalogSource>();
 
 // registered even when no customer client is, so a bad configuration reaches ValidateOnStart's
 // message instead of failing to build the worker

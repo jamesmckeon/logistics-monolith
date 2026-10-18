@@ -82,6 +82,17 @@ public sealed class SimulatorOptionsValidatorTests
             .And.Some.Contains("ThroughlineBaseUrl must be an absolute URL"));
     }
 
+    [Test]
+    public void Validate_NoCatalogConnectionString_FailsNamingIt()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.CatalogConnectionString = "";
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("CatalogConnectionString is required"));
+    }
+
     #endregion
 
     private static SimulatorOptions ValidOptions(CustomerProfile profile) => new()
@@ -89,6 +100,7 @@ public sealed class SimulatorOptionsValidatorTests
         ThroughlineBaseUrl = new Uri("https://throughline.example.com"),
         TenantId = "tenant",
         ApiScope = "api://throughline/.default",
+        CatalogConnectionString = "Host=localhost;Database=throughline",
         Customers = new Dictionary<string, CustomerProfile> { ["HarrowFinch"] = profile }
     };
 
@@ -102,7 +114,6 @@ public sealed class SimulatorOptionsValidatorTests
         WeekdayWeights = Enumerable.Repeat(1.0, 7).ToArray(),
         LinesPerOrder = new SizeProfile { P50 = 2, P95 = 6 },
         QuantityPerLine = new SizeProfile { P50 = 1, P95 = 4 },
-        Catalog = new CatalogProfile { GeneratedSkuPrefix = "HFO-", GeneratedSkuCount = 100 },
         Faults = new FaultRates { IdenticalResend = 0.02 },
         OmsClientId = "client",
         OmsClientSecret = "secret"
