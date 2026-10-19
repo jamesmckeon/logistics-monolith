@@ -15,4 +15,7 @@ internal sealed class OrderRecord
     public string Zipcode { get; set; } = null!;
 
     public List<OrderLineRecord> OrderLines { get; set; } = [];
+
+    // When the row was inserted; set by the database, never by the application
+    public DateTimeOffset CreatedDate { get; set; }
 }

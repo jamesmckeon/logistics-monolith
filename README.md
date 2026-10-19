@@ -80,22 +80,19 @@ dotnet run --project src/api/Throughline.Api --launch-profile http
 It listens on <http://localhost:5026>. `/health`, `/alive` and `/openapi/v1.json` answer
 without a token.
 
-**5. Create a token.** Every other endpoint needs a bearer token and an `owner_id` header. The
-token must hold the role for the endpoint (`OrderIntakeIntegrator`, `Inventory` or `Receiving`)
-and `Owner.{id}` for the owner named in the header:
-
-```bash
-dotnet user-jwts create --project src/api/Throughline.Api --role OrderIntakeIntegrator --role Owner.1
-```
-
-The signing key is stored in your user profile, not in the repo, so each clone creates its own
-tokens. The role model is described in
-[ADR-0003](docs/decisions/ADR-0003-authorization-functional-and-owner-roles.md).
+**5. Get access.** Every other endpoint needs an Entra ID access token and an `owner_id`
+header, locally and in Azure alike. The token must hold the role for the endpoint
+(`OrderIntakeIntegrator`, `Inventory` or `Receiving`) and `Owner.{id}` for the owner named in
+the header. Tokens come from the `throughline-api` app registration's app roles, as described in
+[ADR-0003](docs/decisions/ADR-0003-authorization-functional-and-owner-roles.md). Callers are app
+registrations (for example `oms-harrow-finch`, which holds `OrderIntakeIntegrator` and `Owner.1`)
+and sign in with the client credentials flow. You need a client secret for one of them.
 
 **6. Send requests.** [testing/bruno](testing/bruno) is a [Bruno](https://www.usebruno.com)
 collection with a request for every endpoint. Open that folder as a collection, select the
-`Local` environment, and paste the token into its `authToken` secret. The collection sends the
-token and the `owner_id` header on every request.
+`Local` environment, and set its `omsClientSecret` secret. Bruno fetches a token from Entra as
+that client and sends it, with the `owner_id` header, on every request. Requests that need a role
+the client doesn't hold, such as the Inventory and Receiving ones for an OMS client, return 403.
 
 ### Tests
 

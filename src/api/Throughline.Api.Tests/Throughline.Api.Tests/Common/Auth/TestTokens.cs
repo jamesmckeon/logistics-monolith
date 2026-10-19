@@ -19,6 +19,9 @@ internal static class TestTokens
     public static IDictionary<string, string> HostSettings =>
         new Dictionary<string, string>
         {
+            // appsettings.Development.json points at Entra; without an authority the host validates
+            // with the key below instead of fetching Entra's signing keys
+            ["Authentication:Schemes:Bearer:Authority"] = "",
             ["Authentication:Schemes:Bearer:ValidIssuer"] = Issuer,
             ["Authentication:Schemes:Bearer:ValidAudiences:0"] = Audience,
             ["Authentication:Schemes:Bearer:SigningKeys:0:Issuer"] = Issuer,
