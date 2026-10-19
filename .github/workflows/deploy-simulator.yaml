@@ -1,0 +1,94 @@
+name: Deploy simulator
+
+# The simulator deploys on its own, never through Throughline's pipeline
+# (docs/design/simulator.md, decision 1): only changes to the simulator, its tests,
+# the shared package versions or this workflow trigger it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/Throughline.Simulator/**"
+      - "tools/Throughline.Simulator.Tests/**"
+      - "Directory.Packages.props"
+      - ".github/workflows/deploy-simulator.yaml"
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one halfway through
+concurrency:
+  group: deploy-simulator
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  REGISTRY: crthroughline.azurecr.io
+  IMAGE: throughline-simulator
+  CONTAINER_APP: ca-throughline-simulator
+  RESOURCE_GROUP: rg-throughline
+
+jobs:
+  test:
+    name: Simulator tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Unit and integration tests; the integration tests start Postgres in Docker
+      - name: Test
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: dotnet test tools/Throughline.Simulator.Tests --configuration Release
+
+  deploy:
+    name: Publish and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Signs in as gh-throughline-simulator-deploy, which can push to the registry and
+      # update ca-throughline-simulator, and nothing else
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_SIMULATOR_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to the registry
+        run: az acr login --name "${REGISTRY%%.*}"
+
+      # Tagged with the commit, so every revision maps to exactly one commit
+      - name: Publish the image
+        run: >-
+          dotnet publish tools/Throughline.Simulator
+          --configuration Release --os linux --arch x64
+          /t:PublishContainer
+          -p:ContainerRegistry=$REGISTRY
+          -p:ContainerImageTag=${{ github.sha }}
+
+      # Changes only the image; secrets, environment variables, identity and scale stay as
+      # configured on the container app
+      - name: Deploy a new revision
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$REGISTRY/$IMAGE:${{ github.sha }}"
