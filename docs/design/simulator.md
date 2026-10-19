@@ -200,6 +200,10 @@ Built on `feat/simulator-receiving-allocation`. Both are off until configured: `
    GRANT throughline_simulator_ledger TO throughlineadmin;
    CREATE DATABASE simulator OWNER throughline_simulator_ledger;
    ```
+   Then, still as `throughlineadmin` but connected to the new **`simulator`** database (Azure doesn't let a new database's owner create tables in `public` until granted):
+   ```sql
+   GRANT USAGE, CREATE ON SCHEMA public TO throughline_simulator_ledger;
+   ```
 2. **Settings** (user secrets locally; environment variables, with `__` for `:`, and Container Apps secrets in Azure):
 
    | Key | Value |
