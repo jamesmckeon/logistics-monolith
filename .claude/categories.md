@@ -26,6 +26,7 @@ so `add` requests can be matched against existing concepts.
 | **OBS** | Observability & Operability | Tracing, metrics, logging, SLIs/SLOs, operability. |
 | **SEC** | Security & Identity | Authentication, authorization/RBAC, tenant isolation, secrets, and trust boundaries between shippers/carriers/3PLs. |
 | **STAFF** | Staff/Principal Craft | Design docs/RFCs/ADRs, trade-off analysis, system-design communication, mentoring. |
+| **CLOUD** | Cloud Platform & Delivery | Azure hosting, ingress, managed platform services, CI/CD and deployment. |
 
 An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + DATA).
 
@@ -53,8 +54,9 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Event Sourcing
 - CQRS (command/query separation, read models) `[backlogged: T-007]`
 - Change Data Capture (CDC)
-- Dead-letter queues & poison-message handling
-- Message ordering & partitioning
+- Dead-letter queues & poison-message handling `[backlogged: T-042]`
+- Message ordering & partitioning `[backlogged: T-043]`
+- Message broker selection (queue vs push events vs stream) `[backlogged: T-046]`
 - Schema/contract evolution & versioning of events `[backlogged: T-009]`
 
 ### DIST — Distributed Systems
@@ -76,7 +78,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Multi-tenancy
 - Read models / materialized views
 - Rate limiting & throttling design
-- Caching strategy (cache-aside, write-through, invalidation)
+- Caching strategy (cache-aside, write-through, invalidation) `[backlogged: T-040]`
 - Feature flags / progressive delivery
 - Capacity planning & back-of-envelope estimation
 - Strangler-fig migration of a legacy monolith
@@ -107,6 +109,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Index design for specific queries (key order, covering columns, seek vs scan) `[backlogged: T-028]`
 - Narrating schema as scale reasoning (present schema via access patterns + consistency boundaries) `[backlogged: T-029]`
 - Partitioning / time-series storage for tracking events
+- Transaction isolation & locking across engines (SQL Server, PostgreSQL, Oracle, MySQL) `[backlogged: T-048]`
 - Read/write model separation (part of CQRS + Read Models `[backlogged: T-007]`)
 
 ### API — API & Contract Design
@@ -117,6 +120,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Consumer-driven contract testing
 - gRPC / Protobuf for high-volume internal calls
 - Long-running operations / async request-reply
+- API gateway (Azure API Management): edge policies for subscriptions, throttling, versioning `[backlogged: T-045]`
 - Real-time push / streaming to clients at scale (SSE vs WebSockets vs gRPC-streaming; fan-out, backpressure, resume) `[backlogged: T-030]`
 
 ### OBS — Observability & Operability
@@ -130,7 +134,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Authentication (API & service-to-service): OAuth2 / OIDC, JWT validation, mTLS, client-credentials `[backlogged: T-031]`
 - Authorization models & RBAC (roles/permissions → ABAC / ReBAC / policy-based) `[backlogged: T-032]`
 - Multi-tenant isolation & resource-scoped authorization (row-level, IDOR/BOLA prevention) `[backlogged: T-033]`
-- Secrets management & key rotation
+- Secrets management & key rotation (incl. managed identities) `[backlogged: T-041]`
 - Rate limiting / abuse protection at the auth boundary (see also SYSD rate limiting)
 
 ### STAFF — Staff/Principal Craft
@@ -139,6 +143,13 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - System-design interview practice (whiteboard a logistics system) `[backlogged: T-016]`
 - Non-functional-requirements elicitation
 - Reviewing & mentoring (giving staff-level feedback)
+
+### CLOUD — Cloud Platform & Delivery
+- Azure hosting & ingress (App Service vs Container Apps; Application Gateway / WAF / TLS) `[backlogged: T-044]`
+- API gateway (Azure API Management) `[backlogged: T-045]`
+- Message broker selection (Service Bus vs Event Grid vs Event Hubs vs RabbitMQ) `[backlogged: T-046]`
+- CI/CD pipelines & deployment strategies `[backlogged: T-047]`
+- Secrets management & managed identities (Key Vault) `[backlogged: T-041]`
 
 ---
 
@@ -167,3 +178,16 @@ confirms that a new phrasing means an existing concept.
 | AuthN, login, OAuth, OIDC, JWT, bearer token, mTLS, service-to-service auth | Authentication (API & service-to-service) (T-031) |
 | AuthZ, RBAC, roles/permissions, ABAC, ReBAC, policy-based auth, claims/scopes | Authorization models & RBAC (T-032) |
 | Tenant isolation, row-level security, IDOR, BOLA, resource-scoped auth | Multi-tenant isolation & resource-scoped authorization (T-033) |
+| Application Insights, Azure Monitor, logging & monitoring | Observability triad: Structured Logging (T-035), Tracing (T-036), Metrics (T-037) |
+| IAM, identity & access management | Authentication (T-031), Authorization (T-032), Tenant isolation (T-033) |
+| NServiceBus, MassTransit, Wolverine, messaging frameworks | Outbox (T-004), Inbox (T-006), Delivery Semantics (T-008), Saga (T-003) |
+| Relational databases, SQL Server, Azure SQL, MySQL, Oracle | Concurrency (T-010), Data Modeling (T-027), Index Design (T-028), Isolation & Locking (T-048) |
+| Cache-aside, HybridCache, Redis, Azure Cache for Redis | Caching Strategy (T-040) |
+| Key Vault, managed identity, passwordless connections, `DefaultAzureCredential` | Secrets Management & Managed Identities (T-041) |
+| DLQ, dead-letter queue, poison message | Dead-Letter Queues & Poison-Message Handling (T-042) |
+| Service Bus sessions, FIFO, ordered delivery, partition key | Message Ordering & Partitioning (T-043) |
+| App Service, Container Apps, Application Gateway, WAF, ingress | Azure Hosting & Ingress (T-044) |
+| APIM, Azure API Management, API gateway | API Gateway (T-045) |
+| Service Bus vs Event Grid vs Event Hubs, RabbitMQ, choosing a broker | Message Broker Selection (T-046) |
+| Azure DevOps, GitHub Actions, pipelines, blue/green, deployment slots, revisions | CI/CD Pipelines & Deployment Strategies (T-047) |
+| Isolation levels, RCSI, snapshot isolation, MVCC, lock escalation, deadlocks | Transaction Isolation & Locking Across Engines (T-048) |
