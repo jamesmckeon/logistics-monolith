@@ -30,6 +30,13 @@ internal sealed class SkuCatalog
 
     public IReadOnlyList<string> Skus => _skus;
 
+    /// <summary>
+    ///     The most popular SKUs, which receive <see cref="HotLineShare" /> of order lines
+    /// </summary>
+    public IReadOnlyList<string> HotSkus => _skus.Take(_hotCount).ToList();
+
+    public double HotLineShare => _hotCount == Count ? 1 : _hotLineShare;
+
     public static SkuCatalog From(IReadOnlyList<string> skusByPopularity, CatalogProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);

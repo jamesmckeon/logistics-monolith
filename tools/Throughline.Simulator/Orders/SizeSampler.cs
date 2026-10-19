@@ -26,6 +26,22 @@ internal static class SizeSampler
         return (int)Math.Clamp(value, 1, max);
     }
 
+    /// <summary>
+    ///     The distribution's average, before rounding and capping
+    /// </summary>
+    public static double Mean(SizeProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        if (profile.P95 <= profile.P50)
+            return profile.P50;
+
+        var mu = Math.Log(profile.P50);
+        var sigma = (Math.Log(profile.P95) - mu) / Z95;
+
+        return Math.Exp(mu + sigma * sigma / 2);
+    }
+
     // Box-Muller transform
     private static double StandardNormal(Random random)
     {

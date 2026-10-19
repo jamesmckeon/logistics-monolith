@@ -27,7 +27,9 @@ The simulator is test tooling, not a Throughline capability. It is a design docu
 | 13 | **Retries like a well-behaved client:** retry only on timeouts, 5xx and 429, with exponential backoff, jitter and a maximum number of attempts. A retry resends the same order (same PO and reference). Never retry a 400. On a 401, fetch a new token once. An optional "badly behaved partner" setting retries aggressively with no backoff. | Real clients retry. Retrying the same order is how duplicates reach Throughline. |
 | 14 | **Telemetry through OpenTelemetry to Application Insights:** one structured log per request (customer, actor, endpoint, PO, reference, status, latency, Throughline's order ID) and metrics for requests sent by outcome and latency. Request bodies are not logged. Tokens are never logged. | You check in during the day; the Logs view and a workbook are where you look. |
 | 15 | **A stop switch:** `Simulator:Enabled`, plus `Enabled` per customer. Changing it is a new revision (about a minute). The container app's **Stop** button is the hard stop. | Traffic can be stopped without a code change. |
-| 16 | **A ledger (iteration 2):** a separate `simulator` database on the same Postgres server, holding in-flight work (orders awaiting allocation, expected deliveries) and a row per request with its outcome. | Survives restarts, and lets you reconcile what was sent with what Throughline holds. A gap is a real finding, such as a lost message. |
+| 16 | **A ledger:** a separate `simulator` database on the same Postgres server, owned by its own login. It holds each buying customer's sales history, purchase orders, and the trailers on their way. Its schema is created on first use. | Survives restarts, and is the customer's and supplier's side of the story, which Throughline doesn't hold. Later it also supports reconciling what was sent with what Throughline holds. |
+| 17 | **Inbound stock is the customer's decision.** Each buying customer has a buyer that places an opening order once, then every week orders last week's sales of each SKU plus a safety margin, in whole cases. The supplier ships single-SKU pallets on trailers that arrive after a lead time, during dock hours; some arrive late. | In a 3PL the client owns the stock and decides when to buy it; the warehouse receives what arrives. "Replace what sold" needs no on-hand figures, which Throughline can't report yet (no 846-style inquiry). Stock drifts and sometimes runs short, as real stock does. |
+| 18 | **Receivers are 3PL staff working dock shifts.** While the dock is staffed, each takes the trailer that has waited longest and posts it as one unplanned receipt, signed in as themselves. The trailer's id is the receipt id, so a resend is the same delivery; the operator id is the user's Entra object id. | Matches decisions 6 and 7. Receipts stay unplanned until Throughline supports advance notice (943/856). |
 
 ## Budget
 
@@ -102,12 +104,128 @@ Orders will be confirmed but not allocated until receiving and allocation exist 
 
 **Done when:** orders arrive in Throughline at the profile's rate around the clock; bad requests and resends appear at their configured rates with the expected outcomes; and any order can be traced from the simulator's log to Throughline's logs by its PO or reference number.
 
+## Test tenant setup (iteration 2)
+
+Simulated warehouse staff hold `Receiving`, `Inventory` and `Owner.{id}`, which ADR-0003 reserves for people, so they need real user accounts. They sign in with the password grant (ROPC), which can't do MFA, so they live in a **separate test tenant** with security defaults off; the main tenant keeps MFA (decision 9). `throughline-api` stays registered in the main tenant and becomes multitenant, so the test tenant gets its own copy of it (a service principal) where roles are assigned to the test users.
+
+Written 2026-10-19 (step 1 revised the same day after tenant creation was refused) from Microsoft Learn: [create a tenant](https://learn.microsoft.com/en-us/entra/fundamentals/create-new-tenant), [convert an app to multitenant](https://learn.microsoft.com/en-us/entra/identity-platform/howto-convert-app-to-be-multi-tenant), [ROPC](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth-ropc), [app roles](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-app-roles-in-apps). Completed and verified end to end on 2026-10-19: a token for `receiver1` from the test tenant was accepted by the deployed API, and `POST /receiving/receipts` returned 200. Steps 3 and 4, which the docs didn't fully confirm, worked as written.
+
+| Value | |
+|---|---|
+| Test tenant | `2ce2eb06-ef08-4a92-9bd5-7035a20fa695` (`jamesmckeon503gmail.onmicrosoft.com`), managed by a separate account |
+| Public client `throughline-simulator-users` | `3ab9525a-48a6-4c34-9e38-3269482fc765` |
+| Receivers | `receiver1`–`receiver3`, each with `Receiving` and `Owner.1` |
+| Delegated scope on `throughline-api` | created as `access_as-user` (hyphen); harmless, since clients request `.default` and the API checks roles |
+| `throughline-api` account types | Multiple Entra ID tenants, allowed tenants: the test tenant only |
+
+**Cost:** $0. The tenant is Entra ID Free and holds no Azure resources.
+
+**Values to record:** test tenant ID and domain, the public client's ID, and each test user's password (keep the passwords out of the repo and out of chat).
+
+### 1. Create the test tenant (a second, free account)
+Your main tenant is on the free tier, and Microsoft only lets tenants with a paid Entra license create additional tenants (`Base-tenant … does not have a paid license`). Instead, the test tenant is the directory that comes with a **separate free Azure account**:
+
+1. Use a **different email address** from your main account; a new Outlook.com address works. In a separate browser profile (keeping the two accounts' sign-ins apart), go to the Azure free account sign-up and create the account. Phone and card verification are required, but nothing is charged unless you create resources there, and you won't.
+2. Sign-up creates a tenant called **Default Directory**. In it: **Microsoft Entra ID** → **Overview**: copy the **Tenant ID** and the **Primary domain** (something like `<name>.onmicrosoft.com`; that's `<test-domain>` below). Optionally rename the directory to `Throughline Test` under **Properties**.
+3. The new account is the tenant's Global Administrator; use it for every "test tenant" step below. Create no Azure resources there. If the free credit later expires or the subscription is disabled, the directory and its users remain.
+
+### 2. Turn off security defaults in the test tenant only
+In the **test tenant**: Entra ID → **Overview** → **Properties** → **Manage security defaults** → **Disabled** → give a reason (e.g. "Simulated users for automated testing") → **Save**. Double-check the directory name at the top of the portal first; this must never be done in the main tenant.
+
+### 3. Prepare `throughline-api` (main tenant)
+1. **Expose an API** → **Add a scope**: scope name `access_as_user`, who can consent **Admins only**, admin consent display name `Access Throughline as the signed-in user`, description of your choice → **Add scope**. User tokens are delegated tokens, so the API needs a delegated scope for clients to request; the roles still decide what each user may do.
+2. **Authentication** → **Supported account types** → **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)** → **Save**.
+   - In the current portal: **Authentication (Preview)** → **Supported accounts** tab → **Multiple Entra ID tenants** → **Allow only certain tenants** → add the test tenant. `api://<api-client-id>` was accepted as the Application ID URI.
+3. **Authentication** → **Add a platform** → **Web** → redirect URI `https://jwt.ms` → **Configure**. Step 4's consent page needs somewhere to send you back to.
+
+### 4. Add `throughline-api` to the test tenant
+In a private browser window, open (replace the tenant ID):
+
+```
+https://login.microsoftonline.com/<test-tenant-id>/adminconsent?client_id=9daefbfa-b583-4f14-90f1-563a807e3260&redirect_uri=https://jwt.ms
+```
+
+Sign in as the test tenant's administrator (it will ask that account to set up MFA first, which is expected) and **Accept**. You land on jwt.ms with `admin_consent=True&tenant=<test-tenant-id>` in the URL, and **Enterprise applications** in the test tenant lists `throughline-api`.
+
+### 5. Create the test users (test tenant)
+**Users** → **New user** → **Create new user**, for `receiver1`, `receiver2` and `receiver3` (allocators come with issue #35):
+- User principal name `receiver1@<test-domain>`, display name `Receiver 1 (simulated)`
+- Set a password and record it privately.
+
+Then sign in once as each user in a private window at `https://myaccount.microsoft.com`. New accounts usually must change their password at first sign-in, and the password grant can't do that, so its sign-ins fail until it's done.
+
+### 6. Assign roles (test tenant)
+**Enterprise applications** → `throughline-api` → **Users and groups** → **Add user/group**: select a receiver, **Select a role** → `Receiving` → **Assign**. Repeat with `Owner.1`. One role per assignment, so two per receiver. (The free tier assigns roles to users, not groups.)
+
+### 7. Register the simulator's sign-in client (test tenant)
+1. **App registrations** → **New registration** → name `throughline-simulator-users`, single tenant, no redirect URI → **Register**. Copy its **Application (client) ID**.
+2. **Authentication** → **Advanced settings** → **Allow public client flows** → **Yes** → **Save**. The password grant requires a public client, so there's no client secret.
+3. **API permissions** → **Add a permission** → **APIs my organization uses** → `throughline-api` → **Delegated permissions** → `access_as_user` → **Add permissions** → **Grant admin consent for Throughline Test** → **Yes**.
+
+### 8. Get a token as a receiver (terminal)
+```bash
+TENANT=<test-tenant-id>; CLIENT=<public-client-id>; read -s PW
+```
+```bash
+curl -s -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" -d grant_type=password -d client_id=$CLIENT --data-urlencode "username=receiver1@<test-domain>" --data-urlencode "password=$PW" -d "scope=api://9daefbfa-b583-4f14-90f1-563a807e3260/.default" | jq -r .access_token
+```
+At [jwt.ms](https://jwt.ms) expect `iss` = `https://sts.windows.net/<test-tenant-id>/`, `aud` = `api://9daefbfa-b583-4f14-90f1-563a807e3260`, and `roles` = `Receiving`, `Owner.1`. If it prints `null`, remove `| jq …` to see the `AADSTS` error: `50126` is a wrong password, `50055`/`50056` a password that still needs changing (step 5), `50076` MFA still enforced (step 2).
+
+### 9. Let the API trust the test tenant
+On `ca-throughline-api`, create a new revision adding one environment variable:
+
+| Name | Value |
+|---|---|
+| `Authentication__Schemes__Bearer__ValidIssuers__0` | `https://sts.windows.net/<test-tenant-id>/` |
+
+It's accepted alongside the existing `ValidIssuer`; Entra signs both tenants' tokens with the same published keys. Local development gets the same issuer in `appsettings.Development.json` (part of the code change). Then a `POST /receiving/receipts` with the step 8 token should get past authorization (not 401 or 403).
+
+**Accepted risk:** the API now trusts any role the test tenant's administrator assigns. That's acceptable while you're its only administrator; a production Throughline would trust only the 3PL's own tenant.
+
+## Iteration 2: buying and receiving (Harrow & Finch)
+
+Built on `feat/simulator-receiving-allocation`. Both are off until configured: `Buying:Enabled` is false in `appsettings.json`, and the facility has no receivers.
+
+**How it runs**
+- The **OMS** records each accepted good order (201, kind New) as a sale in the ledger. Deliberately bad orders aren't sales; Inventory dead-letters them.
+- The **buyer** places an **opening order** the first time it runs: `OpeningWeeks` of expected demand for the popular SKUs, due over the first day or two. Slow movers are first stocked by a weekly order after they sell. Then, every `ReviewDay` at `ReviewTime` in the customer's time zone, it orders last week's sales plus `SafetyMargin`, rounded up to `CasePack`, packed up to `UnitsPerPallet` per single-SKU pallet and `PalletsPerTrailer` per trailer. Each trailer is due `LeadTimeDaysMin`–`LeadTimeDaysMax` days later at a random time while the dock is staffed, plus one to three days for the `LateShipmentRate` share.
+- **Receivers** wait about `MinutesPerTrailer` (randomized ±50%) between trailers. While the dock is staffed, each claims the trailer that's waited longest and posts it to `POST /receiving/receipts` with the owner's `owner_id`. 200 marks the trailer received; 400 or 409 marks it rejected; 401, 403, 5xx or no response puts it back to try again. A claim not completed in 30 minutes can be taken again.
+- Rough volume at 600 orders a day: an opening order of about 1,200 pallets (about 47 trailers), then about 50 trailers a week. Three receivers can handle several times that.
+
+**Setup**
+1. **Ledger login and database.** In DataGrip, as `throughlineadmin`, connected to the Azure server (any database):
+   ```sql
+   CREATE ROLE throughline_simulator_ledger WITH LOGIN PASSWORD '<password>';
+   -- lets the admin create a database owned by that role
+   GRANT throughline_simulator_ledger TO throughlineadmin;
+   CREATE DATABASE simulator OWNER throughline_simulator_ledger;
+   ```
+   Then, still as `throughlineadmin` but connected to the new **`simulator`** database (Azure doesn't let a new database's owner create tables in `public` until granted):
+   ```sql
+   GRANT USAGE, CREATE ON SCHEMA public TO throughline_simulator_ledger;
+   ```
+2. **Settings** (user secrets locally; environment variables, with `__` for `:`, and Container Apps secrets in Azure):
+
+   | Key | Value |
+   |---|---|
+   | `Simulator:LedgerConnectionString` (secret) | `Host=psql-throughline.postgres.database.azure.com;Port=5432;Database=simulator;Username=throughline_simulator_ledger;Password=<password>;Ssl Mode=Require;Maximum Pool Size=5` |
+   | `Simulator:Customers:HarrowFinch:Buying:Enabled` | `true` |
+   | `Simulator:Facility:UserTenantId` | `2ce2eb06-ef08-4a92-9bd5-7035a20fa695` |
+   | `Simulator:Facility:UserClientId` | `3ab9525a-48a6-4c34-9e38-3269482fc765` |
+   | `Simulator:Facility:Receivers:0:Username` | `receiver1@jamesmckeon503gmail.onmicrosoft.com` (and `:1:`, `:2:` for receivers 2 and 3) |
+   | `Simulator:Facility:Receivers:0:Password` (secret) | that receiver's password |
+
+   Also add `Maximum Pool Size=5` to the catalog connection string, so the simulator can never use more than a handful of the server's roughly 50 connections.
+3. **Check:** the log shows an opening purchase order (SKUs, units, pallets, trailers, first due time), each receiver starting with its operator id, and, during dock hours, `Received trailer … as receipt …` lines.
+
+**Daily check additions:** trailers received per day, pallets per receipt outcome (available, on hold, exceptions), and trailers rejected. Exceptions or rejections point at a mismatch between what the buyer sent and Throughline's master data.
+
 ## Later iterations
 
 | Iteration | Adds |
 |---|---|
-| 2 | Test tenant and multi-tenant API registration; receiving operators on facility shifts posting unplanned deliveries for the SKUs being consumed; the ledger database. |
-| 3 | Allocators releasing orders ahead of each customer's cutoff. |
+| 2 | Test tenant and multitenant API registration (done); the ledger, the buyer and the receivers (built, see below). |
+| 3 | Allocators releasing orders ahead of each customer's cutoff, once Throughline has an allocation worklist (issue #35). |
 | 4 | Customers 2 and 3 (Brightwell Nutrition, Kestrel Industrial Supply) with their own profiles and app registrations. |
 | 5 | A reconciliation report: what was sent against what Throughline holds. |
 

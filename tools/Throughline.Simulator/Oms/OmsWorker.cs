@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Options;
 using Throughline.Simulator.Configuration;
+using Throughline.Simulator.Http;
+using Throughline.Simulator.Ledger;
 using Throughline.Simulator.Orders;
 using Throughline.Simulator.Scheduling;
 using Throughline.Simulator.Telemetry;
@@ -16,6 +18,7 @@ internal sealed class OmsWorker : BackgroundService
 
     private readonly ISkuCatalogSource _catalogSource;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILedger _ledger;
     private readonly ILogger<OmsWorker> _logger;
     private readonly SimulatorMetrics _metrics;
     private readonly SimulatorOptions _options;
@@ -25,6 +28,7 @@ internal sealed class OmsWorker : BackgroundService
         IOptions<SimulatorOptions> options,
         ISkuCatalogSource catalogSource,
         IHttpClientFactory httpClientFactory,
+        ILedger ledger,
         SimulatorMetrics metrics,
         TimeProvider time,
         ILogger<OmsWorker> logger)
@@ -32,6 +36,7 @@ internal sealed class OmsWorker : BackgroundService
         _options = options.Value;
         _catalogSource = catalogSource;
         _httpClientFactory = httpClientFactory;
+        _ledger = ledger;
         _metrics = metrics;
         _time = time;
         _logger = logger;
@@ -64,7 +69,7 @@ internal sealed class OmsWorker : BackgroundService
         var generator = new OrderGenerator(
             profile, await LoadCatalogAsync(customer, profile, stoppingToken), random, _time);
         var catalogLoadedAt = _time.GetUtcNow();
-        var client = new OmsClient(_httpClientFactory.CreateClient(OmsHttpClients.NameFor(customer)));
+        var client = new OmsClient(_httpClientFactory.CreateClient(ThroughlineHttpClients.ForCustomer(customer)));
 
         _logger.LogInformation(
             "OMS for {Customer} started: {OrdersPerDay} orders on an average day, {TimeZone}",
@@ -90,7 +95,7 @@ internal sealed class OmsWorker : BackgroundService
                 await RefreshCatalogAsync(customer, profile, generator, stoppingToken);
             }
 
-            await SendAsync(customer, profile.OwnerId, generator, client, stoppingToken);
+            await SendAsync(customer, profile, generator, client, stoppingToken);
         }
     }
 
@@ -126,18 +131,25 @@ internal sealed class OmsWorker : BackgroundService
     }
 
     private async Task SendAsync(
-        string customer, int ownerId, OrderGenerator generator, OmsClient client, CancellationToken stoppingToken)
+        string customer, CustomerProfile profile, OrderGenerator generator, OmsClient client,
+        CancellationToken stoppingToken)
     {
         var order = generator.Next();
         var request = order.Request;
 
         try
         {
-            var response = await client.SendOrderAsync(ownerId, request, stoppingToken);
+            var response = await client.SendOrderAsync(profile.OwnerId, request, stoppingToken);
             var asExpected = response.StatusCode == order.ExpectedStatus;
 
             if (response.StatusCode == System.Net.HttpStatusCode.Created)
+            {
                 generator.RecordAccepted(request);
+
+                // only good orders are sales: Inventory dead-letters the deliberately bad ones
+                if (profile.Buying.Enabled && order.Kind == OrderKind.New)
+                    await RecordSaleAsync(customer, profile.OwnerId, request, stoppingToken);
+            }
 
             _metrics.OrderSent(customer, order.Kind, (int)response.StatusCode, asExpected, response.Elapsed);
 
@@ -160,6 +172,26 @@ internal sealed class OmsWorker : BackgroundService
             _logger.LogError(ex,
                 "{Kind} 940 ref {ReferenceNumber}, PO {PurchaseOrderNumber} got no response from Throughline",
                 order.Kind, request.ReferenceNumber, request.PurchaseOrderNumber);
+        }
+    }
+
+    private async Task RecordSaleAsync(
+        string customer, int ownerId, OrderRequest request, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await _ledger.RecordSaleAsync(
+                ownerId,
+                request.ReferenceNumber,
+                request.Items.Select(i => new SoldLine(i.Sku, i.Quantity)).ToList(),
+                _time.GetUtcNow(),
+                stoppingToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // the order still went to Throughline; only the buyer's sales history misses it
+            _logger.LogWarning(ex, "Couldn't record ref {ReferenceNumber} as a sale for {Customer}",
+                request.ReferenceNumber, customer);
         }
     }
 }

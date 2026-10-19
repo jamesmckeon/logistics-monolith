@@ -2,9 +2,14 @@ using Microsoft.Extensions.Options;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
+using Throughline.Simulator.Buying;
 using Throughline.Simulator.Configuration;
+using Throughline.Simulator.Http;
+using Throughline.Simulator.Identity;
+using Throughline.Simulator.Ledger;
 using Throughline.Simulator.Oms;
 using Throughline.Simulator.Orders;
+using Throughline.Simulator.Receiving;
 using Throughline.Simulator.Telemetry;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -19,6 +24,9 @@ builder.Services.AddSingleton<IValidateOptions<SimulatorOptions>, SimulatorOptio
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<SimulatorMetrics>();
 builder.Services.AddSingleton<ISkuCatalogSource, PostgresSkuCatalogSource>();
+builder.Services.AddSingleton<ILedger, PostgresLedger>();
+builder.Services.AddSingleton<TokenSources>();
+builder.Services.AddHttpClient(TokenSources.EntraHttpClient).AddStandardResilienceHandler();
 
 // registered even when no customer client is, so a bad configuration reaches ValidateOnStart's
 // message instead of failing to build the worker
@@ -28,13 +36,26 @@ builder.Services.AddHttpClient();
 // configuration before any client is used
 var simulator = section.Get<SimulatorOptions>() ?? new SimulatorOptions();
 
-if (simulator is { Enabled: true, ThroughlineBaseUrl.IsAbsoluteUri: true })
+if (simulator is { Enabled: true, ThroughlineBaseUrl: { IsAbsoluteUri: true } throughline })
 {
     foreach (var (customer, profile) in simulator.Customers.Where(c => c.Value.Enabled))
-        builder.Services.AddOmsHttpClient(customer, profile, simulator);
+    {
+        builder.Services.AddThroughlineClient(
+            ThroughlineHttpClients.ForCustomer(customer), throughline, profile.Retry,
+            tokens => tokens.ForCustomer(customer));
+    }
+
+    foreach (var receiver in simulator.Facility.Receivers)
+    {
+        builder.Services.AddThroughlineClient(
+            ThroughlineHttpClients.ForStaff(receiver.Username), throughline, simulator.Facility.Retry,
+            tokens => tokens.ForStaff(receiver.Username));
+    }
 }
 
 builder.Services.AddHostedService<OmsWorker>();
+builder.Services.AddHostedService<BuyerWorker>();
+builder.Services.AddHostedService<ReceiverWorker>();
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("throughline-simulator", serviceVersion: "1.0.0"))

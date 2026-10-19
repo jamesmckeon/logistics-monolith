@@ -39,6 +39,19 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         foreach (var (customerName, profile) in enabledCustomers)
             ValidateCustomer($"Simulator:Customers:{customerName}", profile, failures);
 
+        var buying = enabledCustomers.Any(c => c.Value.Buying.Enabled);
+        var receiving = options.Facility.Receivers.Count > 0;
+
+        if ((buying || receiving) && string.IsNullOrWhiteSpace(options.LedgerConnectionString))
+            failures.Add("Simulator:LedgerConnectionString is required when a customer buys stock or the facility has receivers");
+
+        // buyers plan deliveries around the dock's hours, locations and carriers too
+        if (buying || receiving)
+            ValidateFacility("Simulator:Facility", options.Facility, failures);
+
+        if (receiving)
+            ValidateReceivers("Simulator:Facility", options.Facility, failures);
+
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 
@@ -81,6 +94,80 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
 
         if (string.IsNullOrWhiteSpace(profile.OmsClientSecret))
             failures.Add($"{path}:OmsClientSecret is required");
+
+        if (profile.Buying.Enabled)
+            ValidateBuying($"{path}:Buying", profile.Buying, failures);
+    }
+
+    private static void ValidateBuying(string path, BuyingProfile buying, List<string> failures)
+    {
+        if (string.IsNullOrWhiteSpace(buying.SupplierName))
+            failures.Add($"{path}:SupplierName is required");
+
+        if (buying.ReviewTime < TimeSpan.Zero || buying.ReviewTime >= TimeSpan.FromDays(1))
+            failures.Add($"{path}:ReviewTime must be a time of day");
+
+        if (buying.SafetyMargin < 0)
+            failures.Add($"{path}:SafetyMargin must not be negative");
+
+        if (buying.CasePack < 1)
+            failures.Add($"{path}:CasePack must be at least 1");
+
+        if (buying.UnitsPerPallet < buying.CasePack)
+            failures.Add($"{path}:UnitsPerPallet must be at least one case");
+
+        if (buying.PalletsPerTrailer < 1)
+            failures.Add($"{path}:PalletsPerTrailer must be at least 1");
+
+        if (buying.LeadTimeDaysMin < 0 || buying.LeadTimeDaysMax < buying.LeadTimeDaysMin)
+            failures.Add($"{path}:LeadTimeDaysMin must not be negative or greater than LeadTimeDaysMax");
+
+        if (buying.LateShipmentRate is < 0 or > 1)
+            failures.Add($"{path}:LateShipmentRate must be between 0 and 1");
+
+        if (buying.OpeningWeeks < 0)
+            failures.Add($"{path}:OpeningWeeks must not be negative");
+    }
+
+    private static void ValidateFacility(string path, FacilityOptions facility, List<string> failures)
+    {
+        if (!TimeZoneInfo.TryFindSystemTimeZoneById(facility.TimeZone, out _))
+            failures.Add($"{path}:TimeZone '{facility.TimeZone}' is not a known time zone");
+
+        if (facility.DockShifts.Count == 0)
+            failures.Add($"{path}:DockShifts must contain at least one shift");
+
+        if (facility.DockShifts.Any(s =>
+                s.Days.Length == 0 || s.Start < TimeSpan.Zero || s.End > TimeSpan.FromDays(1) || s.End <= s.Start))
+            failures.Add($"{path}:DockShifts each need days, and a start before an end within the same day");
+
+        if (string.IsNullOrWhiteSpace(facility.PutawayLocationPrefix) || facility.PutawayLocationCount < 1)
+            failures.Add($"{path}:PutawayLocationPrefix and a PutawayLocationCount of at least 1 are required");
+
+        if (facility.CarrierScacs.Length == 0 || facility.CarrierScacs.Any(string.IsNullOrWhiteSpace))
+            failures.Add($"{path}:CarrierScacs must list at least one carrier");
+    }
+
+    private static void ValidateReceivers(string path, FacilityOptions facility, List<string> failures)
+    {
+        if (facility.MinutesPerTrailer <= 0)
+            failures.Add($"{path}:MinutesPerTrailer must be greater than 0");
+
+        if (string.IsNullOrWhiteSpace(facility.UserTenantId))
+            failures.Add($"{path}:UserTenantId is required when the facility has receivers");
+
+        if (string.IsNullOrWhiteSpace(facility.UserClientId))
+            failures.Add($"{path}:UserClientId is required when the facility has receivers");
+
+        if (facility.Receivers.Any(r => string.IsNullOrWhiteSpace(r.Username) || string.IsNullOrWhiteSpace(r.Password)))
+            failures.Add($"{path}:Receivers each need a Username and Password");
+
+        if (facility.Receivers.Select(r => r.Username).Distinct(StringComparer.OrdinalIgnoreCase).Count() !=
+            facility.Receivers.Count)
+            failures.Add($"{path}:Receivers must have different usernames");
+
+        if (facility.Retry.MaxRetryAttempts is < 1 or > 10)
+            failures.Add($"{path}:Retry:MaxRetryAttempts must be between 1 and 10");
     }
 
     private static void ValidateWeights(string path, double[] weights, int expectedCount, List<string> failures)

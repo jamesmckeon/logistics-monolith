@@ -93,7 +93,56 @@ public sealed class SimulatorOptionsValidatorTests
         Assert.That(actual.Failures, Has.Some.Contains("CatalogConnectionString is required"));
     }
 
+    [Test]
+    public void Validate_BuyingWithoutLedger_FailsNamingLedger()
+    {
+        var profile = ValidProfile();
+        profile.Buying = new BuyingProfile { Enabled = true, SupplierName = "Ridgeline Apparel Manufacturing" };
+
+        var actual = _sut.Validate(null, ValidOptions(profile));
+
+        Assert.That(actual.Failures, Has.Some.Contains("LedgerConnectionString is required"));
+    }
+
+    [Test]
+    public void Validate_ReceiversWithoutSignInClient_FailsNamingUserClientId()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.LedgerConnectionString = "Host=localhost;Database=simulator";
+        options.Facility = ValidFacility();
+        options.Facility.UserClientId = "";
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("UserClientId is required"));
+    }
+
+    [Test]
+    public void Validate_CompleteFacilityWithReceivers_Succeeds()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.LedgerConnectionString = "Host=localhost;Database=simulator";
+        options.Facility = ValidFacility();
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Succeeded, Is.True);
+    }
+
     #endregion
+
+    private static FacilityOptions ValidFacility() => new()
+    {
+        TimeZone = "America/Chicago",
+        DockShifts =
+            [new ShiftOptions { Days = [DayOfWeek.Monday], Start = TimeSpan.FromHours(6), End = TimeSpan.FromHours(14.5) }],
+        PutawayLocationPrefix = "BULK-",
+        PutawayLocationCount = 40,
+        CarrierScacs = ["ODFL"],
+        UserTenantId = "test-tenant",
+        UserClientId = "sign-in-client",
+        Receivers = [new StaffOptions { Username = "receiver1@example.com", Password = "password" }]
+    };
 
     private static SimulatorOptions ValidOptions(CustomerProfile profile) => new()
     {

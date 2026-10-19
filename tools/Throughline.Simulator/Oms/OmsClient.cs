@@ -8,7 +8,7 @@ namespace Throughline.Simulator.Oms;
 
 /// <summary>
 ///     A customer's OMS posting 940s to Throughline. Tokens, retries and the suppressed trace headers
-///     are set up on the underlying <see cref="HttpClient" /> (see <see cref="OmsHttpClients" />).
+///     are set up on the underlying <see cref="HttpClient" /> (see <see cref="Http.ThroughlineHttpClients" />).
 /// </summary>
 internal sealed class OmsClient
 {
