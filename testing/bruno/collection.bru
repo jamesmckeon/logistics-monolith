@@ -3,11 +3,23 @@ headers {
 }
 
 auth {
-  mode: bearer
+  mode: oauth2
 }
 
-auth:bearer {
-  token: {{authToken}}
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token
+  refresh_token_url: 
+  client_id: {{omsClientId}}
+  client_secret: {{omsClientSecret}}
+  scope: api://{{apiClientId}}/.default
+  credentials_placement: body
+  credentials_id: credentials
+  token_source: access_token
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: false
 }
 
 vars:pre-request {
