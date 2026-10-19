@@ -43,6 +43,7 @@ public sealed class CustomerProfile
     public CatalogProfile Catalog { get; set; } = new();
     public FaultRates Faults { get; set; } = new();
     public RetryProfile Retry { get; set; } = new();
+    public BuyingProfile Buying { get; set; } = new();
 
     /// <summary>
     ///     Client id of the customer's OMS app registration
@@ -90,7 +91,58 @@ public sealed class FaultRates
 }
 
 /// <summary>
-///     How the customer's OMS retries timeouts, 5xx and 429 responses
+///     How the customer's buyer restocks the warehouse: a weekly purchase order that replaces what sold
+///     plus a safety margin, shipped by the supplier after a lead time
+/// </summary>
+public sealed class BuyingProfile
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>
+    ///     The supplier named on inbound deliveries
+    /// </summary>
+    public string SupplierName { get; set; } = "";
+
+    /// <summary>
+    ///     Weekly review, in the customer's time zone
+    /// </summary>
+    public DayOfWeek ReviewDay { get; set; } = DayOfWeek.Monday;
+
+    public TimeSpan ReviewTime { get; set; } = TimeSpan.FromHours(9);
+
+    /// <summary>
+    ///     Ordered on top of last week's sales, e.g. 0.2 for 20%
+    /// </summary>
+    public double SafetyMargin { get; set; } = 0.2;
+
+    /// <summary>
+    ///     Units per case; orders are rounded up to whole cases
+    /// </summary>
+    public int CasePack { get; set; } = 12;
+
+    /// <summary>
+    ///     Most units of one SKU on a pallet; each pallet holds a single SKU
+    /// </summary>
+    public int UnitsPerPallet { get; set; } = 48;
+
+    public int PalletsPerTrailer { get; set; } = 26;
+
+    public int LeadTimeDaysMin { get; set; } = 5;
+    public int LeadTimeDaysMax { get; set; } = 10;
+
+    /// <summary>
+    ///     Share of trailers that arrive one to three days late
+    /// </summary>
+    public double LateShipmentRate { get; set; } = 0.05;
+
+    /// <summary>
+    ///     Weeks of expected demand in the opening order, placed once when nothing has been ordered yet
+    /// </summary>
+    public int OpeningWeeks { get; set; } = 3;
+}
+
+/// <summary>
+///     How a client retries timeouts, 5xx and 429 responses
 /// </summary>
 public sealed class RetryProfile
 {

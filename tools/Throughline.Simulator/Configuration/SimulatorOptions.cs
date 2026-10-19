@@ -32,6 +32,14 @@ public sealed class SimulatorOptions
     public string CatalogConnectionString { get; set; } = "";
 
     /// <summary>
+    ///     The simulator's own database (sales history, purchase orders, inbound shipments), never
+    ///     Throughline's. Required when any customer buys stock or the facility has receivers.
+    /// </summary>
+    public string LedgerConnectionString { get; set; } = "";
+
+    public FacilityOptions Facility { get; set; } = new();
+
+    /// <summary>
     ///     Customer profiles keyed by a short name, e.g. <c>HarrowFinch</c>
     /// </summary>
     public Dictionary<string, CustomerProfile> Customers { get; set; } = new();

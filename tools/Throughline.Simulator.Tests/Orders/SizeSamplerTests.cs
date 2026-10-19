@@ -46,6 +46,25 @@ public sealed class SizeSamplerTests
 
     #endregion
 
+    [Test]
+    public void Mean_P95EqualsP50_IsP50()
+    {
+        var actual = SizeSampler.Mean(new SizeProfile { P50 = 3, P95 = 3 });
+
+        Assert.That(actual, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Mean_LongTail_MatchesAverageOfManyDraws()
+    {
+        // the cap is set far above the tail so it doesn't pull the average down
+        var draws = Draw(TwoToSix, 20_000, 1000);
+
+        var actual = SizeSampler.Mean(TwoToSix);
+
+        Assert.That(actual, Is.EqualTo(draws.Average()).Within(5).Percent);
+    }
+
     private static IEnumerable<int> Draw(SizeProfile profile, int count, int max)
     {
         var random = new Random(11);

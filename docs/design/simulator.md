@@ -27,7 +27,9 @@ The simulator is test tooling, not a Throughline capability. It is a design docu
 | 13 | **Retries like a well-behaved client:** retry only on timeouts, 5xx and 429, with exponential backoff, jitter and a maximum number of attempts. A retry resends the same order (same PO and reference). Never retry a 400. On a 401, fetch a new token once. An optional "badly behaved partner" setting retries aggressively with no backoff. | Real clients retry. Retrying the same order is how duplicates reach Throughline. |
 | 14 | **Telemetry through OpenTelemetry to Application Insights:** one structured log per request (customer, actor, endpoint, PO, reference, status, latency, Throughline's order ID) and metrics for requests sent by outcome and latency. Request bodies are not logged. Tokens are never logged. | You check in during the day; the Logs view and a workbook are where you look. |
 | 15 | **A stop switch:** `Simulator:Enabled`, plus `Enabled` per customer. Changing it is a new revision (about a minute). The container app's **Stop** button is the hard stop. | Traffic can be stopped without a code change. |
-| 16 | **A ledger (iteration 2):** a separate `simulator` database on the same Postgres server, holding in-flight work (orders awaiting allocation, expected deliveries) and a row per request with its outcome. | Survives restarts, and lets you reconcile what was sent with what Throughline holds. A gap is a real finding, such as a lost message. |
+| 16 | **A ledger:** a separate `simulator` database on the same Postgres server, owned by its own login. It holds each buying customer's sales history, purchase orders, and the trailers on their way. Its schema is created on first use. | Survives restarts, and is the customer's and supplier's side of the story, which Throughline doesn't hold. Later it also supports reconciling what was sent with what Throughline holds. |
+| 17 | **Inbound stock is the customer's decision.** Each buying customer has a buyer that places an opening order once, then every week orders last week's sales of each SKU plus a safety margin, in whole cases. The supplier ships single-SKU pallets on trailers that arrive after a lead time, during dock hours; some arrive late. | In a 3PL the client owns the stock and decides when to buy it; the warehouse receives what arrives. "Replace what sold" needs no on-hand figures, which Throughline can't report yet (no 846-style inquiry). Stock drifts and sometimes runs short, as real stock does. |
+| 18 | **Receivers are 3PL staff working dock shifts.** While the dock is staffed, each takes the trailer that has waited longest and posts it as one unplanned receipt, signed in as themselves. The trailer's id is the receipt id, so a resend is the same delivery; the operator id is the user's Entra object id. | Matches decisions 6 and 7. Receipts stay unplanned until Throughline supports advance notice (943/856). |
 
 ## Budget
 
@@ -180,12 +182,46 @@ It's accepted alongside the existing `ValidIssuer`; Entra signs both tenants' to
 
 **Accepted risk:** the API now trusts any role the test tenant's administrator assigns. That's acceptable while you're its only administrator; a production Throughline would trust only the 3PL's own tenant.
 
+## Iteration 2: buying and receiving (Harrow & Finch)
+
+Built on `feat/simulator-receiving-allocation`. Both are off until configured: `Buying:Enabled` is false in `appsettings.json`, and the facility has no receivers.
+
+**How it runs**
+- The **OMS** records each accepted good order (201, kind New) as a sale in the ledger. Deliberately bad orders aren't sales; Inventory dead-letters them.
+- The **buyer** places an **opening order** the first time it runs: `OpeningWeeks` of expected demand for the popular SKUs, due over the first day or two. Slow movers are first stocked by a weekly order after they sell. Then, every `ReviewDay` at `ReviewTime` in the customer's time zone, it orders last week's sales plus `SafetyMargin`, rounded up to `CasePack`, packed up to `UnitsPerPallet` per single-SKU pallet and `PalletsPerTrailer` per trailer. Each trailer is due `LeadTimeDaysMin`–`LeadTimeDaysMax` days later at a random time while the dock is staffed, plus one to three days for the `LateShipmentRate` share.
+- **Receivers** wait about `MinutesPerTrailer` (randomized ±50%) between trailers. While the dock is staffed, each claims the trailer that's waited longest and posts it to `POST /receiving/receipts` with the owner's `owner_id`. 200 marks the trailer received; 400 or 409 marks it rejected; 401, 403, 5xx or no response puts it back to try again. A claim not completed in 30 minutes can be taken again.
+- Rough volume at 600 orders a day: an opening order of about 1,200 pallets (about 47 trailers), then about 50 trailers a week. Three receivers can handle several times that.
+
+**Setup**
+1. **Ledger login and database.** In DataGrip, as `throughlineadmin`, connected to the Azure server (any database):
+   ```sql
+   CREATE ROLE throughline_simulator_ledger WITH LOGIN PASSWORD '<password>';
+   -- lets the admin create a database owned by that role
+   GRANT throughline_simulator_ledger TO throughlineadmin;
+   CREATE DATABASE simulator OWNER throughline_simulator_ledger;
+   ```
+2. **Settings** (user secrets locally; environment variables, with `__` for `:`, and Container Apps secrets in Azure):
+
+   | Key | Value |
+   |---|---|
+   | `Simulator:LedgerConnectionString` (secret) | `Host=psql-throughline.postgres.database.azure.com;Port=5432;Database=simulator;Username=throughline_simulator_ledger;Password=<password>;Ssl Mode=Require;Maximum Pool Size=5` |
+   | `Simulator:Customers:HarrowFinch:Buying:Enabled` | `true` |
+   | `Simulator:Facility:UserTenantId` | `2ce2eb06-ef08-4a92-9bd5-7035a20fa695` |
+   | `Simulator:Facility:UserClientId` | `3ab9525a-48a6-4c34-9e38-3269482fc765` |
+   | `Simulator:Facility:Receivers:0:Username` | `receiver1@jamesmckeon503gmail.onmicrosoft.com` (and `:1:`, `:2:` for receivers 2 and 3) |
+   | `Simulator:Facility:Receivers:0:Password` (secret) | that receiver's password |
+
+   Also add `Maximum Pool Size=5` to the catalog connection string, so the simulator can never use more than a handful of the server's roughly 50 connections.
+3. **Check:** the log shows an opening purchase order (SKUs, units, pallets, trailers, first due time), each receiver starting with its operator id, and, during dock hours, `Received trailer … as receipt …` lines.
+
+**Daily check additions:** trailers received per day, pallets per receipt outcome (available, on hold, exceptions), and trailers rejected. Exceptions or rejections point at a mismatch between what the buyer sent and Throughline's master data.
+
 ## Later iterations
 
 | Iteration | Adds |
 |---|---|
-| 2 | Test tenant and multi-tenant API registration; receiving operators on facility shifts posting unplanned deliveries for the SKUs being consumed; the ledger database. |
-| 3 | Allocators releasing orders ahead of each customer's cutoff. |
+| 2 | Test tenant and multitenant API registration (done); the ledger, the buyer and the receivers (built, see below). |
+| 3 | Allocators releasing orders ahead of each customer's cutoff, once Throughline has an allocation worklist (issue #35). |
 | 4 | Customers 2 and 3 (Brightwell Nutrition, Kestrel Industrial Supply) with their own profiles and app registrations. |
 | 5 | A reconciliation report: what was sent against what Throughline holds. |
 
