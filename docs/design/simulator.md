@@ -220,6 +220,56 @@ Built on `feat/simulator-receiving-allocation`. Both are off until configured: `
 
 **Daily check additions:** trailers received per day, pallets per receipt outcome (available, on hold, exceptions), and trailers rejected. Exceptions or rejections point at a mismatch between what the buyer sent and Throughline's master data.
 
+## Iteration 3: allocation (Harrow & Finch)
+
+Plan drafted 2026-10-20, to build on `feat/simulator-allocation`. Not started.
+
+**What exists today.** `POST /inventory/orders/allocate` (role `Inventory`, `owner_id` header) allocates a list of order IDs in the order given, FIFO, under the owner's policy (Harrow & Finch is `Partial`). It returns a status per order (`fullyAllocated`, `partiallyAllocated`, `notAllocated`, `failed`) with shortages and errors. `GET /inventory/orders/{orderId}` shows one order's lines. Nothing lists the orders waiting for allocation, so the simulator would have to remember order IDs itself, which a real allocator couldn't.
+
+**How it would run**
+- **Allocators** are 3PL inventory-control staff (decisions 6–8), signed in from the test tenant with `Inventory` plus `Owner.{id}` for the customers they work for.
+- While they're on shift, they release **waves** for each customer ahead of that customer's cutoff: fetch the owner's worklist, choose the orders for the wave, and post them as one allocation request.
+- Orders short of stock stay on the worklist and go into a later wave, after receivers have put more stock away. That exercises "further allocation" and "repeated requests" from the allocation story continuously.
+
+**Build steps**
+
+*Throughline (issue #35), in the same PR (decision 1)*
+1. **Worklist endpoint.** List the owner's orders that are confirmed or partially allocated, earliest acceptance into Throughline first, with each line's quantity still to allocate; offset paging; owner-scoped; `Inventory` plus the owner's role, otherwise 403. See the worklist decisions below.
+2. **Carry the acceptance time into Inventory.** `inventory.order_allocations` holds only `last_updated`, and `OrderConfirmedIntegrationEvent` carries no order date (only `OccurredOnUtc` from `IntegrationEventBase`, which is when the event was raised). Add Ordering's acceptance time (`orders.created_date`) to the event and store it on `order_allocations`, with a migration. `created_date` is set by the database on insert, so check that the event is built after EF reads it back, or have Ordering set the time itself.
+3. **Tests:** unit tests for the query's rules; an integration test only for what needs the running host (owner isolation and 403), per the integration-test rule.
+
+*Test tenant*
+4. Create `allocator1` and `allocator2` (display name `Allocator N (simulated)`), sign each in once to change the password, and assign `Inventory` and `Owner.1` as in setup steps 5 and 6.
+
+*Simulator*
+5. **Configuration:** `Facility:Allocators` (same shape as `Receivers`), an allocation shift pattern for the facility, and per customer an order cutoff and wave schedule. Values to confirm below. Validation at startup as for the rest of the profile.
+6. **`InventoryClient`:** typed client for the worklist (following its pages) and `POST /inventory/orders/allocate`, with its own request and response models (decision 2), the `owner_id` header and the staff retry profile.
+7. **Wave scheduling** as a pure, `TimeProvider`-driven class: given the facility shift, the customer's time zone, cutoff and wave schedule, when is the next wave due. Unit-tested like `DockCalendar`, including a daylight-saving change.
+8. **`AllocatorWorker`:** one loop per allocator; at each due wave it fetches the worklist and posts it. Response handling, like the receivers': 200 logs each order's outcome; 400 means the simulator built a bad request (log an error, don't resend it); 401, 403, 5xx or no response leaves the orders for the next wave. Two allocators must not release the same customer's wave (see decisions below).
+9. **Telemetry:** one structured log per wave (allocator, owner, wave time, orders sent, count per outcome, units short, latency), and metrics for orders allocated by outcome and wave latency.
+10. **Tests** per `docs/testing.md`: wave times by local time and shift; the worker's handling of each status code; the client's paging.
+11. **Run locally** against the Azure API with buying and receiving on, then **deploy** through `deploy-simulator.yaml` with the allocators' passwords as Container Apps secrets.
+
+**Worklist decisions (2026-10-20)**
+
+| Decision | Why |
+|---|---|
+| **Sorted by earliest acceptance into Throughline**: when Ordering accepted the 940 (`orders.created_date`), then order ID so equal times always come back in the same order. | A project policy, not a WMS convention. Reference WMS make the date configurable: Infor can sequence by Order Date or Requested Ship Date; Oracle selects wave orders by create-time windows to apply cutoffs. When Inventory recorded the order isn't used: it trails acceptance by the outbox delay (about 21 minutes for an order retried for an unknown SKU). Throughline's orders have no requested ship date or priority yet. |
+| **The sort is display order, not allocation precedence.** | Selecting which orders enter a wave is separate from which competing order gets stock first. Every reference WMS lets an operator choose specific orders as well as select them by rule. `POST /inventory/orders/allocate` already allocates whatever orders it's given, in the order given, so the caller decides; priority between competing orders stays out of scope, as in the allocation story. |
+| **Route: `GET /inventory/orders/awaiting-allocation`**, a named view rather than a status filter on an orders collection. | Which statuses mean "awaiting allocation" (today confirmed or partially allocated) is a business rule, so Inventory owns it; a status filter would put that rule in every client. "Awaiting allocation" rather than "allocatable", which reads as "has stock available". |
+| **Offset paging** (`page`, `pageSize`, with a maximum page size). | The list changes as orders are allocated, so a caller walking pages can miss an order on that pass; it's still on the worklist and comes back on the next fetch. At Harrow & Finch's volume the backlog stays small. Document the behavior. A continuation token wouldn't help with two allocators taking the same order: the allocate endpoint handles that (`failed` with `ORDER_ALLOCATING` while the other is running, `fullyAllocated` with nothing new once it's done). |
+
+**Decisions to make before building**
+
+| Question | Options / proposal |
+|---|---|
+| Allocation shifts | Reuse the dock shifts, or a separate pattern for inventory control. |
+| Harrow & Finch cutoff and waves | To propose together, like the iteration 1 profile. |
+| Keeping allocators off each other's waves | Assign each customer to one allocator, or claim the wave in the ledger as trailers are claimed. |
+| Wave size | Everything on the worklist, or a maximum per wave. |
+
+**Done when:** during allocation shifts, Harrow & Finch's orders are released in waves ahead of its cutoff; fully allocated orders leave the worklist; short orders are picked up by later waves once stock arrives; and every wave can be found in the simulator's logs and matched to Throughline's by order ID.
+
 ## Later iterations
 
 | Iteration | Adds |
