@@ -352,7 +352,7 @@ internal sealed class OrderAllocationServiceTests
 
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(OwnerId, Guid.CreateVersion7(), lines).Value
+        return OrderAllocation.Create(OwnerId, Guid.CreateVersion7(), AppDateTime.Now, lines).Value
                ?? throw new InvalidOperationException("test order could not be created");
     }
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
+using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -38,12 +39,14 @@ public static class InventoryExtensions
         services.AddScoped<IOrderAllocationService, OrderAllocationService>();
         services.AddScoped<AllocateOrdersHandler>();
         services.AddScoped<GetOrderQuery>();
+        services.AddScoped<GetAwaitingAllocationQuery>();
 
+        // allocation is outbound planning work, though its stock rules live in Inventory
         services.AddAuthorizationBuilder()
             .AddPolicy(InventoryPolicies.AllocateOrders, p =>
-                p.RequireRole(ThroughlineRoles.Inventory))
+                p.RequireRole(ThroughlineRoles.OutboundPlanning))
             .AddPolicy(InventoryPolicies.ReadAllocatedOrder, p =>
-                p.RequireRole(ThroughlineRoles.Inventory));
+                p.RequireRole(ThroughlineRoles.OutboundPlanning));
 
         return services;
     }
@@ -76,6 +79,20 @@ public static class InventoryExtensions
             return await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token) is { } order
                 ? Results.Ok(order)
                 : Results.NotFound();
+        }).RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
+
+        // The allocation worklist; may be truncated to the batch size, so allocate and fetch again for more
+        group.MapGet("/orders/awaiting-allocation", async (
+            int? batchSize,
+            RequestContext requestContext,
+            ILoggerFactory loggerFactory,
+            GetAwaitingAllocationQuery query,
+            CancellationToken token) =>
+        {
+            using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
+            var result = await query.GetAwaitingAllocationAsync(requestContext.OwnerId, batchSize, token);
+
+            return result.Succeeded ? Results.Ok(result.Value) : result.ToFailureResponse();
         }).RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
 
 

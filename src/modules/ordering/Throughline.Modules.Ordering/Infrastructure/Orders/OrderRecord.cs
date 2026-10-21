@@ -16,6 +16,6 @@ internal sealed class OrderRecord
 
     public List<OrderLineRecord> OrderLines { get; set; } = [];
 
-    // When the row was inserted; set by the database, never by the application
+    // When Throughline accepted the order (Order.CreatedOn); the database default is only a backstop
     public DateTimeOffset CreatedDate { get; set; }
 }

@@ -1,4 +1,5 @@
 using Throughline.Common.Events;
+using Throughline.Common.Models;
 using Throughline.Modules.Inventory.Domain.Allocation;
 using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Inventory;
@@ -65,7 +66,8 @@ public sealed class OrderConfirmedHandler
             // null forgiving is ok here bc we verified that all results succeeded, so all results
             // must have a value
             OrderAllocation.Create(
-                message.OwnerId, message.OrderId, lineResults.Select(r => r.Value!));
+                message.OwnerId, message.OrderId, new NonFutureDateTime(message.CreatedOn),
+                lineResults.Select(r => r.Value!));
 
         if (!orderResult.Succeeded)
             throw Poison(message, logger, orderResult.Errors.Select(e => e.Description));

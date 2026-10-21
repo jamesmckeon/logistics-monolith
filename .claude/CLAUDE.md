@@ -14,6 +14,9 @@ generated. The backlog, stories, reviews, and decision register live alongside i
 Test conventions live in @../docs/testing.md — follow them when writing, editing, or reviewing
 C# unit and integration tests.
 
+Code conventions live in @../docs/conventions.md — follow them when writing, editing, reviewing,
+or proposing C# production code.
+
 ---
 
 ## 1. What we are building

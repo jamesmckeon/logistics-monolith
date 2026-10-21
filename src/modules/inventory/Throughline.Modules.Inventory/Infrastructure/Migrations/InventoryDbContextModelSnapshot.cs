@@ -39,6 +39,10 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_updated");
 
+                    b.Property<DateTimeOffset>("OrderCreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("order_created_on");
+
                     b.Property<int>("OwnerId")
                         .HasColumnType("integer")
                         .HasColumnName("owner_id");
@@ -54,6 +58,9 @@ namespace Throughline.Modules.Inventory.Infrastructure.Migrations
 
                     b.HasIndex("OwnerId")
                         .HasDatabaseName("ix_order_allocations_owner_id");
+
+                    b.HasIndex("OwnerId", "OrderCreatedOn", "Id")
+                        .HasDatabaseName("ix_order_allocations_owner_id_order_created_on_order_id");
 
                     b.ToTable("order_allocations", "inventory");
                 });

@@ -269,7 +269,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
             .Value!;
         // receipt with a different sku id than on the order line
         var skuReceipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
@@ -287,7 +287,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 2)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
             .Value!;
 
         // allocate the quantity that could potentially be used to complete the first order
@@ -314,7 +314,7 @@ internal sealed class AllocationServiceTests
     {
         var line = CreateLine();
         var lineTwo = CreateLine();
-        var order = OrderAllocation.Create(1, Guid.Empty, [line, lineTwo])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line, lineTwo])
             .Value!;
 
         // create a receipt for the sku on line, but not one for the sku
@@ -333,7 +333,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
             .Value!;
         var skuReceipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now)
             .Value!;
@@ -342,7 +342,7 @@ internal sealed class AllocationServiceTests
         // quantity
         var otherLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var otherOrder = OrderAllocation.Create(1, Guid.Empty, [otherLine])
+        var otherOrder = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [otherLine])
             .Value!;
         var otherReceipt = CreateReceipt(otherLine);
 
@@ -359,7 +359,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 3)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
             .Value!;
         var receiptOne = SkuReceipt.Create(EntityId.Create(), line.SkuId, 1, AppDateTime.Now)
             .Value!;
@@ -377,7 +377,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
             .Value!;
         var receipt = CreateReceipt(line);
         line.AllocateReceipt(receipt, AppDateTime.Now);
@@ -420,7 +420,7 @@ internal sealed class AllocationServiceTests
 
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(1, Guid.Empty, lines).Value!;
+        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines).Value!;
     }
 
     #endregion

@@ -1,3 +1,4 @@
+using Throughline.Common.Models;
 using Throughline.Modules.Ordering.Domain;
 using Throughline.Modules.Ordering.Domain.Orders;
 
@@ -20,6 +21,7 @@ internal static class OrderMapper
             City = order.Content.Destination.City,
             State = order.Content.Destination.State,
             Zipcode = order.Content.Destination.ZipCode.Value,
+            CreatedDate = order.CreatedOn.Value,
             OrderLines = order.Content.OrderLines
                 .Select(l => new OrderLineRecord
                 {
@@ -48,6 +50,7 @@ internal static class OrderMapper
         return new Order(
             new OrderId(record.OrderId),
             new OwnerReferenceNumber(record.OwnerId, record.ReferenceNumber),
-            new OrderContent(record.PurchaseOrderNumber, destination, orderLines));
+            new OrderContent(record.PurchaseOrderNumber, destination, orderLines),
+            new NonFutureDateTime(record.CreatedDate));
     }
 }

@@ -214,7 +214,7 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
     {
         using var request = CreateRequest(
             HttpMethod.Get, InventoryTests.GetAllocatedOrderRoute(orderId), ownerId,
-            ThroughlineRoles.OwnerRole(ownerId), ThroughlineRoles.Inventory);
+            ThroughlineRoles.OwnerRole(ownerId), ThroughlineRoles.OutboundPlanning);
 
         using var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();

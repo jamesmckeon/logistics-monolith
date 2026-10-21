@@ -23,6 +23,13 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
         builder.Property(o => o.OwnerId).HasColumnName("owner_id");
         builder.HasIndex(o => o.OwnerId);
 
+        builder.Property(o => o.OrderCreatedOn)
+            .HasColumnName("order_created_on")
+            .HasConversion<NonFutureDateTimeValueConverter>();
+
+        // The allocation worklist: an owner's orders, earliest accepted first
+        builder.HasIndex(o => new { o.OwnerId, o.OrderCreatedOn, o.Id });
+
         builder.Property(o => o.LastUpdated)
             .HasColumnName("last_updated")
             .HasConversion(

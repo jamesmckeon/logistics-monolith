@@ -36,11 +36,12 @@ internal sealed class GetOrderQuery
                 skuCodes[l.SkuId.Value],
                 l.QuantityRequested,
                 l.QuantityAllocated,
+                l.QuantityShort,
                 l.AllocationStatus.ToString()))
             .ToList()
             .AsReadOnly();
 
         return new OrderAllocationModel(
-            order.OwnerId, order.Id, order.AllocationStatus.ToString(), lines);
+            order.OwnerId, order.Id, order.OrderCreatedOn.Value, order.AllocationStatus.ToString(), lines);
     }
 }

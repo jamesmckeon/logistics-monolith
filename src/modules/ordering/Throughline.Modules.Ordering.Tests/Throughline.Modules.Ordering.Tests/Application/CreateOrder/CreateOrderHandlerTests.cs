@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Application.CreateOrder;
 using Throughline.Modules.Ordering.Contracts.Events;
@@ -267,6 +268,41 @@ public sealed class CreateOrderHandlerTests
         });
     }
 
+    [Test]
+    public async Task CreateOrderAsync_OrderNotFound_StampsOrderAndEventWithAcceptanceTime()
+    {
+        var command = new CreateOrderCommand(
+            "PO1", "REF1", "Address One", null, "Portland", "OR",
+            "97211", [new CreateOrderCommandItem("TestSku", 1)]);
+
+        Order? order = null;
+        OrderConfirmedIntegrationEvent? integrationEvent = null;
+
+        // captured so the assertions can compare what was saved with what was published
+        _ordersRepository.Setup(s => s.SaveOrderAsync(
+                It.IsAny<Order>(),
+                It.IsAny<OrderConfirmedIntegrationEvent>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((Order o, OrderConfirmedIntegrationEvent ev, CancellationToken _) =>
+            {
+                order = o;
+                integrationEvent = ev;
+            })
+            .ReturnsAsync(new SaveOrderResult(new OrderId(), true));
+
+        var before = AppDateTime.Now;
+
+        await _sut.CreateOrderAsync(1, command);
+
+        var after = AppDateTime.Now;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(order?.CreatedOn.Value, Is.InRange(before.Value, after.Value));
+            Assert.That(integrationEvent?.CreatedOn, Is.EqualTo(order?.CreatedOn.Value));
+        });
+    }
+
     #region Helpers
 
     private static CreateOrderCommand TestCommand()
@@ -287,7 +323,8 @@ public sealed class CreateOrderHandlerTests
         return new Order(
             new OrderId(),
             new OwnerReferenceNumber(ownerId, command.ReferenceNumber),
-            new OrderContent(command.PurchaseOrderNumber, streetAddress, orderLines));
+            new OrderContent(command.PurchaseOrderNumber, streetAddress, orderLines),
+            AppDateTime.Now);
     }
 
     #endregion
