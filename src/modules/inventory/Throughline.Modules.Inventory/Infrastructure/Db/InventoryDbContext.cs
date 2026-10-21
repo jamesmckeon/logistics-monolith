@@ -112,13 +112,16 @@ public sealed class InventoryDbContext :
         return orders.AsReadOnly();
     }
 
-    async Task<IReadOnlyCollection<OrderAllocation>> IOrderAllocationRepository.GetAwaitingAllocationAsync(
-        int ownerId, int batchSize, CancellationToken token)
+    async Task<IReadOnlyCollection<OrderAllocation>> IOrderAllocationRepository.GetWorklistAsync(
+        int ownerId, AllocationWorklist worklist, int batchSize, CancellationToken token)
     {
+        var released = worklist == AllocationWorklist.Backordered;
+
         var orders = await Orders
             .Where(o => o.OwnerId == ownerId &&
                         !o.Allocating &&
-                        o.OrderLines.Any(l => l.QuantityAllocated < l.QuantityRequested))
+                        o.OrderLines.Any(l => l.QuantityAllocated < l.QuantityRequested) &&
+                        (o.LastUpdated != null) == released)
             .OrderBy(o => o.OrderCreatedOn)
             .ThenBy(o => o.Id)
             .Take(batchSize)

@@ -438,13 +438,15 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     #endregion
 
-    #region AwaitingAllocation
+    #region Worklists
 
-    [Test]
-    public async Task GetAwaitingAllocation_NotInOutboundPlanningRole_ReturnsForbidden()
+    // the policy is attached to each route, so each is checked
+    [TestCase(UnreleasedList)]
+    [TestCase(BackorderedList)]
+    public async Task GetWorklist_NotInOutboundPlanningRole_ReturnsForbidden(string list)
     {
         using var request = CreateRequest(
-            HttpMethod.Get, AwaitingAllocationRoute(null), 1, ThroughlineRoles.OwnerRole(1),
+            HttpMethod.Get, WorklistRoute(list, null), 1, ThroughlineRoles.OwnerRole(1),
             ThroughlineRoles.Inventory);
 
         var response = await _client.SendAsync(request);
@@ -453,7 +455,32 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     }
 
     [Test]
-    public async Task GetAwaitingAllocation_MixedOrders_ReturnsOnlyOwnersUnallocatedIdleOrders()
+    public async Task GetWorklists_OneOrderReleasedShort_EachListHasOnlyItsOwnOrder()
+    {
+        var sku = TestSkus.First();
+        var released = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+        var unreleased = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+        await SeedOrdersAndReceiptsAsync([], released, unreleased);
+
+        // no stock, so the released order comes back short
+        var allocateResponse = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([released.Id]), PartialAllocationOwner.Id);
+        Assert.That(allocateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var unreleasedResponse = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, null);
+        var backorderedResponse = await GetWorklistAsync(BackorderedList, PartialAllocationOwner.Id, null);
+        var unreleasedOrders = await unreleasedResponse.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+        var backorderedOrders = await backorderedResponse.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unreleasedOrders?.Select(o => o.OrderId), Is.EqualTo([unreleased.Id]));
+            Assert.That(backorderedOrders?.Select(o => o.OrderId), Is.EqualTo([released.Id]));
+        });
+    }
+
+    [Test]
+    public async Task GetUnreleased_MixedOrders_ReturnsOnlyOwnersUnallocatedIdleOrders()
     {
         var sku = TestSkus.First();
         var awaiting = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
@@ -470,18 +497,18 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
         await SeedOrdersAndReceiptsAsync([receipt], awaiting, allocated, allocating, otherOwners);
 
-        var response = await GetAwaitingAllocationAsync(PartialAllocationOwner.Id, null);
-        var worklist = await response.Content.ReadFromJsonAsync<AwaitingAllocationModel>();
+        var response = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, null);
+        var worklist = await response.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
 
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(worklist?.Orders.Select(o => o.OrderId), Is.EqualTo([awaiting.Id]));
+            Assert.That(worklist?.Select(o => o.OrderId), Is.EqualTo([awaiting.Id]));
         });
     }
 
     [Test]
-    public async Task GetAwaitingAllocation_BatchSize_ReturnsEarliestCreatedThenOrderId()
+    public async Task GetUnreleased_BatchSize_ReturnsEarliestCreatedThenOrderId()
     {
         var sku = TestSkus.First();
         var early = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
@@ -500,13 +527,13 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
             .OrderBy(id => id.ToString(), StringComparer.Ordinal);
         var expected = new[] { earlyOrder.Id }.Concat(tiedInIdOrder);
 
-        var response = await GetAwaitingAllocationAsync(PartialAllocationOwner.Id, 3);
-        var worklist = await response.Content.ReadFromJsonAsync<AwaitingAllocationModel>();
+        var response = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, 3);
+        var worklist = await response.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
 
         Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(worklist?.Orders.Select(o => o.OrderId), Is.EqualTo(expected));
+            Assert.That(worklist?.Select(o => o.OrderId), Is.EqualTo(expected));
         });
     }
 
@@ -519,11 +546,14 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         OrderAllocation.Create(owner.Id, orderId, createdOn, lines).Value
         ?? throw new InvalidOperationException("test order could not be created");
 
-    private async Task<HttpResponseMessage> GetAwaitingAllocationAsync(int ownerId, int? batchSize)
+    private const string UnreleasedList = "unreleased";
+    private const string BackorderedList = "backordered";
+
+    private async Task<HttpResponseMessage> GetWorklistAsync(string list, int ownerId, int? batchSize)
     {
         using var request = CreateRequest(
             HttpMethod.Get,
-            AwaitingAllocationRoute(batchSize),
+            WorklistRoute(list, batchSize),
             ownerId,
             ThroughlineRoles.OwnerRole(ownerId),
             ThroughlineRoles.OutboundPlanning);
@@ -531,8 +561,8 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         return await _client.SendAsync(request);
     }
 
-    private static string AwaitingAllocationRoute(int? batchSize) =>
-        $"{InventoryExtensions.InventoryRoute}/orders/awaiting-allocation" +
+    private static string WorklistRoute(string list, int? batchSize) =>
+        $"{InventoryExtensions.InventoryRoute}/orders/{list}" +
         (batchSize is null ? "" : $"?batchSize={batchSize}");
 
     private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)

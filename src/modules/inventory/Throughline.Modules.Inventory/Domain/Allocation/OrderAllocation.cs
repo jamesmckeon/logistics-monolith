@@ -68,7 +68,13 @@ internal sealed class OrderAllocation : Entity<Guid>
         }
     }
 
+    /// <summary>
+    ///     When an allocation attempt last started or stopped on the order. Only allocation attempts set it, and
+    ///     it's null until the first one starts, so it also tells whether the order has been released
+    ///     (<see cref="AllocationWorklist" />).
+    /// </summary>
     public AppDateTime? LastUpdated { get; private set; }
+
     public bool Allocating { get; private set; }
 
     /// <param name="orderCreatedOn">When Throughline accepted the order</param>

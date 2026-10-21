@@ -11,7 +11,7 @@ using Throughline.Modules.Inventory.Domain.Skus;
 namespace Throughline.Modules.Inventory.Tests.Application.Queries;
 
 [Category("Unit")]
-internal sealed class GetAwaitingAllocationQueryTests
+internal sealed class GetAllocationWorklistQueryTests
 {
     private const int OwnerId = 1;
 
@@ -21,7 +21,7 @@ internal sealed class GetAwaitingAllocationQueryTests
 
     private Mock<IInventoryRepository> _inventoryRepository;
     private Mock<IOrderAllocationRepository> _orderAllocationRepository;
-    private GetAwaitingAllocationQuery _sut;
+    private GetAllocationWorklistQuery _sut;
     private static CancellationToken Token => TokenSource.Token;
 
     [SetUp]
@@ -30,17 +30,17 @@ internal sealed class GetAwaitingAllocationQueryTests
         _inventoryRepository = new Mock<IInventoryRepository>(MockBehavior.Strict);
         _orderAllocationRepository = new Mock<IOrderAllocationRepository>(MockBehavior.Strict);
 
-        _sut = new GetAwaitingAllocationQuery(_orderAllocationRepository.Object, _inventoryRepository.Object);
+        _sut = new GetAllocationWorklistQuery(_orderAllocationRepository.Object, _inventoryRepository.Object);
     }
 
-    #region GetAwaitingAllocationAsync
+    #region GetWorklistAsync
 
     [TestCase(0)]
     [TestCase(-1)]
     [TestCase(501)]
-    public async Task GetAwaitingAllocationAsync_BatchSizeOutOfRange_ReturnsValidationFailure(int batchSize)
+    public async Task GetWorklistAsync_BatchSizeOutOfRange_ReturnsValidationFailure(int batchSize)
     {
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, batchSize, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, batchSize, Token);
 
         Assert.Multiple(() =>
         {
@@ -50,69 +50,69 @@ internal sealed class GetAwaitingAllocationQueryTests
     }
 
     [Test]
-    public async Task GetAwaitingAllocationAsync_NoBatchSize_RequestsBatchOf25()
+    public async Task GetWorklistAsync_NoBatchSize_RequestsBatchOf25()
     {
         var order = CreateOrder(AppDateTime.Now, CreateLine(SkuOne));
-        GivenAwaitingAllocation(25, order);
+        GivenUnreleased(25, order);
         GivenSkus(SkuOne);
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, null, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, null, Token);
 
-        Assert.That(actual.Value?.Orders.Select(o => o.OrderId), Is.EqualTo([order.Id]));
+        Assert.That(actual.Value?.Select(o => o.OrderId), Is.EqualTo([order.Id]));
     }
 
     [TestCase(1)]
     [TestCase(500)]
-    public async Task GetAwaitingAllocationAsync_BatchSizeInRange_RequestsThatBatchSize(int batchSize)
+    public async Task GetWorklistAsync_BatchSizeInRange_RequestsThatBatchSize(int batchSize)
     {
         var order = CreateOrder(AppDateTime.Now, CreateLine(SkuOne));
-        GivenAwaitingAllocation(batchSize, order);
+        GivenUnreleased(batchSize, order);
         GivenSkus(SkuOne);
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, batchSize, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, batchSize, Token);
 
-        Assert.That(actual.Value?.Orders.Select(o => o.OrderId), Is.EqualTo([order.Id]));
+        Assert.That(actual.Value?.Select(o => o.OrderId), Is.EqualTo([order.Id]));
     }
 
     [Test]
-    public async Task GetAwaitingAllocationAsync_NothingAwaiting_ReturnsEmptyOrders()
+    public async Task GetWorklistAsync_NothingAwaiting_ReturnsEmptyOrders()
     {
-        GivenAwaitingAllocation(25);
+        GivenUnreleased(25);
         GivenSkus();
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, null, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, null, Token);
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Succeeded, Is.True);
-            Assert.That(actual.Value?.Orders, Is.Empty);
+            Assert.That(actual.Value, Is.Empty);
         });
     }
 
     [Test]
-    public async Task GetAwaitingAllocationAsync_OrdersAwaiting_KeepsRepositoryOrder()
+    public async Task GetWorklistAsync_OrdersAwaiting_KeepsRepositoryOrder()
     {
         var first = CreateOrder(AppDateTime.Now, CreateLine(SkuOne));
         var second = CreateOrder(AppDateTime.Now, CreateLine(SkuTwo));
-        GivenAwaitingAllocation(25, first, second);
+        GivenUnreleased(25, first, second);
         GivenSkus(SkuOne, SkuTwo);
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, null, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, null, Token);
 
-        Assert.That(actual.Value?.Orders.Select(o => o.OrderId), Is.EqualTo([first.Id, second.Id]));
+        Assert.That(actual.Value?.Select(o => o.OrderId), Is.EqualTo([first.Id, second.Id]));
     }
 
     [Test]
-    public async Task GetAwaitingAllocationAsync_OrderAwaiting_MapsOrderFields()
+    public async Task GetWorklistAsync_OrderAwaiting_MapsOrderFields()
     {
         var createdOn = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 14, 30, 0, TimeSpan.Zero));
         var order = CreateOrder(createdOn, CreateLine(SkuOne));
-        GivenAwaitingAllocation(25, order);
+        GivenUnreleased(25, order);
         GivenSkus(SkuOne);
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, null, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, null, Token);
 
-        var model = actual.Value?.Orders.Single();
+        var model = actual.Value?.Single();
 
         Assert.Multiple(() =>
         {
@@ -124,14 +124,14 @@ internal sealed class GetAwaitingAllocationQueryTests
     }
 
     [Test]
-    public async Task GetAwaitingAllocationAsync_LinesPartlyAllocated_MapsSkuCodeAndQuantityToAllocate()
+    public async Task GetWorklistAsync_LinesPartlyAllocated_MapsSkuCodeAndQuantityToAllocate()
     {
         var partialLine = CreateLine(SkuOne, 3);
         Allocate(partialLine, 1);
         var allocatedLine = CreateLine(SkuTwo);
         Allocate(allocatedLine, 1);
         var order = CreateOrder(AppDateTime.Now, partialLine, allocatedLine);
-        GivenAwaitingAllocation(25, order);
+        GivenUnreleased(25, order);
         GivenSkus(SkuOne, SkuTwo);
 
         var expected = new[]
@@ -140,19 +140,37 @@ internal sealed class GetAwaitingAllocationQueryTests
             new OrderLineAllocationModel(SkuTwo.Code, 1, 1, 0, nameof(AllocationStatuses.Allocated))
         };
 
-        var actual = await _sut.GetAwaitingAllocationAsync(OwnerId, null, Token);
+        var actual = await _sut.GetWorklistAsync(OwnerId, AllocationWorklist.Unreleased, null, Token);
 
-        Assert.That(actual.Value?.Orders.Single().Lines, Is.EquivalentTo(expected));
+        Assert.That(actual.Value?.Single().Lines, Is.EquivalentTo(expected));
+    }
+
+    [TestCase(AllocationWorklist.Unreleased)]
+    [TestCase(AllocationWorklist.Backordered)]
+    public async Task GetWorklistAsync_Worklist_RequestsThatWorklist(AllocationWorklist worklist)
+    {
+        var order = CreateOrder(AppDateTime.Now, CreateLine(SkuOne));
+        GivenWorklist(worklist, 25, order);
+        GivenSkus(SkuOne);
+
+        var actual = await _sut.GetWorklistAsync(OwnerId, worklist, null, Token);
+
+        Assert.That(actual.Value?.Select(o => o.OrderId), Is.EqualTo([order.Id]));
     }
 
     #endregion
 
     #region Helpers
 
-    private void GivenAwaitingAllocation(int batchSize, params OrderAllocation[] orders)
+    private void GivenUnreleased(int batchSize, params OrderAllocation[] orders)
+    {
+        GivenWorklist(AllocationWorklist.Unreleased, batchSize, orders);
+    }
+
+    private void GivenWorklist(AllocationWorklist worklist, int batchSize, params OrderAllocation[] orders)
     {
         _orderAllocationRepository
-            .Setup(r => r.GetAwaitingAllocationAsync(OwnerId, batchSize, Token))
+            .Setup(r => r.GetWorklistAsync(OwnerId, worklist, batchSize, Token))
             .ReturnsAsync(orders);
     }
 
