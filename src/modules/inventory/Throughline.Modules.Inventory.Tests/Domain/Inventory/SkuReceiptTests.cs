@@ -154,7 +154,7 @@ internal sealed class SkuReceiptTests
         var line = OrderLineAllocation.Create(EntityId.Create(), skuId, 2).Value
                    ?? throw new InvalidOperationException("test line could not be created");
 
-        return OrderAllocation.Create(1, Guid.CreateVersion7(), [line]).Value
+        return OrderAllocation.Create(1, Guid.CreateVersion7(), AppDateTime.Now, [line]).Value
                ?? throw new InvalidOperationException("test order could not be created");
     }
 

@@ -43,7 +43,7 @@ internal sealed class OrderAllocationTests
     [Test]
     public void Create_EmptyLines_ReturnsValidationFailure()
     {
-        var actual = OrderAllocation.Create(1, Guid.Empty, []);
+        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, []);
 
         Assert.Multiple(() =>
         {
@@ -60,7 +60,7 @@ internal sealed class OrderAllocationTests
         var lineOne = CreateLine();
         var duplicate = CreateLine(lineOne.SkuId, 2);
 
-        var actual = OrderAllocation.Create(1, Guid.Empty, [lineOne, duplicate]);
+        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [lineOne, duplicate]);
 
         Assert.Multiple(() =>
         {
@@ -79,7 +79,7 @@ internal sealed class OrderAllocationTests
         var ownerId = 99;
         var orderId = Guid.CreateVersion7();
 
-        var actual = OrderAllocation.Create(ownerId, orderId, [line]);
+        var actual = OrderAllocation.Create(ownerId, orderId, AppDateTime.Now, [line]);
 
         Assert.That(actual.Value, Is.Not.Null);
 
@@ -90,6 +90,16 @@ internal sealed class OrderAllocationTests
             Assert.That(actual.Value.OwnerId, Is.EqualTo(ownerId));
             Assert.That(actual.Value.OrderLines, Is.EquivalentTo([line]));
         });
+    }
+
+    [Test]
+    public void Create_ValidInput_KeepsOrderCreatedOn()
+    {
+        var orderCreatedOn = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 14, 30, 0, TimeSpan.Zero));
+
+        var actual = OrderAllocation.Create(1, Guid.CreateVersion7(), orderCreatedOn, [CreateLine()]);
+
+        Assert.That(actual.Value?.OrderCreatedOn, Is.EqualTo(orderCreatedOn));
     }
 
     #endregion
@@ -236,7 +246,7 @@ internal sealed class OrderAllocationTests
 
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(1, Guid.Empty, lines)
+        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines)
             .Value!;
     }
 

@@ -68,7 +68,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // trigger a OrderLineAllocation.create() failure
         var orderId = Guid.NewGuid();
         var orderLine = new OrderLineEventModel(sku.Code, 0);
-        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(1, orderId, [orderLine]);
+        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(1, orderId, AppDateTime.Now.Value, [orderLine]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -88,7 +88,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // dont setup any skus in Inventory
         var orderId = Guid.NewGuid();
         var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
-            1, orderId, [new OrderLineEventModel("TEST", 1)]);
+            1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -168,7 +168,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     #region Allocate
 
     [Test]
-    public async Task Allocate_NotInInventoryRole_ReturnsForbidden()
+    public async Task Allocate_NotInOutboundPlanningRole_ReturnsForbidden()
     {
         var command = new AllocateOrdersCommand([Guid.NewGuid()]);
 
@@ -187,7 +187,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var command = new AllocateOrdersCommand([Guid.NewGuid()]);
 
         using var request = CreateRequest(
-            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.Inventory);
+            HttpMethod.Post, AllocationRoute, 1, ThroughlineRoles.OutboundPlanning);
         request.Content = JsonContent.Create(command);
 
         var response = await _client.SendAsync(request);
@@ -438,7 +438,132 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     #endregion
 
+    #region Worklists
+
+    // the policy is attached to each route, so each is checked
+    [TestCase(UnreleasedList)]
+    [TestCase(BackorderedList)]
+    public async Task GetWorklist_NotInOutboundPlanningRole_ReturnsForbidden(string list)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get, WorklistRoute(list, null), 1, ThroughlineRoles.OwnerRole(1),
+            ThroughlineRoles.Inventory);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task GetWorklists_OneOrderReleasedShort_EachListHasOnlyItsOwnOrder()
+    {
+        var sku = TestSkus.First();
+        var released = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+        var unreleased = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+        await SeedOrdersAndReceiptsAsync([], released, unreleased);
+
+        // no stock, so the released order comes back short
+        var allocateResponse = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([released.Id]), PartialAllocationOwner.Id);
+        Assert.That(allocateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var unreleasedResponse = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, null);
+        var backorderedResponse = await GetWorklistAsync(BackorderedList, PartialAllocationOwner.Id, null);
+        var unreleasedOrders = await unreleasedResponse.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+        var backorderedOrders = await backorderedResponse.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unreleasedOrders?.Select(o => o.OrderId), Is.EqualTo([unreleased.Id]));
+            Assert.That(backorderedOrders?.Select(o => o.OrderId), Is.EqualTo([released.Id]));
+        });
+    }
+
+    [Test]
+    public async Task GetUnreleased_MixedOrders_ReturnsOnlyOwnersUnallocatedIdleOrders()
+    {
+        var sku = TestSkus.First();
+        var awaiting = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+
+        var allocatedLine = CreateLine(sku);
+        var receipt = CreateSkuReceipt(sku.Id, 1);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
+        var allocated = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), allocatedLine);
+
+        var allocating = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
+        allocating.StartAllocating(AppDateTime.Now);
+
+        var otherOwners = CreateOrder(ShipCompleteOwner, Guid.CreateVersion7(), CreateLine(sku));
+
+        await SeedOrdersAndReceiptsAsync([receipt], awaiting, allocated, allocating, otherOwners);
+
+        var response = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, null);
+        var worklist = await response.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(worklist?.Select(o => o.OrderId), Is.EqualTo([awaiting.Id]));
+        });
+    }
+
+    [Test]
+    public async Task GetUnreleased_BatchSize_ReturnsEarliestCreatedThenOrderId()
+    {
+        var sku = TestSkus.First();
+        var early = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
+        var tied = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 10, 0, 0, TimeSpan.Zero));
+        var late = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 11, 0, 0, TimeSpan.Zero));
+
+        var lateOrder = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), late, CreateLine(sku));
+        var tiedOne = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), tied, CreateLine(sku));
+        var earlyOrder = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), early, CreateLine(sku));
+        var tiedTwo = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), tied, CreateLine(sku));
+
+        await SeedOrdersAndReceiptsAsync([], lateOrder, tiedOne, earlyOrder, tiedTwo);
+
+        // Postgres orders uuids by their text form
+        var tiedInIdOrder = new[] { tiedOne.Id, tiedTwo.Id }
+            .OrderBy(id => id.ToString(), StringComparer.Ordinal);
+        var expected = new[] { earlyOrder.Id }.Concat(tiedInIdOrder);
+
+        var response = await GetWorklistAsync(UnreleasedList, PartialAllocationOwner.Id, 3);
+        var worklist = await response.Content.ReadFromJsonAsync<List<OrderAllocationModel>>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(worklist?.Select(o => o.OrderId), Is.EqualTo(expected));
+        });
+    }
+
+    #endregion
+
     #region Helpers
+
+    private static OrderAllocation CreateOrder(
+        Owner owner, Guid orderId, NonFutureDateTime createdOn, params OrderLineAllocation[] lines) =>
+        OrderAllocation.Create(owner.Id, orderId, createdOn, lines).Value
+        ?? throw new InvalidOperationException("test order could not be created");
+
+    private const string UnreleasedList = "unreleased";
+    private const string BackorderedList = "backordered";
+
+    private async Task<HttpResponseMessage> GetWorklistAsync(string list, int ownerId, int? batchSize)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            WorklistRoute(list, batchSize),
+            ownerId,
+            ThroughlineRoles.OwnerRole(ownerId),
+            ThroughlineRoles.OutboundPlanning);
+
+        return await _client.SendAsync(request);
+    }
+
+    private static string WorklistRoute(string list, int? batchSize) =>
+        $"{InventoryExtensions.InventoryRoute}/orders/{list}" +
+        (batchSize is null ? "" : $"?batchSize={batchSize}");
 
     private async Task SeedOrdersAndReceiptsAsync(IEnumerable<SkuReceipt> receipts, params OrderAllocation[] order)
     {
@@ -476,7 +601,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
 
     private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines) =>
-        OrderAllocation.Create(owner.Id, orderId, lines)
+        OrderAllocation.Create(owner.Id, orderId, AppDateTime.Now, lines)
             .Value!;
 
     private static OrderLineAllocation CreateLine(Sku sku, int quantityRequested = 1) =>
@@ -517,7 +642,7 @@ internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
             AllocationRoute,
             ownerId,
             ThroughlineRoles.OwnerRole(ownerId),
-            ThroughlineRoles.Inventory);
+            ThroughlineRoles.OutboundPlanning);
 
         request.Content = JsonContent.Create(command);
 

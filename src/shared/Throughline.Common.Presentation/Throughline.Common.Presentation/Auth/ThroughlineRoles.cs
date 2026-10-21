@@ -11,6 +11,11 @@ public static class ThroughlineRoles
     public const string Inventory = "Inventory";
 
     /// <summary>
+    ///     Name of the Entra role held by outbound planners, who release orders for allocation in waves
+    /// </summary>
+    public const string OutboundPlanning = "OutboundPlanning";
+
+    /// <summary>
     ///     Membership in this role, in combination with function specific roles, grants
     ///     access to endpoints for a specific owner
     /// </summary>

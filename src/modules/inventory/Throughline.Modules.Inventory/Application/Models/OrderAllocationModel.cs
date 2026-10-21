@@ -5,6 +5,7 @@ internal sealed class OrderAllocationModel
     public OrderAllocationModel(
         int ownerId,
         Guid orderId,
+        DateTimeOffset orderCreatedOn,
         string allocationStatus,
         IReadOnlyCollection<OrderLineAllocationModel> lines)
     {
@@ -15,12 +16,19 @@ internal sealed class OrderAllocationModel
 
         OwnerId = ownerId;
         OrderId = orderId;
+        OrderCreatedOn = orderCreatedOn;
         AllocationStatus = allocationStatus;
         Lines = lines;
     }
 
     public int OwnerId { get; }
     public Guid OrderId { get; }
+
+    /// <summary>
+    ///     When Throughline accepted the order
+    /// </summary>
+    public DateTimeOffset OrderCreatedOn { get; }
+
     public string AllocationStatus { get; }
     public IReadOnlyCollection<OrderLineAllocationModel> Lines { get; }
 }

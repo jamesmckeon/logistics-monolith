@@ -102,9 +102,3 @@ dotnet test
 
 The integration tests start their own Postgres through Testcontainers, so Docker has to be
 running. `dotnet test --filter "Category=Unit"` runs the unit tests alone.
-
-# Modelling
-
-I'm not a purist. If an approach or framework isn't immediately appropriate for a scenario, I most likely will find one that's better suited. Consistency is crucial for making code navigable *within* a bounded context, but forcing one pattern across every context can make the code less readable and understandable.
-
-I don't adhere strictly to Clean, layered, or Vertical Slice Architecture. Each use case is a handler in the application layer, and the business logic behind it is written to be as expressive as possible. Beyond that, I abstract only as much as is needed to clearly separate responsibilities and make the code testable. Expect the design of each bounded context to differ, and to evolve as stories are built; I'm deliberately borrowing more from Vertical Slice Architecture as the project grows.

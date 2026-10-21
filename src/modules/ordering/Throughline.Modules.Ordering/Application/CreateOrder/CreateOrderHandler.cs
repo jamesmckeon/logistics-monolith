@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Throughline.Common.Models;
 using Throughline.Common.Results;
 using Throughline.Modules.Ordering.Contracts.Events;
 using Throughline.Modules.Ordering.Contracts.Models;
@@ -77,9 +78,9 @@ internal sealed class CreateOrderHandler
             return new CreateOrderResult(false, existingOrder.Id.Value, ownerId, command.ReferenceNumber);
         }
 
-        var order = new Order(new OrderId(), ownerReference, contentResult.Value);
+        var order = new Order(new OrderId(), ownerReference, contentResult.Value, AppDateTime.Now);
         var orderConfirmed =
-            new OrderConfirmedIntegrationEvent(ownerId, order.Id.Value,
+            new OrderConfirmedIntegrationEvent(ownerId, order.Id.Value, order.CreatedOn.Value,
                 order.Content.OrderLines.Select(ol => new OrderLineEventModel(ol.SkuCode.Value, ol.Quantity)).ToList()
                     .AsReadOnly());
         var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, orderConfirmed, cancellationToken);

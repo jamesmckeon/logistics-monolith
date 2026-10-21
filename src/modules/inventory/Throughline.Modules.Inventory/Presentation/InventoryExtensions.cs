@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Common.Infrastructure;
+using Throughline.Common.Presentation;
 using Throughline.Common.Presentation.Auth;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -38,12 +39,14 @@ public static class InventoryExtensions
         services.AddScoped<IOrderAllocationService, OrderAllocationService>();
         services.AddScoped<AllocateOrdersHandler>();
         services.AddScoped<GetOrderQuery>();
+        services.AddScoped<GetAllocationWorklistQuery>();
 
+        // allocation is outbound planning work, though its stock rules live in Inventory
         services.AddAuthorizationBuilder()
             .AddPolicy(InventoryPolicies.AllocateOrders, p =>
-                p.RequireRole(ThroughlineRoles.Inventory))
+                p.RequireRole(ThroughlineRoles.OutboundPlanning))
             .AddPolicy(InventoryPolicies.ReadAllocatedOrder, p =>
-                p.RequireRole(ThroughlineRoles.Inventory));
+                p.RequireRole(ThroughlineRoles.OutboundPlanning));
 
         return services;
     }
@@ -58,6 +61,20 @@ public static class InventoryExtensions
 
         // owner on every log record in the request
         return loggerFactory.CreateLogger("Inventory").BeginScope("Owner {OwnerId}", ownerId);
+    }
+
+    private static async Task<IResult> GetWorklistAsync(
+        AllocationWorklist worklist,
+        int? batchSize,
+        RequestContext requestContext,
+        ILoggerFactory loggerFactory,
+        GetAllocationWorklistQuery query,
+        CancellationToken token)
+    {
+        using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
+        var result = await query.GetWorklistAsync(requestContext.OwnerId, worklist, batchSize, token);
+
+        return result.Succeeded ? Results.Ok(result.Value) : result.ToFailureResponse();
     }
 
     public static IEndpointRouteBuilder MapInventory(this IEndpointRouteBuilder app)
@@ -77,6 +94,25 @@ public static class InventoryExtensions
                 ? Results.Ok(order)
                 : Results.NotFound();
         }).RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
+
+        // The allocation worklists; each may be truncated to the batch size, so allocate and fetch again for more
+        group.MapGet("/orders/unreleased", (
+                int? batchSize,
+                RequestContext requestContext,
+                ILoggerFactory loggerFactory,
+                GetAllocationWorklistQuery query,
+                CancellationToken token) =>
+            GetWorklistAsync(AllocationWorklist.Unreleased, batchSize, requestContext, loggerFactory, query, token))
+            .RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
+
+        group.MapGet("/orders/backordered", (
+                int? batchSize,
+                RequestContext requestContext,
+                ILoggerFactory loggerFactory,
+                GetAllocationWorklistQuery query,
+                CancellationToken token) =>
+            GetWorklistAsync(AllocationWorklist.Backordered, batchSize, requestContext, loggerFactory, query, token))
+            .RequireAuthorization(InventoryPolicies.ReadAllocatedOrder);
 
 
         group.MapPost("/orders/allocate", async Task<IResult> (
