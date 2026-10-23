@@ -6,11 +6,23 @@ using System.Net.Http.Json;
 namespace Throughline.Simulator.Allocation;
 
 /// <summary>
+///     An outbound planner reading a customer's allocation worklists and allocating orders
+/// </summary>
+internal interface IInventoryClient
+{
+    Task<WorklistResponse> GetWorklistAsync(
+        int ownerId, Worklist worklist, int batchSize, CancellationToken cancellationToken);
+
+    Task<AllocationResponse> AllocateAsync(
+        int ownerId, IReadOnlyList<Guid> orderIds, CancellationToken cancellationToken);
+}
+
+/// <summary>
 ///     An outbound planner reading a customer's allocation worklists (<c>GET /inventory/orders/backordered</c> and
-///     <c>/unreleased</c>) and releasing a wave (<c>POST /inventory/orders/allocate</c>). Defined here rather than
+///     <c>/unreleased</c>) and allocating orders (<c>POST /inventory/orders/allocate</c>). Defined here rather than
 ///     shared with Throughline, as an outside caller's would be.
 /// </summary>
-internal sealed class InventoryClient
+internal sealed class InventoryClient : IInventoryClient
 {
     private const string OwnerIdHeader = "owner_id";
 
