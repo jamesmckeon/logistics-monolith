@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.Extensions.Options;
 using Throughline.Simulator.Configuration;
 using Throughline.Simulator.Http;
@@ -9,13 +8,13 @@ namespace Throughline.Simulator.Allocation;
 
 /// <summary>
 ///     The facility's outbound planners. At each of a customer's wave times, the allocator on shift reads the
-///     customer's backordered and unreleased orders and releases them to Throughline as one allocation request.
-///     One loop per customer, so a customer's waves never overlap.
+///     customer's backordered and unreleased orders and allocates them in planner-sized requests
+///     (<see cref="WaveRelease" />). One loop per customer, so a customer's waves never overlap.
 /// </summary>
 internal sealed class AllocatorWorker : BackgroundService
 {
     /// <summary>
-    ///     The worklists' server-set maximum, and so the most orders a wave releases
+    ///     The worklists' server-set maximum, and so the most orders a wave covers
     /// </summary>
     public const int MaxWaveSize = 500;
 
@@ -66,7 +65,7 @@ internal sealed class AllocatorWorker : BackgroundService
     }
 
     /// <summary>
-    ///     The orders a wave releases, in the order they're allocated: backordered orders first, since they were
+    ///     The orders a wave covers, in the order they're allocated: backordered orders first, since they were
     ///     accepted earlier and may now have stock, then unreleased ones, up to <paramref name="maxOrders" />
     /// </summary>
     internal static IReadOnlyList<Guid> SelectWave(
@@ -78,17 +77,6 @@ internal sealed class AllocatorWorker : BackgroundService
         // an order could move between the lists between the two reads; the allocate endpoint rejects duplicates
         return backordered.Concat(unreleased).Select(o => o.OrderId).Distinct().Take(maxOrders).ToList();
     }
-
-    internal static WaveResult Classify(HttpStatusCode status) => status switch
-    {
-        HttpStatusCode.OK => WaveResult.Allocated,
-
-        // the simulator built a bad request; sending it again won't help
-        HttpStatusCode.BadRequest => WaveResult.Rejected,
-
-        // sign-in, role or server problems: the orders stay on the worklists for the next wave
-        _ => WaveResult.LeftForNextWave
-    };
 
     private async Task RunCustomerAsync(string customer, CustomerProfile profile, CancellationToken stoppingToken)
     {
@@ -162,7 +150,6 @@ internal sealed class AllocatorWorker : BackgroundService
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
             // timeouts and connection failures that outlasted the retries
-            _metrics.WaveReleased(customer, sameDay, null, TimeSpan.Zero);
             _logger.LogError(ex,
                 "Allocator {Allocator} got no worklist for owner {OwnerId}; the {WaveKind} wave at {WaveTime} was skipped",
                 allocator, ownerId, kind, wave);
@@ -172,7 +159,6 @@ internal sealed class AllocatorWorker : BackgroundService
         if (backordered.Orders is null || unreleased.Orders is null)
         {
             var failed = backordered.Orders is null ? backordered.StatusCode : unreleased.StatusCode;
-            _metrics.WaveReleased(customer, sameDay, (int)failed, TimeSpan.Zero);
             _logger.LogError(
                 "Allocator {Allocator} couldn't read the worklists for owner {OwnerId} ({StatusCode}); " +
                 "the {WaveKind} wave at {WaveTime} was skipped", allocator, ownerId, (int)failed, kind, wave);
@@ -189,61 +175,70 @@ internal sealed class AllocatorWorker : BackgroundService
             return;
         }
 
-        AllocationResponse response;
+        var release = await new WaveRelease(client).ReleaseAsync(ownerId, orderIds, stoppingToken);
+        var context = new WaveContext(customer, ownerId, allocator, wave, sameDay, kind);
 
-        try
+        for (var i = 0; i < release.Requests.Count; i++)
+            LogRequest(context, i + 1, release.RequestsPlanned, release.Requests[i]);
+
+        // backordered orders go first, so they're the start of the wave
+        LogRelease(context, orderIds.Count, Math.Min(backordered.Orders.Count, orderIds.Count), release);
+    }
+
+    private void LogRequest(WaveContext context, int number, int planned, AllocationRequestResult request)
+    {
+        if (request.Response is null)
         {
-            response = await client.AllocateAsync(ownerId, orderIds, stoppingToken);
-        }
-        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
-        {
-            _metrics.WaveReleased(customer, sameDay, null, TimeSpan.Zero);
-            _logger.LogError(ex,
-                "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId} got no response from " +
-                "Throughline; its {OrderCount} orders stay on the worklists for the next wave",
-                allocator, kind, wave, ownerId, orderIds.Count);
+            _metrics.AllocationRequestSent(context.Customer, context.SameDay, null, TimeSpan.Zero);
+            _logger.LogError(request.Failure,
+                "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
+                "of {RequestCount} ({OrderCount} orders) got no response from Throughline",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
+                request.OrderIds.Count);
             return;
         }
 
+        var response = request.Response;
         var status = (int)response.StatusCode;
-        _metrics.WaveReleased(customer, sameDay, status, response.Elapsed);
+        _metrics.AllocationRequestSent(context.Customer, context.SameDay, status, response.Elapsed);
 
-        switch (Classify(response.StatusCode))
+        switch (WaveRelease.Classify(response.StatusCode))
         {
             case WaveResult.Allocated:
-                LogAllocated(customer, ownerId, allocator, wave, kind, orderIds.Count, backordered.Orders.Count,
-                    response);
+                LogAllocated(context, number, planned, request.OrderIds.Count, response);
                 break;
 
             case WaveResult.Rejected:
                 _logger.LogError(
-                    "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId} was rejected with " +
-                    "{StatusCode}; the simulator built a bad request", allocator, kind, wave, ownerId, status);
+                    "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
+                    "of {RequestCount} ({OrderCount} orders) was rejected with {StatusCode}; the simulator built a " +
+                    "bad request", context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
+                    request.OrderIds.Count, status);
                 break;
 
             default:
                 _logger.LogError(
-                    "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId} got {StatusCode}; " +
-                    "its {OrderCount} orders stay on the worklists for the next wave",
-                    allocator, kind, wave, ownerId, status, orderIds.Count);
+                    "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
+                    "of {RequestCount} ({OrderCount} orders) got {StatusCode}",
+                    context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
+                    request.OrderIds.Count, status);
                 break;
         }
     }
 
     private void LogAllocated(
-        string customer, int ownerId, string allocator, DateTimeOffset wave, string kind, int orderCount,
-        int backorderedCount, AllocationResponse response)
+        WaveContext context, int number, int planned, int orderCount, AllocationResponse response)
     {
         var summary = WaveSummary.From(response.Result);
 
         foreach (var (outcome, count) in summary.Outcomes)
-            _metrics.OrdersAllocated(customer, outcome, count);
+            _metrics.OrdersAllocated(context.Customer, outcome, count);
 
         _logger.LogInformation(
-            "Allocator {Allocator} released the {WaveKind} wave at {WaveTime} for owner {OwnerId}: {OrderCount} orders " +
-            "({BackorderedCount} backordered), {FullyAllocated} fully allocated, {PartiallyAllocated} partially " +
+            "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} of " +
+            "{RequestCount}, {OrderCount} orders, {FullyAllocated} fully allocated, {PartiallyAllocated} partially " +
             "allocated, {NotAllocated} not allocated, {Failed} failed, {UnitsShort} units short, in {ElapsedMs:F0} ms",
-            allocator, kind, wave, ownerId, orderCount, Math.Min(backorderedCount, orderCount),
+            context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned, orderCount,
             summary.Count(WaveSummary.FullyAllocated),
             summary.Count(WaveSummary.PartiallyAllocated),
             summary.Count(WaveSummary.NotAllocated),
@@ -253,21 +248,39 @@ internal sealed class AllocatorWorker : BackgroundService
 
         if (summary.ErrorCodes.Count > 0)
             _logger.LogWarning(
-                "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId} had failed orders: {ErrorCodes}",
-                allocator, kind, wave, ownerId,
+                "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
+                "had failed orders: {ErrorCodes}",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId, number,
                 string.Join(", ", summary.ErrorCodes.Select(e => $"{e.Key} x{e.Value}")));
     }
-}
 
-internal enum WaveResult
-{
-    Allocated,
-    Rejected,
-    LeftForNextWave
+    private void LogRelease(WaveContext context, int orderCount, int backorderedCount, WaveReleaseResult release)
+    {
+        if (release.Finished)
+        {
+            _logger.LogInformation(
+                "Allocator {Allocator} released the {WaveKind} wave at {WaveTime} for owner {OwnerId}: " +
+                "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} of " +
+                "{RequestCount} requests, finished",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId, release.OrdersReleased, orderCount,
+                backorderedCount, release.Requests.Count, release.RequestsPlanned);
+            return;
+        }
+
+        _logger.LogWarning(
+            "Allocator {Allocator} stopped the {WaveKind} wave at {WaveTime} for owner {OwnerId} early: " +
+            "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} of " +
+            "{RequestCount} requests; the rest wait for the next wave",
+            context.Allocator, context.Kind, context.Wave, context.OwnerId, release.OrdersReleased, orderCount,
+            backorderedCount, release.Requests.Count, release.RequestsPlanned);
+    }
+
+    private sealed record WaveContext(
+        string Customer, int OwnerId, string Allocator, DateTimeOffset Wave, bool SameDay, string Kind);
 }
 
 /// <summary>
-///     What a released wave came to: orders per allocation outcome, units still short, and why orders failed
+///     What an allocation request came to: orders per allocation outcome, units still short, and why orders failed
 /// </summary>
 internal sealed class WaveSummary
 {

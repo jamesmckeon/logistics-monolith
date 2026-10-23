@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net;
 using Throughline.Simulator.Allocation;
 using Throughline.Simulator.Configuration;
 
@@ -103,37 +102,6 @@ public sealed class AllocatorWorkerTests
         var actual = AllocatorWorker.SelectWave([], [], 500);
 
         Assert.That(actual, Is.Empty);
-    }
-
-    #endregion
-
-    #region Classify
-
-    [Test]
-    public void Classify_Ok_Allocated()
-    {
-        var actual = AllocatorWorker.Classify(HttpStatusCode.OK);
-
-        Assert.That(actual, Is.EqualTo(WaveResult.Allocated));
-    }
-
-    [Test]
-    public void Classify_BadRequest_Rejected()
-    {
-        var actual = AllocatorWorker.Classify(HttpStatusCode.BadRequest);
-
-        Assert.That(actual, Is.EqualTo(WaveResult.Rejected));
-    }
-
-    [TestCase(HttpStatusCode.Unauthorized, TestName = "Classify_Unauthorized_LeftForNextWave")]
-    [TestCase(HttpStatusCode.Forbidden, TestName = "Classify_Forbidden_LeftForNextWave")]
-    [TestCase(HttpStatusCode.InternalServerError, TestName = "Classify_InternalServerError_LeftForNextWave")]
-    [TestCase(HttpStatusCode.ServiceUnavailable, TestName = "Classify_ServiceUnavailable_LeftForNextWave")]
-    public void Classify_SignInRoleOrServerProblem_LeftForNextWave(HttpStatusCode status)
-    {
-        var actual = AllocatorWorker.Classify(status);
-
-        Assert.That(actual, Is.EqualTo(WaveResult.LeftForNextWave));
     }
 
     #endregion
