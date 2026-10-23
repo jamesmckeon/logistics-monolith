@@ -129,7 +129,100 @@ public sealed class SimulatorOptionsValidatorTests
         Assert.That(actual.Succeeded, Is.True);
     }
 
+    [Test]
+    public void Validate_CompleteFacilityWithAllocatorsOnly_SucceedsWithoutLedger()
+    {
+        var profile = ValidProfile();
+        profile.Allocation = ValidAllocation();
+        var options = ValidOptions(profile);
+        options.Facility = ValidAllocatingFacility();
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Succeeded, Is.True);
+    }
+
+    [Test]
+    public void Validate_AllocatorsShareDockShift_FailsNamingDockShift()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.Facility = ValidAllocatingFacility();
+        options.Facility.Allocators.Add(
+            new AllocatorOptions { Username = "allocator2@example.com", Password = "password", DockShifts = [0] });
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("Allocators must not share a dock shift"));
+    }
+
+    [Test]
+    public void Validate_AllocatorDockShiftOutOfRange_FailsNamingDockShifts()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.Facility = ValidAllocatingFacility();
+        options.Facility.Allocators[0].DockShifts = [1];
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("Allocators each need DockShifts"));
+    }
+
+    [Test]
+    public void Validate_AllocatorUsernameSameAsReceivers_FailsNamingUsernames()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.LedgerConnectionString = "Host=localhost;Database=simulator";
+        options.Facility = ValidFacility();
+        options.Facility.Allocators =
+            [new AllocatorOptions { Username = "receiver1@example.com", Password = "password", DockShifts = [0] }];
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("Allocators must have different usernames"));
+    }
+
+    [Test]
+    public void Validate_AllocationWithoutWaves_FailsNamingWaves()
+    {
+        var profile = ValidProfile();
+        profile.Allocation = new AllocationProfile { Enabled = true };
+        var options = ValidOptions(profile);
+        options.Facility = ValidAllocatingFacility();
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("Allocation:Waves must contain at least one wave"));
+    }
+
+    [Test]
+    public void Validate_AllocationWithoutWavesButNoAllocators_Succeeds()
+    {
+        var profile = ValidProfile();
+        profile.Allocation = new AllocationProfile { Enabled = true };
+
+        var actual = _sut.Validate(null, ValidOptions(profile));
+
+        Assert.That(actual.Succeeded, Is.True);
+    }
+
     #endregion
+
+    private static FacilityOptions ValidAllocatingFacility() => new()
+    {
+        TimeZone = "America/Chicago",
+        DockShifts =
+            [new ShiftOptions { Days = [DayOfWeek.Monday], Start = TimeSpan.FromHours(6), End = TimeSpan.FromHours(14.5) }],
+        UserTenantId = "test-tenant",
+        UserClientId = "sign-in-client",
+        Allocators = [new AllocatorOptions { Username = "allocator1@example.com", Password = "password", DockShifts = [0] }]
+    };
+
+    private static AllocationProfile ValidAllocation() => new()
+    {
+        Enabled = true,
+        SameDayCutoff = TimeSpan.FromHours(14),
+        Waves = [new WaveTimesOptions { Days = [DayOfWeek.Monday], Times = [TimeSpan.FromHours(6.5)] }]
+    };
 
     private static FacilityOptions ValidFacility() => new()
     {

@@ -44,6 +44,7 @@ public sealed class CustomerProfile
     public FaultRates Faults { get; set; } = new();
     public RetryProfile Retry { get; set; } = new();
     public BuyingProfile Buying { get; set; } = new();
+    public AllocationProfile Allocation { get; set; } = new();
 
     /// <summary>
     ///     Client id of the customer's OMS app registration
@@ -139,6 +140,33 @@ public sealed class BuyingProfile
     ///     Weeks of expected demand in the opening order, placed once when nothing has been ordered yet
     /// </summary>
     public int OpeningWeeks { get; set; } = 3;
+}
+
+/// <summary>
+///     When the facility's allocators release the customer's orders for allocation. Used only when the facility
+///     has allocators.
+/// </summary>
+public sealed class AllocationProfile
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>
+    ///     Latest time of day, in the customer's time zone, an order can be released and still ship that day.
+    ///     Waves at or before it are same-day waves; later waves release orders for the next day.
+    /// </summary>
+    public TimeSpan SameDayCutoff { get; set; } = TimeSpan.FromHours(14);
+
+    public List<WaveTimesOptions> Waves { get; set; } = [];
+}
+
+/// <summary>
+///     Times of day, in the customer's time zone, a wave is released on each of <see cref="Days" />
+/// </summary>
+public sealed class WaveTimesOptions
+{
+    public DayOfWeek[] Days { get; set; } = [];
+
+    public TimeSpan[] Times { get; set; } = [];
 }
 
 /// <summary>

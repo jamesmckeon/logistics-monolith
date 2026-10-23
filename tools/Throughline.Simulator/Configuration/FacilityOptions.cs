@@ -46,6 +46,11 @@ public sealed class FacilityOptions
 
     public List<StaffOptions> Receivers { get; set; } = [];
 
+    /// <summary>
+    ///     Outbound planners, who release customers' orders for allocation in waves
+    /// </summary>
+    public List<AllocatorOptions> Allocators { get; set; } = [];
+
     public RetryProfile Retry { get; set; } = new();
 }
 
@@ -66,4 +71,20 @@ public sealed class StaffOptions
     public string Username { get; set; } = "";
 
     public string Password { get; set; } = "";
+}
+
+/// <summary>
+///     A simulated outbound planner; a user in the test tenant who works some of the facility's shifts
+/// </summary>
+public sealed class AllocatorOptions
+{
+    public string Username { get; set; } = "";
+
+    public string Password { get; set; } = "";
+
+    /// <summary>
+    ///     Indexes into <see cref="FacilityOptions.DockShifts" /> of the shifts this allocator works; each shift
+    ///     has at most one allocator, so two never release the same customer's wave
+    /// </summary>
+    public int[] DockShifts { get; set; } = [];
 }
