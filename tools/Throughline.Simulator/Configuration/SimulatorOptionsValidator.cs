@@ -41,16 +41,31 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
 
         var buying = enabledCustomers.Any(c => c.Value.Buying.Enabled);
         var receiving = options.Facility.Receivers.Count > 0;
+        var allocating = options.Facility.Allocators.Count > 0;
 
         if ((buying || receiving) && string.IsNullOrWhiteSpace(options.LedgerConnectionString))
             failures.Add("Simulator:LedgerConnectionString is required when a customer buys stock or the facility has receivers");
 
-        // buyers plan deliveries around the dock's hours, locations and carriers too
+        // buyers plan deliveries around the dock's hours, locations and carriers too; allocators only
+        // need the shifts
         if (buying || receiving)
             ValidateFacility("Simulator:Facility", options.Facility, failures);
+        else if (allocating)
+            ValidateShifts("Simulator:Facility", options.Facility, failures);
 
         if (receiving)
             ValidateReceivers("Simulator:Facility", options.Facility, failures);
+
+        if (allocating)
+        {
+            ValidateAllocators("Simulator:Facility", options.Facility, failures);
+
+            foreach (var (customerName, profile) in enabledCustomers.Where(c => c.Value.Allocation.Enabled))
+                ValidateAllocation($"Simulator:Customers:{customerName}:Allocation", profile.Allocation, failures);
+        }
+
+        if ((receiving || allocating) && options.Facility.Retry.MaxRetryAttempts is < 1 or > 10)
+            failures.Add("Simulator:Facility:Retry:MaxRetryAttempts must be between 1 and 10");
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
@@ -131,6 +146,17 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
 
     private static void ValidateFacility(string path, FacilityOptions facility, List<string> failures)
     {
+        ValidateShifts(path, facility, failures);
+
+        if (string.IsNullOrWhiteSpace(facility.PutawayLocationPrefix) || facility.PutawayLocationCount < 1)
+            failures.Add($"{path}:PutawayLocationPrefix and a PutawayLocationCount of at least 1 are required");
+
+        if (facility.CarrierScacs.Length == 0 || facility.CarrierScacs.Any(string.IsNullOrWhiteSpace))
+            failures.Add($"{path}:CarrierScacs must list at least one carrier");
+    }
+
+    private static void ValidateShifts(string path, FacilityOptions facility, List<string> failures)
+    {
         if (!TimeZoneInfo.TryFindSystemTimeZoneById(facility.TimeZone, out _))
             failures.Add($"{path}:TimeZone '{facility.TimeZone}' is not a known time zone");
 
@@ -140,12 +166,6 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         if (facility.DockShifts.Any(s =>
                 s.Days.Length == 0 || s.Start < TimeSpan.Zero || s.End > TimeSpan.FromDays(1) || s.End <= s.Start))
             failures.Add($"{path}:DockShifts each need days, and a start before an end within the same day");
-
-        if (string.IsNullOrWhiteSpace(facility.PutawayLocationPrefix) || facility.PutawayLocationCount < 1)
-            failures.Add($"{path}:PutawayLocationPrefix and a PutawayLocationCount of at least 1 are required");
-
-        if (facility.CarrierScacs.Length == 0 || facility.CarrierScacs.Any(string.IsNullOrWhiteSpace))
-            failures.Add($"{path}:CarrierScacs must list at least one carrier");
     }
 
     private static void ValidateReceivers(string path, FacilityOptions facility, List<string> failures)
@@ -165,9 +185,49 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         if (facility.Receivers.Select(r => r.Username).Distinct(StringComparer.OrdinalIgnoreCase).Count() !=
             facility.Receivers.Count)
             failures.Add($"{path}:Receivers must have different usernames");
+    }
 
-        if (facility.Retry.MaxRetryAttempts is < 1 or > 10)
-            failures.Add($"{path}:Retry:MaxRetryAttempts must be between 1 and 10");
+    private static void ValidateAllocators(string path, FacilityOptions facility, List<string> failures)
+    {
+        if (string.IsNullOrWhiteSpace(facility.UserTenantId))
+            failures.Add($"{path}:UserTenantId is required when the facility has allocators");
+
+        if (string.IsNullOrWhiteSpace(facility.UserClientId))
+            failures.Add($"{path}:UserClientId is required when the facility has allocators");
+
+        if (facility.Allocators.Any(a => string.IsNullOrWhiteSpace(a.Username) || string.IsNullOrWhiteSpace(a.Password)))
+            failures.Add($"{path}:Allocators each need a Username and Password");
+
+        if (facility.Allocators.Any(a =>
+                a.DockShifts.Length == 0 || a.DockShifts.Any(i => i < 0 || i >= facility.DockShifts.Count)))
+            failures.Add($"{path}:Allocators each need DockShifts, as indexes of the facility's DockShifts");
+
+        var shifts = facility.Allocators.SelectMany(a => a.DockShifts.Distinct()).ToList();
+
+        if (shifts.Distinct().Count() != shifts.Count)
+            failures.Add($"{path}:Allocators must not share a dock shift");
+
+        // each staff member has one token and one HTTP client, keyed by username
+        var usernames = facility.Receivers.Select(r => r.Username)
+            .Concat(facility.Allocators.Select(a => a.Username))
+            .ToList();
+
+        if (usernames.Distinct(StringComparer.OrdinalIgnoreCase).Count() != usernames.Count)
+            failures.Add($"{path}:Allocators must have different usernames from each other and from Receivers");
+    }
+
+    private static void ValidateAllocation(string path, AllocationProfile allocation, List<string> failures)
+    {
+        if (allocation.SameDayCutoff < TimeSpan.Zero || allocation.SameDayCutoff >= TimeSpan.FromDays(1))
+            failures.Add($"{path}:SameDayCutoff must be a time of day");
+
+        if (allocation.Waves.Count == 0)
+            failures.Add($"{path}:Waves must contain at least one wave");
+
+        if (allocation.Waves.Any(w =>
+                w.Days.Length == 0 || w.Times.Length == 0 ||
+                w.Times.Any(t => t < TimeSpan.Zero || t >= TimeSpan.FromDays(1))))
+            failures.Add($"{path}:Waves each need days, and times of day");
     }
 
     private static void ValidateWeights(string path, double[] weights, int expectedCount, List<string> failures)

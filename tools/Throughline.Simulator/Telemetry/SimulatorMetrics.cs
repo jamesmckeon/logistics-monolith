@@ -8,11 +8,14 @@ internal sealed class SimulatorMetrics
 {
     public const string MeterName = "Throughline.Simulator";
 
+    private readonly Counter<long> _ordersAllocated;
     private readonly Histogram<double> _orderDuration;
     private readonly Counter<long> _ordersSent;
     private readonly Counter<long> _palletsSent;
     private readonly Histogram<double> _receiptDuration;
     private readonly Counter<long> _receiptsSent;
+    private readonly Histogram<double> _waveDuration;
+    private readonly Counter<long> _wavesReleased;
 
     public SimulatorMetrics(IMeterFactory meterFactory)
     {
@@ -29,6 +32,12 @@ internal sealed class SimulatorMetrics
             "simulator.receipts.pallets", "{pallet}", "Pallets on trailers sent as receipts");
         _receiptDuration = meter.CreateHistogram<double>(
             "simulator.receipts.duration", "ms", "Time to send a receipt, including retries");
+        _wavesReleased = meter.CreateCounter<long>(
+            "simulator.allocation.waves", "{wave}", "Waves released to Throughline for allocation, by kind and outcome");
+        _waveDuration = meter.CreateHistogram<double>(
+            "simulator.allocation.wave.duration", "ms", "Time to allocate a wave, including retries");
+        _ordersAllocated = meter.CreateCounter<long>(
+            "simulator.allocation.orders", "{order}", "Orders released in waves, by allocation outcome");
     }
 
     /// <param name="status">The HTTP status, or null when no response arrived</param>
@@ -58,5 +67,25 @@ internal sealed class SimulatorMetrics
         _receiptsSent.Add(1, tags);
         _palletsSent.Add(pallets, tags);
         _receiptDuration.Record(elapsed.TotalMilliseconds, tags);
+    }
+
+    /// <param name="status">The HTTP status, or null when no response arrived</param>
+    public void WaveReleased(string customer, bool sameDay, int? status, TimeSpan elapsed)
+    {
+        var tags = new TagList
+        {
+            { "customer", customer },
+            { "kind", sameDay ? "same_day" : "next_day" },
+            { "status", status?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none" }
+        };
+
+        _wavesReleased.Add(1, tags);
+        _waveDuration.Record(elapsed.TotalMilliseconds, tags);
+    }
+
+    /// <param name="outcome">The allocate endpoint's status for each order, e.g. <c>fullyAllocated</c></param>
+    public void OrdersAllocated(string customer, string outcome, int count)
+    {
+        _ordersAllocated.Add(count, new TagList { { "customer", customer }, { "outcome", outcome } });
     }
 }

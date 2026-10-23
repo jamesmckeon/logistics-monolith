@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Logs;
+using Throughline.Simulator.Allocation;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Throughline.Simulator.Buying;
@@ -45,17 +46,21 @@ if (simulator is { Enabled: true, ThroughlineBaseUrl: { IsAbsoluteUri: true } th
             tokens => tokens.ForCustomer(customer));
     }
 
-    foreach (var receiver in simulator.Facility.Receivers)
+    var staff = simulator.Facility.Receivers.Select(r => r.Username)
+        .Concat(simulator.Facility.Allocators.Select(a => a.Username));
+
+    foreach (var username in staff)
     {
         builder.Services.AddThroughlineClient(
-            ThroughlineHttpClients.ForStaff(receiver.Username), throughline, simulator.Facility.Retry,
-            tokens => tokens.ForStaff(receiver.Username));
+            ThroughlineHttpClients.ForStaff(username), throughline, simulator.Facility.Retry,
+            tokens => tokens.ForStaff(username));
     }
 }
 
 builder.Services.AddHostedService<OmsWorker>();
 builder.Services.AddHostedService<BuyerWorker>();
 builder.Services.AddHostedService<ReceiverWorker>();
+builder.Services.AddHostedService<AllocatorWorker>();
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("throughline-simulator", serviceVersion: "1.0.0"))

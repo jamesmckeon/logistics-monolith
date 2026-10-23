@@ -222,7 +222,7 @@ Built on `feat/simulator-receiving-allocation`. Both are off until configured: `
 
 ## Iteration 3: allocation (Harrow & Finch)
 
-Plan drafted 2026-10-20, to build on `feat/simulator-allocation`. Not started.
+Plan drafted 2026-10-20. Throughline's side (build steps 1–3) merged in #40 and deployed 2026-10-22. The simulator's side builds on `feat/simulator-allocators`; its decisions were settled 2026-10-22.
 
 **What exists today.** `POST /inventory/orders/allocate` (role `Inventory`, `owner_id` header) allocates a list of order IDs in the order given, FIFO, under the owner's policy (Harrow & Finch is `Partial`). It returns a status per order (`fullyAllocated`, `partiallyAllocated`, `notAllocated`, `failed`) with shortages and errors. `GET /inventory/orders/{orderId}` shows one order's lines. Nothing lists the orders waiting for allocation, so the simulator would have to remember order IDs itself, which a real allocator couldn't.
 
@@ -242,10 +242,10 @@ Plan drafted 2026-10-20, to build on `feat/simulator-allocation`. Not started.
 4. In the main tenant, add an `OutboundPlanning` app role to `throughline-api` (**App roles** → **Create app role**: allowed member types **Users/Groups**, value `OutboundPlanning`); the test tenant's copy of the app picks it up. Then create `allocator1` and `allocator2` (display name `Allocator N (simulated)`), sign each in once to change the password, and assign `OutboundPlanning` and `Owner.1` as in setup steps 5 and 6.
 
 *Simulator*
-5. **Configuration:** `Facility:Allocators` (same shape as `Receivers`), an allocation shift pattern for the facility, and per customer an order cutoff and wave schedule. Values to confirm below. Validation at startup as for the rest of the profile.
+5. **Configuration:** `Facility:Allocators`, each a username, password and the indexes of the `DockShifts` they work, and per customer `Allocation` (on/off, `SameDayCutoff`, wave times by day). Decisions below. Validated at startup when the facility has allocators: each dock shift has at most one allocator, and staff usernames are unique across receivers and allocators.
 6. **`InventoryClient`:** typed client for the worklist (one batch per wave) and `POST /inventory/orders/allocate`, with its own request and response models (decision 2), the `owner_id` header and the staff retry profile.
 7. **Wave scheduling** as a pure, `TimeProvider`-driven class: given the facility shift, the customer's time zone, cutoff and wave schedule, when is the next wave due. Unit-tested like `DockCalendar`, including a daylight-saving change.
-8. **`AllocatorWorker`:** one loop per allocator; at each due wave it fetches the worklist and posts it. Response handling, like the receivers': 200 logs each order's outcome; 400 means the simulator built a bad request (log an error, don't resend it); 401, 403, 5xx or no response leaves the orders for the next wave. Two allocators must not release the same customer's wave (see decisions below).
+8. **`AllocatorWorker`:** one loop per customer, so a customer's waves never overlap; at each wave time the allocator working that dock shift fetches both worklists and posts them as one request, and a wave with nobody on shift is skipped with a warning. Response handling, like the receivers': 200 logs each order's outcome; 400 means the simulator built a bad request (log an error, don't resend it); 401, 403, 5xx or no response leaves the orders for the next wave.
 9. **Telemetry:** one structured log per wave (allocator, owner, wave time, orders sent, count per outcome, units short, latency), and metrics for orders allocated by outcome and wave latency.
 10. **Tests** per `docs/testing.md`: wave times by local time and shift; the worker's handling of each status code.
 11. **Run locally** against the Azure API with buying and receiving on, then **deploy** through `deploy-simulator.yaml` with the allocators' passwords as Container Apps secrets.
@@ -259,14 +259,27 @@ Plan drafted 2026-10-20, to build on `feat/simulator-allocation`. Not started.
 | **Routes: `GET /inventory/orders/unreleased` and `GET /inventory/orders/backordered`** (#39), named views rather than a status filter on an orders collection, each returning a JSON array of orders. | Which orders are waiting is a business rule, so Inventory owns it; a status filter would put that rule in every client. Two lists because new work and orders waiting on stock need different handling: an order is released once an allocation attempt starts on it (`last_updated` is set), and if it's still short it's backordered. Short orders would otherwise sit at the top of one list. |
 | **A batch size, not pages**: the caller says how many orders to return, up to a server-set maximum; the response may be truncated, and the caller allocates and fetches again for more. | The list changes as allocators work, so "page 2" has no stable meaning, and no allocator wants it: the next wave always takes the earliest orders, which are at the top of a fresh fetch. Finding a particular order is a lookup or a filter, not a page. The maximum keeps a peak-day backlog from coming back in one response. Two allocators taking the same order is handled by the allocate endpoint, not the worklist (`failed` with `ORDER_ALLOCATING` while the other is running, `fullyAllocated` with nothing new once it's done). |
 
-**Decisions to make before building**
+**Allocation decisions (2026-10-22)**
 
-| Question | Options / proposal |
+| Decision | Why |
 |---|---|
-| Allocation shifts | Reuse the dock shifts, or a separate pattern for outbound planning. |
-| Harrow & Finch cutoff and waves | To propose together, like the iteration 1 profile. |
-| Keeping allocators off each other's waves | Assign each customer to one allocator, or claim the wave in the ledger as trailers are claimed. |
-| Wave size | Everything on the worklist, or a maximum per wave. |
+| **Allocators work the dock shifts** (`Facility:DockShifts`): Monday–Friday 06:00–14:30 and 14:30–23:00, Saturday 06:00–14:30, facility time. | The building is staffed then, and one shift pattern is less to configure. The evening order peak (19:00–22:00) still gets a wave before 23:00. |
+| **Harrow & Finch: same-day cutoff 14:00.** Weekday waves at 06:30, 09:00, 11:30 and 13:30 (the last same-day wave), then 17:00 and 22:00 for next-day orders; Saturday waves at 06:30, 09:00, 11:30 and 13:30; customer time. | A cutoff is the latest an order can arrive and still ship that day; the last same-day wave is released early enough to pick and pack before the carrier leaves, and later orders go into the next day's waves. The 14:00 time is an assumption for a direct-to-consumer client, not taken from a source. Throughline doesn't ship yet, so the cutoff only decides which wave an order lands in and whether the logs count it as same-day or next-day. |
+| **One allocator per shift**: `allocator1` works the weekday day shift and Saturday, `allocator2` the weekday evening shift. | Allocators never work at the same time, so nothing has to keep them off each other's waves; no claim in the ledger. The allocate endpoint protects correctness regardless (`failed` with `ORDER_ALLOCATING` for an order already being allocated). |
+| **A wave takes everything waiting**: the backordered list first, then the unreleased list, up to the worklist's maximum of 500 orders. | No labor capacity is modeled, so a cap would only build a backlog. Backordered orders go first because they were accepted earlier and are waiting on stock that receivers may have put away since. At about 600 orders a day over six waves, a wave is usually around 100 orders, more after the overnight gap. |
+
+**Setup.** Allocation is off until the facility has allocators: `Allocators` is empty in `appsettings.json`. After build step 4, add these to `ca-throughline-simulator` (environment variables, with `__` for `:`; passwords as Container Apps secrets). `UserTenantId` and `UserClientId` are the receivers' and already set.
+
+| Key | Value |
+|---|---|
+| `Simulator:Facility:Allocators:0:Username` | `allocator1@jamesmckeon503gmail.onmicrosoft.com` |
+| `Simulator:Facility:Allocators:0:Password` (secret) | allocator 1's password |
+| `Simulator:Facility:Allocators:0:DockShifts:0` and `:1` | `0` and `2` (weekday day shift, Saturday) |
+| `Simulator:Facility:Allocators:1:Username` | `allocator2@jamesmckeon503gmail.onmicrosoft.com` |
+| `Simulator:Facility:Allocators:1:Password` (secret) | allocator 2's password |
+| `Simulator:Facility:Allocators:1:DockShifts:0` | `1` (weekday evening shift) |
+
+**Check:** the log shows `Allocation for HarrowFinch started; first wave at …`, then at each wave `Allocator … released the same-day wave at …` with its counts per outcome.
 
 **Done when:** during allocation shifts, Harrow & Finch's orders are released in waves ahead of its cutoff; fully allocated orders leave the worklist; short orders are picked up by later waves once stock arrives; and every wave can be found in the simulator's logs and matched to Throughline's by order ID.
 

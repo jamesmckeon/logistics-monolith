@@ -42,15 +42,19 @@ internal sealed class TokenSources
         _sources.GetOrAdd($"staff:{username}", _ =>
         {
             var facility = _options.Facility;
-            var staff = facility.Receivers.Single(r => r.Username == username);
+
+            // receivers and allocators have different usernames (checked at startup)
+            var password = facility.Receivers.Where(r => r.Username == username).Select(r => r.Password)
+                .Concat(facility.Allocators.Where(a => a.Username == username).Select(a => a.Password))
+                .Single();
 
             return new AccessTokenSource(
                 new PasswordGrantCredential(
                     _httpClientFactory.CreateClient(EntraHttpClient),
                     facility.UserTenantId,
                     facility.UserClientId,
-                    staff.Username,
-                    staff.Password,
+                    username,
+                    password,
                     _time),
                 _options.ApiScope,
                 _time);
