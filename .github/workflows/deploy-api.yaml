@@ -1,0 +1,217 @@
+name: Deploy Throughline API
+
+# Manual trigger only — a merge to main does not deploy anything
+on:
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one halfway through
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  REGISTRY: crthroughline.azurecr.io
+  IMAGE: throughline-api
+  CONTAINER_APP: ca-throughline-api
+  RESOURCE_GROUP: rg-throughline
+  POSTGRES_SERVER: psql-throughline
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      # Belt: fail fast with a clear message before any work starts.
+      # Suspenders: the deploy identity's federated credential is scoped to refs/heads/main,
+      # so Azure will refuse to sign in a run from any other branch regardless.
+      - name: Require main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Deploys must run from main. Got: $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test (Unit)
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: >-
+          dotnet test Throughline.sln
+          --configuration Release
+          --filter "Category=Unit"
+
+      - name: Test (Integration)
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: >-
+          dotnet test Throughline.sln
+          --configuration Release
+          --filter "Category=Integration"
+
+  migrate:
+    name: Apply migrations
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Signs in as gh-throughline-api-deploy; the federated credential is scoped to
+      # refs/heads/main, so a run started from any other branch fails here
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Pin to the EF Core version in use so the tool and the runtime stay aligned
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 10.0.11
+
+      - name: Build
+        run: dotnet build Throughline.sln --configuration Release
+
+      # GitHub Actions ubuntu-latest runners egress via public internet IPs — they are
+      # not covered by the AllowAllAzureServicesAndResourcesWithinAzureIps rule. A
+      # temporary rule for this runner's IP is opened before migrations run and removed
+      # unconditionally at the end, even if a migration step fails.
+      - name: Open Postgres firewall for this runner
+        run: |
+          MY_IP=$(curl -sf https://checkip.amazonaws.com)
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --rule-name "gh-actions-${{ github.run_id }}" \
+            --start-ip-address "$MY_IP" \
+            --end-ip-address "$MY_IP"
+
+      # All three modules share one database (ConnectionStrings:Throughline).
+      # Each context is migrated in sequence; a failure stops the deploy here and
+      # the running revision keeps serving on the old schema.
+      - name: Apply Ordering migrations
+        env:
+          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: >-
+          dotnet ef database update
+          --startup-project src/api/Throughline.Api
+          --project src/modules/ordering/Throughline.Modules.Ordering
+          --context OrdersDbContext
+          --no-build
+          --configuration Release
+
+      - name: Apply Inventory migrations
+        env:
+          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: >-
+          dotnet ef database update
+          --startup-project src/api/Throughline.Api
+          --project src/modules/inventory/Throughline.Modules.Inventory
+          --context InventoryDbContext
+          --no-build
+          --configuration Release
+
+      - name: Apply Receiving migrations
+        env:
+          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: >-
+          dotnet ef database update
+          --startup-project src/api/Throughline.Api
+          --project src/modules/receiving/Throughline.Modules.Receiving
+          --context ReceivingDbContext
+          --no-build
+          --configuration Release
+
+      - name: Close Postgres firewall rule
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --rule-name "gh-actions-${{ github.run_id }}" \
+            --yes
+
+  deploy:
+    name: Publish and deploy
+    needs: migrate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to the registry
+        run: az acr login --name "${REGISTRY%%.*}"
+
+      # ContainerRepository must be explicit: without it the SDK derives "throughline.api"
+      # (dot, not hyphen), which does not match the live image at throughline-api
+      - name: Publish the image
+        run: >-
+          dotnet publish src/api/Throughline.Api
+          --configuration Release --os linux --arch x64
+          /t:PublishContainer
+          -p:ContainerRegistry=$REGISTRY
+          -p:ContainerRepository=$IMAGE
+          -p:ContainerImageTag=${{ github.sha }}
+
+      # Changes only the image; secrets, environment variables, identity, ingress and scale
+      # stay as configured on the container app
+      - name: Deploy a new revision
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$REGISTRY/$IMAGE:${{ github.sha }}"
+
+      # /health checks Postgres, so a 200 means the new revision is up and the DB is reachable.
+      # Polls every 10 s for up to 4 minutes before failing the run.
+      - name: Wait for readiness
+        run: |
+          FQDN=$(az containerapp show \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+          URL="https://$FQDN/health"
+          echo "Polling $URL"
+          for i in $(seq 1 24); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Revision is healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::New revision did not report healthy within 4 minutes."
+          exit 1
