@@ -65,7 +65,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Delivery semantics: at-least-once / at-most-once / exactly-once (myth) `[backlogged: T-008]`
 - Eventual consistency & consistency models
 - Consistency boundary identification (where strong vs eventual is required; races at the boundary; relocating invariants) `[backlogged: T-026]`
-- Distributed locking & leader election
+- Distributed locking & leader election `[backlogged: T-050]`
 - Consistent hashing
 - Logical/vector/hybrid-logical clocks; ordering & causality
 - TCC (Try-Confirm/Cancel) as a 2PC alternative
@@ -77,7 +77,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Sharding & partitioning strategies
 - Multi-tenancy
 - Read models / materialized views
-- Rate limiting & throttling design
+- Rate limiting & throttling design `[backlogged: T-049]`
 - Caching strategy (cache-aside, write-through, invalidation) `[backlogged: T-040]`
 - Feature flags / progressive delivery
 - Capacity planning & back-of-envelope estimation
@@ -119,7 +119,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Pagination (offset vs keyset/cursor)
 - Consumer-driven contract testing
 - gRPC / Protobuf for high-volume internal calls
-- Long-running operations / async request-reply
+- Long-running operations / async request-reply `[backlogged: T-051]`
 - API gateway (Azure API Management): edge policies for subscriptions, throttling, versioning `[backlogged: T-045]`
 - Real-time push / streaming to clients at scale (SSE vs WebSockets vs gRPC-streaming; fan-out, backpressure, resume) `[backlogged: T-030]`
 
@@ -135,7 +135,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Authorization models & RBAC (roles/permissions → ABAC / ReBAC / policy-based) `[backlogged: T-032]`
 - Multi-tenant isolation & resource-scoped authorization (row-level, IDOR/BOLA prevention) `[backlogged: T-033]`
 - Secrets management & key rotation (incl. managed identities) `[backlogged: T-041]`
-- Rate limiting / abuse protection at the auth boundary (see also SYSD rate limiting)
+- Rate limiting / abuse protection at the auth boundary (see also SYSD rate limiting `[backlogged: T-049]`)
 
 ### STAFF — Staff/Principal Craft
 - Architecture Decision Records (ADRs) `[backlogged: T-014]`
@@ -150,6 +150,7 @@ An Item may belong to several categories (e.g., Outbox Pattern → EDA + DIST + 
 - Message broker selection (Service Bus vs Event Grid vs Event Hubs vs RabbitMQ) `[backlogged: T-046]`
 - CI/CD pipelines & deployment strategies `[backlogged: T-047]`
 - Secrets management & managed identities (Key Vault) `[backlogged: T-041]`
+- Background & scheduled jobs (in-process `BackgroundService` vs Container Apps Jobs vs queue-scaled workers; rerunnable jobs) `[backlogged: T-052]`
 
 ---
 
@@ -182,7 +183,7 @@ confirms that a new phrasing means an existing concept.
 | IAM, identity & access management | Authentication (T-031), Authorization (T-032), Tenant isolation (T-033) |
 | NServiceBus, MassTransit, Wolverine, messaging frameworks | Outbox (T-004), Inbox (T-006), Delivery Semantics (T-008), Saga (T-003) |
 | Relational databases, SQL Server, Azure SQL, MySQL, Oracle | Concurrency (T-010), Data Modeling (T-027), Index Design (T-028), Isolation & Locking (T-048) |
-| Cache-aside, HybridCache, Redis, Azure Cache for Redis | Caching Strategy (T-040) |
+| Cache-aside, HybridCache, Redis, Azure Cache for Redis | Caching Strategy (T-040); Redis as a shared rate-limit store → T-049, as a lock → T-050 |
 | Key Vault, managed identity, passwordless connections, `DefaultAzureCredential` | Secrets Management & Managed Identities (T-041) |
 | DLQ, dead-letter queue, poison message | Dead-Letter Queues & Poison-Message Handling (T-042) |
 | Service Bus sessions, FIFO, ordered delivery, partition key | Message Ordering & Partitioning (T-043) |
@@ -191,3 +192,7 @@ confirms that a new phrasing means an existing concept.
 | Service Bus vs Event Grid vs Event Hubs, RabbitMQ, choosing a broker | Message Broker Selection (T-046) |
 | Azure DevOps, GitHub Actions, pipelines, blue/green, deployment slots, revisions | CI/CD Pipelines & Deployment Strategies (T-047) |
 | Isolation levels, RCSI, snapshot isolation, MVCC, lock escalation, deadlocks | Transaction Isolation & Locking Across Engines (T-048) |
+| Rate limiter, throttling, 429, `Retry-After`, token bucket, sliding window, noisy neighbor, per-tenant quota, `System.Threading.RateLimiting` | Rate Limiting & Throttling Design (T-049) |
+| Leader election, single-active worker, distributed lock, advisory lock, lease, fencing token, Redlock | Distributed Locking & Leader Election (T-050) |
+| 202 Accepted, status endpoint, polling, long-running operation, async request-reply | Long-Running Operations / Async Request-Reply (T-051) |
+| Background job, scheduled job, cron, Container Apps Jobs, KEDA, queue-depth scaling, worker service, timer-triggered function | Background & Scheduled Jobs on Cloud Infrastructure (T-052) |
