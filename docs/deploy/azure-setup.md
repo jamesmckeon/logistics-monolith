@@ -155,4 +155,4 @@ az containerapp update \
 ```
 
 No rebuild is needed. The running schema may be ahead of the rolled-back code;
-see issue #42 for the database rollback decision.
+see issue #47 for the database rollback decision.
