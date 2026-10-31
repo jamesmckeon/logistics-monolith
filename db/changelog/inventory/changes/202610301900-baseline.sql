@@ -121,3 +121,21 @@ CREATE INDEX ix_sku_receipts_sku_id ON inventory.sku_receipts (sku_id);
 --changeset jamesmckeon:create-skus-owner-id-code-unique-index
 CREATE UNIQUE INDEX ix_skus_owner_id_code ON inventory.skus (owner_id, code);
 --rollback DROP INDEX inventory.ix_skus_owner_id_code;
+
+--changeset jamesmckeon:create-sku-reader-role splitStatements:false
+--comment: Group role the simulator's login belongs to, to read the SKU catalog. No login or password, so it can live here; roles are server-wide, so it's only created if missing.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sku_reader') THEN
+        CREATE ROLE sku_reader NOLOGIN;
+    END IF;
+END $$;
+--rollback DROP ROLE IF EXISTS sku_reader;
+
+--changeset jamesmckeon:grant-sku-reader-inventory-usage
+GRANT USAGE ON SCHEMA inventory TO sku_reader;
+--rollback REVOKE USAGE ON SCHEMA inventory FROM sku_reader;
+
+--changeset jamesmckeon:grant-sku-reader-skus-select
+GRANT SELECT ON inventory.skus TO sku_reader;
+--rollback REVOKE SELECT ON inventory.skus FROM sku_reader;
