@@ -1,0 +1,176 @@
+name: Deploy database migrations
+
+# Manual trigger only, and separate from the API deploy: schema changes go out on their own.
+# Expand changes ship before the code that needs them; the running code keeps working on the
+# expanded schema.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "update applies pending changesets; rollback undoes everything applied after the tag. The preview actions print the SQL without running it."
+        type: choice
+        options:
+          - preview-update
+          - update
+          - preview-rollback
+          - rollback
+        default: preview-update
+      rollback-tag:
+        description: "Rollback only: the commit SHA of the update to undo. Updates tag before applying, so that update and every later one are rolled back"
+        type: string
+        required: false
+
+# One migration run at a time, and never cancel one halfway through
+concurrency:
+  group: deploy-migrations
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-throughline
+  POSTGRES_SERVER: psql-throughline
+  MODULES: orders inventory receiving wolverine
+
+jobs:
+  migrate:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    steps:
+      # The deploy identity's federated credential is scoped to refs/heads/main, so Azure refuses
+      # a run from any other branch anyway; this fails earlier with a clearer message.
+      - name: Require main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Migrations must run from main. Got: $GITHUB_REF"
+            exit 1
+          fi
+
+      # Rollback is by tag only. The baseline is the first tag on production, so no rollback can
+      # reach the baseline changesets, whose rollbacks drop the module's tables.
+      - name: Require a tag for rollback
+        if: inputs.action == 'rollback' || inputs.action == 'preview-rollback'
+        env:
+          ROLLBACK_TAG: ${{ inputs.rollback-tag }}
+        run: |
+          if [ -z "$ROLLBACK_TAG" ]; then
+            echo "::error::Rollback needs rollback-tag: the commit SHA of the update to undo."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Liquibase takes a JDBC URL, user and password rather than the API's connection string,
+      # so they're read out of the same secret instead of being stored twice.
+      - name: Read connection settings
+        env:
+          CONNECTION_STRING: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: |
+          DB_PORT=5432
+          IFS=';' read -ra parts <<< "$CONNECTION_STRING"
+          for part in "${parts[@]}"; do
+            key=$(echo "${part%%=*}" | tr '[:upper:]' '[:lower:]' | xargs)
+            value="${part#*=}"
+            case "$key" in
+              host|server) DB_HOST="$value" ;;
+              port) DB_PORT="$value" ;;
+              database) DB_NAME="$value" ;;
+              username|"user id"|user) DB_USER="$value" ;;
+              password) DB_PASSWORD="$value" ;;
+            esac
+          done
+          if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+            echo "::error::AZURE_DB_CONNECTION_STRING needs Host, Database, Username and Password."
+            exit 1
+          fi
+          echo "::add-mask::$DB_PASSWORD"
+          {
+            echo "DB_HOST=$DB_HOST"
+            echo "DB_PORT=$DB_PORT"
+            echo "DB_NAME=$DB_NAME"
+            echo "DB_USER=$DB_USER"
+            echo "PGPASSWORD=$DB_PASSWORD"
+            echo "LIQUIBASE_COMMAND_PASSWORD=$DB_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the Liquibase image
+        run: docker build -t throughline-liquibase db/
+
+      # GitHub Actions ubuntu-latest runners egress via public internet IPs — they are
+      # not covered by the AllowAllAzureServicesAndResourcesWithinAzureIps rule. A
+      # temporary rule for this runner's IP is opened before migrations run and removed
+      # unconditionally at the end, even if a migration step fails.
+      - name: Open Postgres firewall for this runner
+        run: |
+          MY_IP=$(curl -sf https://checkip.amazonaws.com)
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --rule-name "gh-actions-${{ github.run_id }}" \
+            --start-ip-address "$MY_IP" \
+            --end-ip-address "$MY_IP"
+
+      # Safe to re-run; it only creates a schema a new database doesn't have yet
+      - name: Create schemas
+        if: inputs.action == 'update'
+        run: >-
+          docker run --rm -i -e PGPASSWORD postgres:16-alpine
+          psql "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER sslmode=require"
+          -v ON_ERROR_STOP=1 < db/create-schemas.sql
+
+      # Each module has its own changelog and tracking tables. An update tags each module with
+      # this commit's SHA before applying anything, so every run leaves a point to roll back to.
+      # Re-running the same commit keeps the first tag.
+      - name: Run Liquibase
+        env:
+          ACTION: ${{ inputs.action }}
+          ROLLBACK_TAG: ${{ inputs.rollback-tag }}
+        run: |
+          liquibase() {
+            docker run --rm -e LIQUIBASE_COMMAND_PASSWORD \
+              -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase \
+              --url="jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME?sslmode=require" \
+              --username="$DB_USER" --show-banner=false \
+              --changelog-file="$module/changelog.yaml" --liquibase-schema-name="$module" "$@"
+          }
+          for module in $MODULES; do
+            echo "::group::$module"
+            # One command per line: the step runs with bash -e, which stops at the first failure
+            case "$ACTION" in
+              preview-update)
+                liquibase update-sql
+                ;;
+              update)
+                liquibase status --verbose
+                liquibase tag --tag="$GITHUB_SHA"
+                liquibase update
+                ;;
+              preview-rollback)
+                liquibase rollback-sql --tag="$ROLLBACK_TAG"
+                ;;
+              rollback)
+                liquibase rollback-sql --tag="$ROLLBACK_TAG"
+                liquibase rollback --tag="$ROLLBACK_TAG"
+                ;;
+            esac
+            echo "::endgroup::"
+          done
+
+      - name: Close Postgres firewall rule
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --rule-name "gh-actions-${{ github.run_id }}" \
+            --yes

@@ -1,5 +1,5 @@
+using JasperFx;
 using JasperFx.Core;
-using JasperFx.Resources;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -64,6 +64,10 @@ builder.Host.UseWolverine(opts =>
 {
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
 
+    // Liquibase builds and changes the "wolverine" tables (db/changelog/wolverine), so Wolverine
+    // never changes the schema itself. With storage out of date it only logs a warning.
+    opts.AutoBuildMessageStorageOnStartup = AutoCreate.None;
+
     // EF Core transactional middleware: [Transactional] handlers commit their DbContext changes
     // and the incoming message's Handled status in one transaction.
     opts.UseEntityFrameworkCoreTransactions();
@@ -87,12 +91,6 @@ builder.Host.UseWolverine(opts =>
     // Wolverine only scans the entry assembly by default.
     opts.Discovery.IncludeAssembly(typeof(InventoryExtensions).Assembly);
 });
-
-// dev convenience — provisions the "wolverine" tables on boot:
-if (builder.Environment.IsDevelopment())
-{
-    builder.Host.UseResourceSetupOnStartup();
-}
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<RequestContext>();

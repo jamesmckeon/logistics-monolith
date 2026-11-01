@@ -20,7 +20,6 @@ env:
   IMAGE: throughline-api
   CONTAINER_APP: ca-throughline-api
   RESOURCE_GROUP: rg-throughline
-  POSTGRES_SERVER: psql-throughline
 
 jobs:
   test:
@@ -61,97 +60,11 @@ jobs:
           --configuration Release
           --filter "Category=Integration"
 
-  migrate:
-    name: Apply migrations
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-
-      # Signs in as gh-throughline-api-deploy; the federated credential is scoped to
-      # refs/heads/main, so a run started from any other branch fails here
-      - name: Log in to Azure (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      # Pin to the EF Core version in use so the tool and the runtime stay aligned
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef --version 10.0.11
-
-      - name: Build
-        run: dotnet build Throughline.sln --configuration Release
-
-      # GitHub Actions ubuntu-latest runners egress via public internet IPs — they are
-      # not covered by the AllowAllAzureServicesAndResourcesWithinAzureIps rule. A
-      # temporary rule for this runner's IP is opened before migrations run and removed
-      # unconditionally at the end, even if a migration step fails.
-      - name: Open Postgres firewall for this runner
-        run: |
-          MY_IP=$(curl -sf https://checkip.amazonaws.com)
-          az postgres flexible-server firewall-rule create \
-            --resource-group "$RESOURCE_GROUP" \
-            --server-name "$POSTGRES_SERVER" \
-            --rule-name "gh-actions-${{ github.run_id }}" \
-            --start-ip-address "$MY_IP" \
-            --end-ip-address "$MY_IP"
-
-      # All three modules share one database (ConnectionStrings:Throughline).
-      # Each context is migrated in sequence; a failure stops the deploy here and
-      # the running revision keeps serving on the old schema.
-      - name: Apply Ordering migrations
-        env:
-          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
-        run: >-
-          dotnet ef database update
-          --startup-project src/api/Throughline.Api
-          --project src/modules/ordering/Throughline.Modules.Ordering
-          --context OrdersDbContext
-          --no-build
-          --configuration Release
-
-      - name: Apply Inventory migrations
-        env:
-          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
-        run: >-
-          dotnet ef database update
-          --startup-project src/api/Throughline.Api
-          --project src/modules/inventory/Throughline.Modules.Inventory
-          --context InventoryDbContext
-          --no-build
-          --configuration Release
-
-      - name: Apply Receiving migrations
-        env:
-          ConnectionStrings__Throughline: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
-        run: >-
-          dotnet ef database update
-          --startup-project src/api/Throughline.Api
-          --project src/modules/receiving/Throughline.Modules.Receiving
-          --context ReceivingDbContext
-          --no-build
-          --configuration Release
-
-      - name: Close Postgres firewall rule
-        if: always()
-        run: |
-          az postgres flexible-server firewall-rule delete \
-            --resource-group "$RESOURCE_GROUP" \
-            --server-name "$POSTGRES_SERVER" \
-            --rule-name "gh-actions-${{ github.run_id }}" \
-            --yes
-
+  # Schema changes are not applied here; they go out separately with deploy-migrations.yaml,
+  # before the code that needs them.
   deploy:
     name: Publish and deploy
-    needs: migrate
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

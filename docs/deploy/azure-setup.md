@@ -81,7 +81,7 @@ az role assignment create \
 
 GitHub Actions `ubuntu-latest` runners egress from public internet IPs and are not
 covered by the existing `AllowAllAzureServicesAndResourcesWithinAzureIps` rule. The
-migrate job opens a temporary rule for the runner's IP and closes it unconditionally
+migrations workflow (`deploy-migrations.yaml`) opens a temporary rule for the runner's IP and closes it unconditionally
 afterwards. `Contributor` on the Postgres server is the minimum built-in role that
 allows creating and deleting firewall rules.
 
@@ -117,16 +117,21 @@ In **Settings → Secrets and variables → Actions**, add these repository secr
 Host=psql-throughline.postgres.database.azure.com;Port=5432;Database=throughline;Username=throughlineadmin;Password=<password>;Ssl Mode=Require
 ```
 
-Use a login that can run EF Core migrations (i.e. apply DDL). `throughlineadmin` has this
-access. Do not use an application login with only DML permissions.
+The migrations workflow reads its Liquibase connection from this secret, so use a login that can
+apply DDL. `throughlineadmin` has this access. Do not use an application login with only DML
+permissions.
 
 ---
 
 ## 5. Verify
 
 Trigger a run manually from **Actions → Deploy Throughline API → Run workflow**, selecting
-`main`. The run should pass all three jobs (Test → Apply migrations → Publish and deploy)
-and end with the health check reporting `Revision is healthy.`
+`main`. The run should pass both jobs (Test → Publish and deploy) and end with the health
+check reporting `Revision is healthy.`
+
+Schema changes deploy separately, from **Actions → Deploy database migrations → Run workflow**
+on `main`. `preview-update` prints the SQL that would run; `update` tags each module's changelog
+with the commit SHA and then applies what's pending.
 
 To verify the new revision is live:
 
@@ -154,5 +159,8 @@ az containerapp update \
   --image crthroughline.azurecr.io/throughline-api:<previous-sha>
 ```
 
-No rebuild is needed. The running schema may be ahead of the rolled-back code;
-see issue #42 for the database rollback decision.
+No rebuild is needed. The running schema may be ahead of the rolled-back code. Expand-only
+schema changes keep the older code working, so this usually needs no schema rollback. When it
+does, run **Deploy database migrations** with `preview-rollback`, then `rollback`, giving the
+commit SHA of the update to undo as `rollback-tag`. Each update tags the database before it
+applies anything, so that update and every later one are rolled back.

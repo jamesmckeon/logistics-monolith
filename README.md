@@ -44,7 +44,7 @@ is green.
 
 ## Running locally
 
-Needs the .NET 10 SDK, Docker, and the EF Core tools (`dotnet tool install --global dotnet-ef`).
+Needs the .NET 10 SDK and Docker.
 
 **1. Start Postgres**
 
@@ -55,14 +55,20 @@ docker compose up -d
 This also starts the Aspire dashboard at <http://localhost:18888>, where the API's traces and
 logs show up.
 
-**2. Create the schemas.** Each module owns its own schema and migrations, so there is one
-command per module:
+**2. Create the schemas.** Liquibase builds each module's tables, and Wolverine's, from its
+changelog in `db/changelog`, using the Liquibase image defined in `db/Dockerfile`. Build the image,
+create the empty schemas, then apply each changelog:
 
 ```bash
-dotnet ef database update --project src/modules/ordering/Throughline.Modules.Ordering --startup-project src/api/Throughline.Api --context OrdersDbContext
-dotnet ef database update --project src/modules/inventory/Throughline.Modules.Inventory --startup-project src/api/Throughline.Api --context InventoryDbContext
-dotnet ef database update --project src/modules/receiving/Throughline.Modules.Receiving --startup-project src/api/Throughline.Api --context ReceivingDbContext
+docker build -t throughline-liquibase db/
+docker exec -i throughline-pg psql -U postgres -d throughline -v ON_ERROR_STOP=1 < db/create-schemas.sql
+for m in orders inventory receiving wolverine; do docker run --rm --network container:throughline-pg -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase --url=jdbc:postgresql://localhost:5432/throughline --username=postgres --password=postgres --changelog-file=$m/changelog.yaml --liquibase-schema-name=$m update; done
 ```
+
+Run the loop again after pulling new changes; it applies only the changesets the database is
+missing. A database built before the move to Liquibase, by EF migrations, already has these
+tables: run the loop once with `changelog-sync` in place of `update` to mark them as applied, or
+drop the database and start again.
 
 **3. Load the reference data:** three client-owners with their SKUs, plus locations, carriers
 and hold reasons. The scripts are safe to re-run.
