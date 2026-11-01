@@ -26,10 +26,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Infrastructure\Migrations\"/>
-    </ItemGroup>
-
-    <ItemGroup>
         <InternalsVisibleTo Include="Throughline.Api.Tests"/>
     </ItemGroup>
 </Project>

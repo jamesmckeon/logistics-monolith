@@ -20,10 +20,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Infrastructure\Migrations\"/>
-    </ItemGroup>
-
-    <ItemGroup>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
         <PackageReference Include="NUnit"/>
         <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
