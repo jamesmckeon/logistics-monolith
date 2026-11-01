@@ -27,7 +27,7 @@ internal abstract class IntegrationTestsBase
         new Dictionary<string, string>();
 
     /// <summary>
-    ///     Applies the migrations for the module schemas the class uses.
+    ///     Applies the changelogs for the module schemas the class uses.
     /// </summary>
     protected abstract Task MigrateAsync();
 
