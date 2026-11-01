@@ -56,19 +56,15 @@ This also starts the Aspire dashboard at <http://localhost:18888>, where the API
 logs show up.
 
 **2. Create the schemas.** Liquibase builds each module's tables, and Wolverine's, from its
-changelog in `db/changelog`, using the Liquibase image defined in `db/Dockerfile`. Build the image,
-create the empty schemas, then apply each changelog:
+changelog in `db/changelog`, using the Liquibase image defined in `db/Dockerfile`. This script
+builds the image, creates the empty schemas, then applies each module's changelog:
 
 ```bash
-docker build -t throughline-liquibase db/
-docker exec -i throughline-pg psql -U postgres -d throughline -v ON_ERROR_STOP=1 < db/create-schemas.sql
-for m in orders inventory receiving wolverine; do docker run --rm --network container:throughline-pg -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase --url=jdbc:postgresql://localhost:5432/throughline --username=postgres --password=postgres --changelog-file=$m/changelog.yaml --liquibase-schema-name=$m update; done
+db/update-local.sh
 ```
 
-Run the loop again after pulling new changes; it applies only the changesets the database is
-missing. A database built before the move to Liquibase, by EF migrations, already has these
-tables: run the loop once with `changelog-sync` in place of `update` to mark them as applied, or
-drop the database and start again.
+Run it again after writing or pulling new changesets; it applies only the changesets the database
+is missing. `db/update-local.sh update-sql` previews them instead.
 
 **3. Load the reference data:** three client-owners with their SKUs, plus locations, carriers
 and hold reasons. The scripts are safe to re-run.
