@@ -116,7 +116,7 @@ jobs:
           az postgres flexible-server firewall-rule create \
             --resource-group "$RESOURCE_GROUP" \
             --server-name "$POSTGRES_SERVER" \
-            --rule-name "gh-actions-${{ github.run_id }}" \
+            --name "gh-actions-${{ github.run_id }}" \
             --start-ip-address "$MY_IP" \
             --end-ip-address "$MY_IP"
 
@@ -172,5 +172,5 @@ jobs:
           az postgres flexible-server firewall-rule delete \
             --resource-group "$RESOURCE_GROUP" \
             --server-name "$POSTGRES_SERVER" \
-            --rule-name "gh-actions-${{ github.run_id }}" \
+            --name "gh-actions-${{ github.run_id }}" \
             --yes
