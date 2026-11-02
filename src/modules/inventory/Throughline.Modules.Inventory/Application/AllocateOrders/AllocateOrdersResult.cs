@@ -5,7 +5,11 @@ namespace Throughline.Modules.Inventory.Application.AllocateOrders;
 internal sealed record AllocateOrdersResult
 {
     private static readonly string[] BadRequestCodes =
-        [AllocationError.OrderIdsEmptyCode, AllocationError.DuplicateOrderIdsCode];
+    [
+        AllocationError.OrderIdsEmptyCode,
+        AllocationError.DuplicateOrderIdsCode,
+        AllocationError.OrderCapExceededCode
+    ];
 
     internal AllocateOrdersResult(IEnumerable<AllocatedOrder> orders)
     {
@@ -25,8 +29,5 @@ internal sealed record AllocateOrdersResult
 
     public IReadOnlyCollection<AllocatedOrder> Orders { get; }
 
-    public static implicit operator AllocateOrdersResult(AllocationError error)
-    {
-        return new AllocateOrdersResult([error]);
-    }
+    public static implicit operator AllocateOrdersResult(AllocationError error) => new([error]);
 }

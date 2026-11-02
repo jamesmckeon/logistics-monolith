@@ -38,6 +38,11 @@ internal sealed class AllocateOrdersHandler
             return AllocationError.OrderIdsEmpty("command must contain at least one order id");
         }
 
+        if (command.OrderIds.Count() > 50)
+        {
+            return AllocationError.OrderCapExceeded();
+        }
+
         var duplicates = command.OrderIds.GroupBy(grp => grp)
             .Select(grp => new { OrderId = grp.Key, Count = grp.Count() })
             .Where(w => w.Count > 1)
@@ -49,7 +54,6 @@ internal sealed class AllocateOrdersHandler
                 AllocationError.DuplicateOrderIdsCode, duplicates.Select(d => d.OrderId));
             return AllocationError.DuplicateOrderIds(duplicates.Select(d => d.OrderId));
         }
-
 
         var owner = await _ownerProvider.GetOwnerByIdAsync(ownerId, token);
 
@@ -77,8 +81,6 @@ internal sealed class AllocateOrdersHandler
     }
 
     private static Result<IReadOnlyCollection<AllocatedOrder>> Validation(
-        string errorMessage)
-    {
-        return Result<IReadOnlyCollection<AllocatedOrder>>.Validation(errorMessage);
-    }
+        string errorMessage) =>
+        Result<IReadOnlyCollection<AllocatedOrder>>.Validation(errorMessage);
 }
