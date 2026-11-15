@@ -6,7 +6,7 @@ Backlog: T-039 (Customer OMS Traffic Simulator). Status: design agreed 2026-10-1
 
 Throughline should receive realistic traffic around the clock without anyone sending requests by hand. The simulator plays the people and systems that call Throughline in production: client-owners' order management systems, and the 3PL's own warehouse staff. That way the deployed system is always exercised, and its telemetry, failure handling and data reflect real use rather than demos.
 
-The simulator is test tooling, not a Throughline capability. It is a design document rather than a story, and it is not load testing: NBomber covers that (T-038), with sped-up time and short runs. The simulator runs in real time, all day and all week.
+The simulator is test tooling, not a Throughline capability. It is a design document rather than a story, and it is not load testing: k6 covers that (T-038), with sped-up time and short runs. The simulator runs in real time, all day and all week.
 
 ## Decisions
 
@@ -15,7 +15,7 @@ The simulator is test tooling, not a Throughline capability. It is a design docu
 | 1 | **Same repo, own project:** `tools/Throughline.Simulator` in `Throughline.sln`, with its own test project. Its tests run in the existing build-and-test workflow, but it **deploys through its own workflow**, never through Throughline's deployment pipeline. | A contract change and the simulator change that follows it land in one PR. The simulator plays an outside party, so its releases are independent of Throughline's: a Throughline deploy never redeploys the simulator, and the reverse. |
 | 2 | **External client only.** Everything it *sends* goes over HTTP with its own request models, and it references no Throughline code. The one exception is decision 11: it reads the SKU list from Throughline's database. | It must behave like a customer's system. Sharing Throughline's types would hide contract breaks. |
 | 3 | **A worker service** (`BackgroundService`), running as a third container app (`ca-throughline-simulator`) in `cae-throughline`. No ingress, 1 replica. | It runs continuously and keeps state between actions, which a per-run timer function can't. It uses the same image and revision flow as the API. |
-| 4 | **Real time only.** Each actor waits for its next action according to its profile. | The point is watching the system develop over days. Sped-up time is NBomber's job. |
+| 4 | **Real time only.** Each actor waits for its next action according to its profile. | The point is watching the system develop over days. Sped-up time is the load tests' job (k6). |
 | 5 | **One profile per customer**, in configuration. | Customers differ in volume, timing, order shape and how badly they behave. |
 | 6 | **Warehouse users are 3PL employees, shared across customers.** Each holds a functional role plus the `Owner.{id}` roles for the customers they work for. | This is how a shared 3PL building works, and it matches ADR-0003. |
 | 7 | **Shifts belong to the facility, not to customers.** What differs per customer is order cutoffs and SLAs, which decide when allocators release that customer's orders. | Same as 6. |
