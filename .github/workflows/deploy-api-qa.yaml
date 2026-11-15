@@ -1,0 +1,159 @@
+name: Deploy Throughline API to QA
+
+# Manual trigger only. Pick the branch to deploy in "Use workflow from"; any branch can go to QA.
+# Prod deploys stay in deploy-api.yaml, from main only.
+on:
+  workflow_dispatch:
+
+# One QA deploy at a time, and never cancel one halfway through. Separate from the prod group,
+# so a QA deploy never waits on a prod one.
+concurrency:
+  group: deploy-api-qa
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  REGISTRY: crthroughline.azurecr.io
+  IMAGE: throughline-api
+  CONTAINER_APP: ca-throughline-api-qa
+  POSTGRES_SERVER: psql-throughline-perf
+  RESOURCE_GROUP: rg-throughline
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test (Unit)
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: >-
+          dotnet test Throughline.sln
+          --configuration Release
+          --filter "Category=Unit"
+
+      - name: Test (Integration)
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: >-
+          dotnet test Throughline.sln
+          --configuration Release
+          --filter "Category=Integration"
+
+  # Schema changes are not applied here. Like prod, they go out separately and before the code
+  # that needs them.
+  deploy:
+    name: Publish and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    # The qa environment holds AZURE_API_CLIENT_ID for the QA deploy identity, overriding the
+    # repository secret of the same name. That identity's federated credential accepts only
+    # tokens from this environment, and it has no rights on prod resources.
+    environment: qa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The QA server is stopped every night, so it is usually off when a deploy starts. The new
+      # revision's readiness probe checks Postgres, so the server must be up before deploying.
+      - name: Start the QA database
+        run: |
+          STATE=$(az postgres flexible-server show \
+            --name "$POSTGRES_SERVER" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query state --output tsv)
+          echo "$POSTGRES_SERVER is $STATE"
+          if [ "$STATE" = "Stopped" ]; then
+            az postgres flexible-server start \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP"
+          fi
+          # Polls every 15 s for up to 10 minutes, which also covers a start already under way
+          for i in $(seq 1 40); do
+            STATE=$(az postgres flexible-server show \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query state --output tsv)
+            if [ "$STATE" = "Ready" ]; then
+              echo "$POSTGRES_SERVER is Ready."
+              exit 0
+            fi
+            echo "Attempt $i: $STATE"
+            sleep 15
+          done
+          echo "::error::$POSTGRES_SERVER did not reach Ready within 10 minutes. Last state: $STATE"
+          exit 1
+
+      - name: Log in to the registry
+        run: az acr login --name "${REGISTRY%%.*}"
+
+      # Same image repository as prod; the commit SHA tag identifies what was built.
+      # ContainerRepository must be explicit: without it the SDK derives "throughline.api"
+      # (dot, not hyphen), which does not match the live image at throughline-api
+      - name: Publish the image
+        run: >-
+          dotnet publish src/api/Throughline.Api
+          --configuration Release --os linux --arch x64
+          /t:PublishContainer
+          -p:ContainerRegistry=$REGISTRY
+          -p:ContainerRepository=$IMAGE
+          -p:ContainerImageTag=${{ github.sha }}
+
+      # Changes only the image; secrets, environment variables, identity, ingress, probes and
+      # scale stay as configured on the container app
+      - name: Deploy a new revision
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$REGISTRY/$IMAGE:${{ github.sha }}"
+
+      # /health checks Postgres, so a 200 means the new revision is up and the DB is reachable.
+      # QA scales to zero when idle, so the first request also wakes it.
+      # Polls every 10 s for up to 4 minutes before failing the run.
+      - name: Wait for readiness
+        run: |
+          FQDN=$(az containerapp show \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+          URL="https://$FQDN/health"
+          echo "Polling $URL"
+          for i in $(seq 1 24); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Revision is healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::New revision did not report healthy within 4 minutes."
+          exit 1

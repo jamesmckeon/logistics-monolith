@@ -164,3 +164,73 @@ schema changes keep the older code working, so this usually needs no schema roll
 does, run **Deploy database migrations** with `preview-rollback`, then `rollback`, giving the
 commit SHA of the update to undo as `rollback-tag`. Each update tags the database before it
 applies anything, so that update and every later one are rolled back.
+
+---
+
+## QA environment (`deploy-api-qa.yaml`)
+
+QA is where a branch is deployed and tested before it is merged and deployed to prod. Any branch
+can be deployed to QA; prod still deploys from main only.
+
+QA resources, separate from prod:
+
+| Resource | Notes |
+|---|---|
+| `ca-throughline-api-qa` | Same environment (`cae-throughline`) and settings as `ca-throughline-api`, except `ASPNETCORE_ENVIRONMENT=QA` and 0–1 replicas, so it scales to zero when idle. Its managed identity has `AcrPull` on `crthroughline`. |
+| `psql-throughline-perf` | QA's Postgres server. A Logic App, `throughline-stop-qa-db`, stops it every night at midnight Pacific; the QA deploy starts it again. |
+
+The container app's `pg-connection` secret points at the QA server:
+
+```
+Host=psql-throughline-perf.postgres.database.azure.com;Port=5432;Database=throughline;Username=throughlinetestadmin;Password=<password>;SSL Mode=Require
+```
+
+### QA deploy identity
+
+A separate app registration, `gh-throughline-qa-deploy`, so a QA run can never change prod.
+
+```bash
+az ad app create --display-name gh-throughline-qa-deploy
+az ad sp create --id <QA_APP_ID>
+```
+
+Its federated credential accepts tokens from the GitHub environment `qa`, not from a branch. Any
+branch can sign in, but only through a job that uses that environment.
+
+```bash
+az ad app federated-credential create \
+  --id <QA_APP_ID> \
+  --parameters '{
+    "name": "gh-throughline-qa-deploy-env-qa",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:jamesmckeon/logistics-monolith:environment:qa",
+    "description": "GitHub Actions - qa environment only",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+```
+
+Roles, each scoped to one QA resource:
+
+| Role | Scope | Why |
+|---|---|---|
+| `AcrPush` | `crthroughline` | Push the image built from the branch |
+| `Contributor` | `ca-throughline-api-qa` | Deploy a new revision |
+| `Contributor` | `psql-throughline-perf` | Start the stopped server; manage firewall rules for QA migrations |
+
+### GitHub `qa` environment
+
+In **Settings → Environments → qa**, add one environment secret:
+
+| Secret | Value |
+|---|---|
+| `AZURE_API_CLIENT_ID` | `<QA_APP_ID>` |
+
+An environment secret overrides the repository secret of the same name, so the QA workflow uses
+the same secret names as prod. `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` come from the
+repository secrets.
+
+### Deploy a branch to QA
+
+GitHub only lists a manually triggered workflow once its file is on main, and runs the copy on the
+branch you pick. Update the branch from main first, then run **Actions → Deploy Throughline API
+to QA → Run workflow** and pick the branch.
