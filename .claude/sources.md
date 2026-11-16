@@ -198,8 +198,8 @@ Added 2026-10-09 after a web review; both sources are Pending until the user con
 # Testing — Performance & Load (Project Canon)
 
 Same **status legend and operating rules** as the design/DDD register above. Scope: when and
-where performance/load tests run (cadence, CI vs scheduled vs pre-release, environment), and
-what a smoke test is. Added 2026-11-15 after a web review; all sources are Pending until the
+where performance/load tests run (cadence, CI vs scheduled vs pre-release, environment), what a
+smoke test is, and how test data is prepared. Added 2026-11-15 after a web review; all sources are Pending until the
 user confirms them.
 
 ## Sources
@@ -210,6 +210,7 @@ user confirms them.
 | PT-2 | **Azure Well-Architected Framework — [Recommendations for performance testing](https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/performance-test)** (PE:06) | "Start early and test continuously": performance tests in deployment pipelines plus periodic automated runs. "Mirror your production environment": load tests run in a staging or production-like environment. | ⏳ Pending |
 | PT-3 | **Azure Well-Architected Framework — [Testing](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/testing)** (Operational Excellence) | Fast smoke tests on every commit; broader regression nightly or before release. Example smoke test: a simple check against a deployed app's health endpoint. Performance/load tests run in a dedicated, production-like environment. | ⏳ Pending |
 | PT-4 | **Grafana k6 testing guides** — [Load test types](https://grafana.com/docs/k6/latest/testing-guides/test-types/) · [Smoke testing](https://grafana.com/docs/k6/latest/testing-guides/test-types/smoke-testing/) · [Automated performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/) | Docs for the load-testing tool this project uses. Test types (smoke, average-load, stress, spike, soak, breakpoint) and their durations; smoke = the script at minimal load. Cadence by environment: smoke in CI on branch changes; average-load/stress with pass/fail thresholds in pre-release, each run at least twice; scheduled baselines in staging; heavy tests out of the per-PR pipeline. | ⏳ Pending |
+| PT-5 | **Microsoft patterns & practices — [Performance Testing Guidance for Web Applications](https://learn.microsoft.com/en-us/previous-versions/msp-n-p/bb924375(v=pandp.10))** (Meier, Farre, Bansode, Barber, Rea, 2007; archived; cited by PT-1 as a core reference) | Test data. Ch. 14 (Test Execution): reset the system before a formal run; set a data restore point before repeated testing. Ch. 13 (Individual User Data and Variances): tests consume large amounts of data, and reusing it invalidates results; unique data per user where the server requires it; production-derived data is best. Ch. 4 (Core Activities): seed data volume is an environment factor; determine how much data emulates real conditions. | ⏳ Pending |
 
 ## Findings from the 2026-11-15 review
 
@@ -219,7 +220,11 @@ user confirms them.
 2. **"Smoke test" is used two ways.** Grafana's k6 docs (PT-4) define it as the load-test script run
    at minimal load. PT-3 (Microsoft) uses it for a quick check that the deployed build works —
    no load or latency involved. PT-1 doesn't mention smoke tests.
-3. **Where the CI subset runs is an open design choice.** PT-1's "on-demand environment" fits
+3. **Test data (added 2026-11-16):** PT-1 and PT-5 both call for a known starting state
+   before each formal run (restore point / backups), unique data per iteration, and
+   production-like volume. Neither endorses load testing against an environment whose data
+   drifts between runs.
+4. **Where the CI subset runs is an open design choice.** PT-1's "on-demand environment" fits
    starting QA per run; a test against an API on the CI runner would mostly repeat the
    integration tests.
 
