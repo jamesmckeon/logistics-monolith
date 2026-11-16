@@ -8,12 +8,9 @@ Claude writes, edits, or reviews tests. Stack: **NUnit 4** + **Moq**, targeting 
 ## Test class
 
 - **Always `sealed`.** No test class is meant to be inherited from.
-- **Always carries a category** — exactly one of `[Category("Unit")]`,
-  `[Category("Integration")]` or `[Category("Smoke")]` on the class. This lets suites be
-  filtered by `--filter "Category=Unit"`.
-  - **Integration** tests host the API in-process (`TestServer`, Postgres in Testcontainers).
-  - **Smoke** tests call a deployed environment's API over HTTP with a real token, after each
-    QA deploy. They check that the deployed build's critical paths work, not latency.
+- **Always carries a category** — exactly one of `[Category("Unit")]` or
+  `[Category("Integration")]` on the class. This lets suites be filtered by
+  `--filter "Category=Unit"`.
 
 ```csharp
 [Category("Unit")]
@@ -157,7 +154,7 @@ Assert.Multiple(() =>
 
 ## Quick checklist
 
-- [ ] Class is `sealed` with `[Category("Unit")]`, `[Category("Integration")]` or `[Category("Smoke")]`
+- [ ] Class is `sealed` with `[Category("Unit")]` or `[Category("Integration")]`
 - [ ] Method name is `MethodUnderTest_Condition_ExpectedResult`, ≤ 100 chars
 - [ ] AAA phases separated by blank lines; no `// Arrange` / `// Act` / `// Assert` comments
 - [ ] SUT is a private `_sut` (unless construction forbids it)
