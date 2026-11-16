@@ -3,12 +3,13 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **five source registers**: the **design / architecture / DDD** set (the
+This file holds **six source registers**: the **design / architecture / DDD** set (the
 table below), an **Observability & Logging** set, a **Testing — Messaging & Error
-Handling** set, and a **Security — Authentication & Authorization** set, all under the
-Confirmed/Pending status legend; and a **WMS Functional / Vendor
-Reference** register (at the end of the file) under its own tier legend. Read the testing
-register before writing or reviewing tests for integration-event handlers. Read the security
+Handling** set, a **Testing — Performance & Load** set, and a **Security — Authentication &
+Authorization** set, all under the Confirmed/Pending status legend; and a **WMS Functional /
+Vendor Reference** register (at the end of the file) under its own tier legend. Read the testing
+register before writing or reviewing tests for integration-event handlers. Read the performance
+& load register before planning, writing, or reviewing load tests or deciding when they run. Read the security
 register before designing, building, or reviewing authentication, authorization (RBAC), or
 owner scoping of a caller. Read the observability register before designing, building, or reviewing
 any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
@@ -191,6 +192,36 @@ Added 2026-10-09 after a web review; both sources are Pending until the user con
    found argues for or against it. Whether Wolverine's local durable queues count as
    "managed" under TS-2 (only this app reads them; stored in this app's `wolverine` schema) is
    also an inference — Khorikov doesn't address in-process module queues.
+
+---
+
+# Testing — Performance & Load (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register above. Scope: when and
+where performance/load tests run (cadence, CI vs scheduled vs pre-release, environment), and
+what a smoke test is. Added 2026-11-15 after a web review; all sources are Pending until the
+user confirms them.
+
+## Sources
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| PT-1 | **ISTQB Certified Tester – Performance Testing syllabus** v1.0 (2018) — [PDF](https://www.istqb.org/wp-content/uploads/2024/11/ISTQB-CT-PT_Syllabus_v1.0_2018.pdf) | §3.4: performance tests in CI are a build-level **subset** of fuller tests run at other times, aimed at catching a change that hurts performance, and usually need an **on-demand** (e.g. cloud) environment. System-level performance testing needs hardware, software and data **representative of production**. | ⏳ Pending |
+| PT-2 | **Azure Well-Architected Framework — [Recommendations for performance testing](https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/performance-test)** (PE:06) | "Start early and test continuously": performance tests in deployment pipelines plus periodic automated runs. "Mirror your production environment": load tests run in a staging or production-like environment. | ⏳ Pending |
+| PT-3 | **Azure Well-Architected Framework — [Testing](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/testing)** (Operational Excellence) | Fast smoke tests on every commit; broader regression nightly or before release. Example smoke test: a simple check against a deployed app's health endpoint. Performance/load tests run in a dedicated, production-like environment. | ⏳ Pending |
+| PT-4 | **Grafana k6 testing guides** — [Load test types](https://grafana.com/docs/k6/latest/testing-guides/test-types/) · [Smoke testing](https://grafana.com/docs/k6/latest/testing-guides/test-types/smoke-testing/) · [Automated performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/) | Docs for the load-testing tool this project uses. Test types (smoke, average-load, stress, spike, soak, breakpoint) and their durations; smoke = the script at minimal load. Cadence by environment: smoke in CI on branch changes; average-load/stress with pass/fail thresholds in pre-release, each run at least twice; scheduled baselines in staging; heavy tests out of the per-PR pipeline. | ⏳ Pending |
+
+## Findings from the 2026-11-15 review
+
+1. **Cadence agrees across sources.** A small subset per change (CI), the heavier tests on a
+   schedule or before release, against a production-like environment. None supports running
+   load tests only when someone judges a change risky.
+2. **"Smoke test" is used two ways.** Grafana's k6 docs (PT-4) define it as the load-test script run
+   at minimal load. PT-3 (Microsoft) uses it for a quick check that the deployed build works —
+   no load or latency involved. PT-1 doesn't mention smoke tests.
+3. **Where the CI subset runs is an open design choice.** PT-1's "on-demand environment" fits
+   starting QA per run; a test against an API on the CI runner would mostly repeat the
+   integration tests.
 
 ---
 
