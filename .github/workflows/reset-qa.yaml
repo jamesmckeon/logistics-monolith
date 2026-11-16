@@ -19,6 +19,7 @@ env:
   POSTGRES_SERVER: psql-throughline-perf
   RESOURCE_GROUP: rg-throughline
   DB_HOST: psql-throughline-perf.postgres.database.azure.com
+  PGUSER: throughlinetestadmin   # the QA server's admin login, which the QA app also connects as
   DB_NAME: throughline
   BASELINE: throughline_baseline
   APP_API_VERSION: "2025-07-01"
@@ -29,8 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: qa
     env:
-      # The server is fixed above, so these credentials can only ever be used against QA's server.
-      PGUSER: ${{ secrets.QA_DB_USERNAME }}
+      # The server is fixed above, so this password can only ever be used against QA's server.
       PGPASSWORD: ${{ secrets.QA_DB_PASSWORD }}
     steps:
       - name: Log in to Azure (OIDC)
@@ -40,10 +40,10 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Check database credentials
+      - name: Check the database password
         run: |
-          if [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ]; then
-            echo "::error::The qa environment needs QA_DB_USERNAME and QA_DB_PASSWORD."
+          if [ -z "$PGPASSWORD" ]; then
+            echo "::error::The qa environment needs the QA_DB_PASSWORD secret."
             exit 1
           fi
 
