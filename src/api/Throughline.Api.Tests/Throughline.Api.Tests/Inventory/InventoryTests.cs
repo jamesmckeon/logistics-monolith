@@ -23,7 +23,7 @@ using Wolverine.Tracking;
 namespace Throughline.Api.Tests.Inventory;
 
 [Category("Integration")]
-internal class InventoryTests : IntegrationTestsBase<InventoryDbContext>
+internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 {
     private List<Sku> TestSkus { get; set; }
     private Owner PartialAllocationOwner { get; set; }

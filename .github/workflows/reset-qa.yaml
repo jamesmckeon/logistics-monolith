@@ -1,0 +1,193 @@
+name: Reset QA
+
+# Manual trigger only. Replaces QA's throughline database with a copy of throughline_baseline, so
+# QA always ends in the same known state, however much branches deployed to QA have changed it.
+on:
+  workflow_dispatch:
+
+# Shares the QA deploy's group, so a reset and a deploy never run against QA at the same time.
+concurrency:
+  group: deploy-api-qa
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  CONTAINER_APP: ca-throughline-api-qa
+  POSTGRES_SERVER: psql-throughline-perf
+  RESOURCE_GROUP: rg-throughline
+  DB_HOST: psql-throughline-perf.postgres.database.azure.com
+  PGUSER: throughlinetestadmin   # the QA server's admin login, which the QA app also connects as
+  DB_NAME: throughline
+  BASELINE: throughline_baseline
+  APP_API_VERSION: "2025-07-01"
+
+jobs:
+  reset:
+    name: Reset QA
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      # The server is fixed above, so this password can only ever be used against QA's server.
+      PGPASSWORD: ${{ secrets.QA_DB_PASSWORD }}
+    steps:
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check the database password
+        run: |
+          if [ -z "$PGPASSWORD" ]; then
+            echo "::error::The qa environment needs the QA_DB_PASSWORD secret."
+            exit 1
+          fi
+
+      # The QA server is stopped every night. Starts it only if it's stopped, then waits for Ready,
+      # which also covers a start already under way.
+      - name: Start the QA database
+        run: |
+          STATE=$(az postgres flexible-server show \
+            --name "$POSTGRES_SERVER" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query state --output tsv)
+          echo "$POSTGRES_SERVER is $STATE"
+          if [ "$STATE" = "Stopped" ]; then
+            az postgres flexible-server start \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP"
+          fi
+          for i in $(seq 1 40); do
+            STATE=$(az postgres flexible-server show \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query state --output tsv)
+            if [ "$STATE" = "Ready" ]; then
+              echo "$POSTGRES_SERVER is Ready."
+              exit 0
+            fi
+            echo "Attempt $i: $STATE"
+            sleep 15
+          done
+          echo "::error::$POSTGRES_SERVER did not reach Ready within 10 minutes. Last state: $STATE"
+          exit 1
+
+      # GitHub-hosted runners reach Azure over public IPs the server's rules don't cover. A rule for
+      # this runner's IP is opened here and removed in the last step.
+      - name: Open Postgres firewall for this runner
+        id: firewall
+        run: |
+          MY_IP=$(curl -sf https://checkip.amazonaws.com)
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --name "gh-actions-${{ github.run_id }}" \
+            --start-ip-address "$MY_IP" \
+            --end-ip-address "$MY_IP"
+
+      # Checked before anything changes, so throughline is never dropped with nothing to copy.
+      - name: Check the baseline exists
+        run: |
+          EXISTS=$(docker run --rm -e PGUSER -e PGPASSWORD postgres:16-alpine \
+            psql "host=$DB_HOST dbname=postgres sslmode=require" -At -v ON_ERROR_STOP=1 \
+            -c "SELECT count(*) FROM pg_database WHERE datname = '$BASELINE';")
+          if [ "$EXISTS" != "1" ]; then
+            echo "::error::$BASELINE doesn't exist on $POSTGRES_SERVER."
+            exit 1
+          fi
+
+      # Postgres can't drop or copy a database while anything is connected to it, and the app stays
+      # connected even with no traffic: pooled connections, the readiness probe's /health check,
+      # and Wolverine's polling. Ending those connections doesn't work, because the app reconnects.
+      # az containerapp has no stop command, so this calls the Container Apps REST API.
+      - name: Stop the QA app
+        id: stop
+        run: |
+          APP_ID=$(az containerapp show \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query id --output tsv)
+          echo "APP_ID=$APP_ID" >> "$GITHUB_ENV"
+          az rest --method post \
+            --url "https://management.azure.com$APP_ID/stop?api-version=$APP_API_VERSION"
+          for i in $(seq 1 24); do
+            STATUS=$(az containerapp show --ids "$APP_ID" \
+              --query properties.runningStatus --output tsv)
+            if [ "$STATUS" = "Stopped" ]; then
+              echo "$CONTAINER_APP is Stopped."
+              exit 0
+            fi
+            echo "Attempt $i: $STATUS"
+            sleep 10
+          done
+          echo "::error::$CONTAINER_APP did not stop within 4 minutes. Last status: $STATUS"
+          exit 1
+
+      # Anything else still connected, such as a Bruno or psql session, would make the drop fail.
+      # Waits for those to close rather than ending someone's session.
+      - name: Wait for connections to close
+        run: |
+          for i in $(seq 1 12); do
+            COUNT=$(docker run --rm -e PGUSER -e PGPASSWORD postgres:16-alpine \
+              psql "host=$DB_HOST dbname=postgres sslmode=require" -At -v ON_ERROR_STOP=1 \
+              -c "SELECT count(*) FROM pg_stat_activity WHERE datname = '$DB_NAME';")
+            if [ "$COUNT" = "0" ]; then
+              echo "No connections to $DB_NAME."
+              exit 0
+            fi
+            echo "Attempt $i: $COUNT connection(s) to $DB_NAME"
+            sleep 10
+          done
+          echo "::error::$DB_NAME still has connections after 2 minutes. Close them and re-run."
+          exit 1
+
+      # Connects to the postgres database, because Postgres can't drop the database you're
+      # connected to. Each -c runs on its own, because DROP and CREATE DATABASE can't run inside a
+      # transaction. The copy includes every schema, row and index, and the Liquibase tracking
+      # tables, so it's exactly the baseline.
+      - name: Replace throughline with the baseline
+        run: |
+          docker run --rm -e PGUSER -e PGPASSWORD postgres:16-alpine \
+            psql "host=$DB_HOST dbname=postgres sslmode=require" -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE $DB_NAME;" \
+            -c "CREATE DATABASE $DB_NAME TEMPLATE $BASELINE;"
+
+      # Runs even if an earlier step failed, so QA isn't left stopped. Skipped if the app was never
+      # stopped.
+      - name: Start the QA app
+        if: always() && steps.stop.outcome != 'skipped' && env.APP_ID != ''
+        run: |
+          az rest --method post \
+            --url "https://management.azure.com$APP_ID/start?api-version=$APP_API_VERSION"
+
+      # /health checks Postgres, so a 200 means the app is up on the copied database.
+      - name: Wait for readiness
+        run: |
+          FQDN=$(az containerapp show --ids "$APP_ID" \
+            --query properties.configuration.ingress.fqdn --output tsv)
+          URL="https://$FQDN/health"
+          echo "Polling $URL"
+          for i in $(seq 1 24); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "$CONTAINER_APP is healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$CONTAINER_APP did not report healthy within 4 minutes."
+          exit 1
+
+      - name: Close Postgres firewall rule
+        if: always() && steps.firewall.outcome != 'skipped'
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --name "gh-actions-${{ github.run_id }}" \
+            --yes
