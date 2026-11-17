@@ -29,7 +29,7 @@ new changeset; prod changesets are never rolled back.**
   tech-debt issue titled "Contraction: …".
 - **Fix forward.** If a change breaks prod (a constraint that rejects writes, a lock on a busy
   table, a wrong grant), the reversal or correction is a new changeset that goes through the
-  Build & Test Action and QA like any other. For a change that's risky to begin with, write and
+  Validate Merge Action and QA like any other. For a change that's risky to begin with, write and
   test that reversal before the change ships.
 
 ## Consequences

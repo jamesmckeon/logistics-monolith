@@ -39,13 +39,13 @@ file per change, named `yyyyMMddHHmm-description.sql`. EF Core maps and queries;
   Drops and renames wait until no code on any environment uses the old structure; track each one
   as a tech-debt issue titled "Contraction: …" when the expand change ships.
 - **One change per changeset, with no `--rollback`.** Nothing rolls a changeset back: prod is
-  fixed forward, and the Build & Test Action applies every changeset to an empty database. Older
-  changesets keep their `--rollback` lines, because applied changesets are never edited.
+  fixed forward. Older changesets keep their `--rollback` lines, because applied changesets are
+  never edited.
 - **Never edit an applied changeset.** Liquibase checksums it; a fix is a new changeset.
 - **Indexes on existing tables** use `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, alone in a
   changeset with `runInTransaction:false`.
 - **Prod is fixed forward, never rolled back.** A change that breaks prod is reversed or corrected
-  by a new changeset through the Build & Test Action and QA. Rolling back a new column or table
+  by a new changeset through the Validate Merge Action and QA. Rolling back a new column or table
   would drop the receipts, orders or allocations every owner recorded in it. For a risky change,
   write and test the reversal before it ships. See ADR-0004.
 - **A Wolverine upgrade ships with its schema change**, as a changeset in the same pull request.

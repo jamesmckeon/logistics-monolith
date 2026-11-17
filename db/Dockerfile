@@ -3,7 +3,7 @@
 # Liquibase and driver versions.
 #
 # The official image has no Postgres JDBC driver, so it's added here with Liquibase's package
-# manager. Both versions are pinned; change them together and check that the Build & Test Action's changelogs job still passes.
+# manager. Both versions are pinned; change them together and check that the integration tests and a Deploy DB (QA) run still pass.
 #
 # Changelogs are mounted, not copied in: mount db/changelog at /liquibase/changelog and pass
 # --changelog-file=<module>/changelog.yaml. Liquibase records that relative path as part of each

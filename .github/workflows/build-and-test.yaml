@@ -1,4 +1,8 @@
-name: Build & Test
+name: Validate Merge
+
+# The pull request gate: branch protection on main requires the Unit tests and Integration tests
+# checks. Schema changes are proven by deploying them to QA (Deploy DB (QA)); the integration tests
+# apply the changelogs only as setup.
 
 on:
   push:
@@ -76,41 +80,3 @@ jobs:
           name: test-results-${{ matrix.category }}
           path: ./test-results/*.trx
           if-no-files-found: warn
-
-  # Applies every changeset to an empty database, so bad SQL or a changeset out of order fails the
-  # build before any deploy. Nothing is rolled back: prod is fixed forward (ADR-0004).
-  changelogs:
-    name: Changelogs
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build the Liquibase image
-        run: docker build -t throughline-liquibase db/
-
-      - name: Create schemas
-        run: >-
-          docker run --rm -i --network host -e PGPASSWORD=postgres postgres:15-alpine
-          psql -h localhost -U postgres -v ON_ERROR_STOP=1 < db/create-schemas.sql
-
-      - name: Apply every changeset
-        run: |
-          for module in orders inventory receiving wolverine master_data; do
-            docker run --rm --network host -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase \
-              --url=jdbc:postgresql://localhost:5432/postgres --username=postgres --password=postgres \
-              --show-banner=false --changelog-file="$module/changelog.yaml" --liquibase-schema-name="$module" \
-              update
-          done
