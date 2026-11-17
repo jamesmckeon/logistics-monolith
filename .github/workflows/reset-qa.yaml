@@ -1,4 +1,4 @@
-name: Reset QA
+name: Reset QA data
 
 # Manual trigger only. Replaces QA's throughline database with a copy of throughline_baseline, so
 # QA always ends in the same known state, however much branches deployed to QA have changed it.
@@ -26,7 +26,7 @@ env:
 
 jobs:
   reset:
-    name: Reset QA
+    name: Reset QA data
     runs-on: ubuntu-latest
     environment: qa
     env:
