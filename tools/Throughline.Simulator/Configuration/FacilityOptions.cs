@@ -23,7 +23,7 @@ public sealed class FacilityOptions
 
     /// <summary>
     ///     Putaway locations are <c>{PutawayLocationPrefix}01</c> through
-    ///     <c>{PutawayLocationCount}</c>, matching <c>db/seed/02_locations.sql</c>
+    ///     <c>{PutawayLocationCount}</c>, matching the locations in <c>receiving.receiving_locations</c>
     /// </summary>
     public string PutawayLocationPrefix { get; set; } = "";
 

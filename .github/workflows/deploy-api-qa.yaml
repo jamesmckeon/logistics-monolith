@@ -1,4 +1,4 @@
-name: Deploy Throughline API to QA
+name: Deploy API (QA)
 
 # Manual trigger only. Pick the branch to deploy in "Use workflow from"; any branch can go to QA.
 # Prod deploys stay in deploy-api.yaml, from main only.

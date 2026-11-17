@@ -85,7 +85,7 @@ concrete when we reason about concurrency, indexes, and SLOs:
 
 | Dimension | Baseline |
 |---|---|
-| Client-owners | ~40 active (mix of billed 3PL + consignment/VMI) |
+| Client-owners | 3 (Harrow & Finch, Brightwell, Kestrel) |
 | Active SKUs | ~250k across all owners; lot- **and** serial-tracked SKUs both present |
 | Outbound volume | ~40k order-lines/day, seasonal peaks 3–4× |
 | Inbound volume | ~15k receipt-lines/day |

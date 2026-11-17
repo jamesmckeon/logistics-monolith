@@ -1,4 +1,4 @@
-name: Deploy database migrations
+name: Deploy DB
 
 # Manual trigger only, and separate from the API deploy: schema changes go out on their own.
 # Expand changes ship before the code that needs them; the running code keeps working on the
@@ -6,6 +6,13 @@ name: Deploy database migrations
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "qa runs from any branch against QA's server; prod runs from main against production's. Run a change on qa first."
+        type: choice
+        options:
+          - qa
+          - prod
+        default: qa
       action:
         description: "update applies pending changesets; rollback undoes everything applied after the tag. The preview actions print the SQL without running it."
         type: choice
@@ -20,9 +27,10 @@ on:
         type: string
         required: false
 
-# One migration run at a time, and never cancel one halfway through
+# One migration run at a time per target, and never cancel one halfway through. A QA run shares
+# the QA deploy's group, so it never overlaps a QA deploy or reset.
 concurrency:
-  group: deploy-migrations
+  group: ${{ inputs.target == 'qa' && 'deploy-api-qa' || 'deploy-migrations' }}
   cancel-in-progress: false
 
 permissions:
@@ -31,17 +39,24 @@ permissions:
 
 env:
   RESOURCE_GROUP: rg-throughline
-  POSTGRES_SERVER: psql-throughline
-  MODULES: orders inventory receiving wolverine
+  POSTGRES_SERVER: ${{ inputs.target == 'qa' && 'psql-throughline-perf' || 'psql-throughline' }}
+  MODULES: orders inventory receiving wolverine master_data
 
 jobs:
   migrate:
-    name: ${{ inputs.action }}
+    name: ${{ inputs.target }} ${{ inputs.action }}
     runs-on: ubuntu-latest
+    # QA runs in the qa environment, whose AZURE_API_CLIENT_ID is the QA deploy identity, with
+    # rights on QA's server only. Production runs with no environment: its deploy identity's
+    # federated credential is scoped to refs/heads/main, and an environment would change the
+    # token's subject so Azure refused it.
+    environment: ${{ inputs.target == 'qa' && 'qa' || '' }}
     steps:
-      # The deploy identity's federated credential is scoped to refs/heads/main, so Azure refuses
-      # a run from any other branch anyway; this fails earlier with a clearer message.
+      # The production deploy identity's federated credential is scoped to refs/heads/main, so
+      # Azure refuses a run from any other branch anyway; this fails earlier with a clearer
+      # message. QA deploys feature branches, so its schema changes can come from any branch.
       - name: Require main
+        if: inputs.target == 'prod'
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "::error::Migrations must run from main. Got: $GITHUB_REF"
@@ -72,7 +87,8 @@ jobs:
 
       # Liquibase takes a JDBC URL, user and password rather than the API's connection string,
       # so they're read out of the same secret instead of being stored twice.
-      - name: Read connection settings
+      - name: Read production connection settings
+        if: inputs.target == 'prod'
         env:
           CONNECTION_STRING: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
         run: |
@@ -99,6 +115,26 @@ jobs:
             echo "DB_PORT=$DB_PORT"
             echo "DB_NAME=$DB_NAME"
             echo "DB_USER=$DB_USER"
+            echo "PGPASSWORD=$DB_PASSWORD"
+            echo "LIQUIBASE_COMMAND_PASSWORD=$DB_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      # The QA server and its admin user are fixed here, as in the Reset QA workflow, so the
+      # password can only ever be used against QA's server.
+      - name: Read QA connection settings
+        if: inputs.target == 'qa'
+        env:
+          DB_PASSWORD: ${{ secrets.QA_DB_PASSWORD }}
+        run: |
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "::error::The qa environment needs the QA_DB_PASSWORD secret."
+            exit 1
+          fi
+          {
+            echo "DB_HOST=$POSTGRES_SERVER.postgres.database.azure.com"
+            echo "DB_PORT=5432"
+            echo "DB_NAME=throughline"
+            echo "DB_USER=throughlinetestadmin"
             echo "PGPASSWORD=$DB_PASSWORD"
             echo "LIQUIBASE_COMMAND_PASSWORD=$DB_PASSWORD"
           } >> "$GITHUB_ENV"

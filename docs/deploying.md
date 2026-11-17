@@ -1,12 +1,7 @@
 # Deploying Throughline
 
-All deploys are triggered manually from **Actions**. A merge to main deploys nothing.
-
-| Workflow | Deploys | From |
-|---|---|---|
-| **Deploy Throughline API** (`deploy-api.yaml`) | `ca-throughline-api` (prod) | `main` only |
-| **Deploy database migrations** (`deploy-migrations.yaml`) | prod schema changes | `main` only |
-| **Deploy Throughline API to QA** (`deploy-api-qa.yaml`) | `ca-throughline-api-qa` (QA) | any branch |
+API and schema deploys are started by hand from **Actions**; merging to main doesn't deploy
+them. What each workflow does is in [workflows.md](workflows.md).
 
 ---
 
@@ -14,9 +9,9 @@ All deploys are triggered manually from **Actions**. A merge to main deploys not
 
 QA is where a branch is deployed and tested before it is merged and deployed to prod.
 
-1. Update the branch from main. GitHub runs the copy of the workflow on the branch you pick, so
-   the branch must contain `deploy-api-qa.yaml`.
-2. Run **Actions → Deploy Throughline API to QA → Run workflow** and pick the branch.
+1. If the branch changes the schema, ship that first, as for prod: run **Actions → Deploy DB →
+   Run workflow**, pick the branch and `target` `qa`, then `preview-update` and `update`.
+2. Run **Actions → Deploy API (QA) → Run workflow** and pick the branch.
 
 The run tests the branch and starts the QA database if it is stopped. It then builds an image
 tagged with the commit SHA, deploys it, and waits for `/health`. A Logic App stops the QA database
@@ -26,10 +21,10 @@ every night at midnight Pacific.
 
 ## Deploy to prod
 
-1. Ship any schema change first: run **Actions → Deploy database migrations → Run workflow** on
-   `main`. `preview-update` prints the SQL that would run; `update` tags each module's changelog
-   with the commit SHA, then applies what's pending.
-2. Run **Actions → Deploy Throughline API → Run workflow** on `main`. The run passes both jobs
+1. Ship any schema change first: run **Actions → Deploy DB → Run workflow** on `main` with
+   `target` `prod`. `preview-update` prints the SQL that would run; `update` tags each module's
+   changelog with the commit SHA, then applies what's pending.
+2. Run **Actions → Deploy API (prod) → Run workflow** on `main`. The run passes both jobs
    (Test → Publish and deploy) and ends with the health check reporting `Revision is healthy.`
 
 ---
@@ -62,8 +57,9 @@ az containerapp update \
 
 No rebuild is needed. The running schema may be ahead of the rolled-back code. Expand-only
 schema changes keep the older code working, so this usually needs no schema rollback. When it
-does, run **Deploy database migrations** with `preview-rollback`, then `rollback`, giving the
+does, run **Deploy DB** with `target` `prod` and `preview-rollback`, then `rollback`, giving the
 commit SHA of the update to undo as `rollback-tag`. Each update tags the database before it
 applies anything, so that update and every later one are rolled back.
 
-For QA, run the same command against `ca-throughline-api-qa`, or deploy another branch to QA.
+For QA, run the same command against `ca-throughline-api-qa`, or deploy another branch to QA. A
+QA schema rollback is the same **Deploy DB** run with `target` `qa`.

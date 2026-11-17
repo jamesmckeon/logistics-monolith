@@ -66,14 +66,7 @@ db/update-local.sh
 Run it again after writing or pulling new changesets; it applies only the changesets the database
 is missing. `db/update-local.sh update-sql` previews them instead.
 
-**3. Load the reference data:** three client-owners with their SKUs, plus locations, carriers
-and hold reasons. The scripts are safe to re-run.
-
-```bash
-for f in db/seed/0*.sql; do docker exec -i throughline-pg psql -U postgres -d throughline -v ON_ERROR_STOP=1 < "$f"; done
-```
-
-**4. Run the API**
+**3. Run the API**
 
 ```bash
 dotnet run --project src/api/Throughline.Api --launch-profile http
@@ -82,7 +75,7 @@ dotnet run --project src/api/Throughline.Api --launch-profile http
 It listens on <http://localhost:5026>. `/health`, `/alive` and `/openapi/v1.json` answer
 without a token.
 
-**5. Get access.** Every other endpoint needs an Entra ID access token and an `owner_id`
+**4. Get access.** Every other endpoint needs an Entra ID access token and an `owner_id`
 header, locally and in Azure alike. The token must hold the role for the endpoint
 (`OrderIntakeIntegrator`, `Inventory` or `Receiving`) and `Owner.{id}` for the owner named in
 the header. Tokens come from the `throughline-api` app registration's app roles, as described in
@@ -90,7 +83,7 @@ the header. Tokens come from the `throughline-api` app registration's app roles,
 registrations (for example `oms-harrow-finch`, which holds `OrderIntakeIntegrator` and `Owner.1`)
 and sign in with the client credentials flow. You need a client secret for one of them.
 
-**6. Send requests.** [testing/bruno](testing/bruno) is a [Bruno](https://www.usebruno.com)
+**5. Send requests.** [testing/bruno](testing/bruno) is a [Bruno](https://www.usebruno.com)
 collection with a request for every endpoint. Open that folder as a collection, select the
 `Local` environment, and set its `omsClientSecret` secret. Bruno fetches a token from Entra as
 that client and sends it, with the `owner_id` header, on every request. Requests that need a role
