@@ -35,16 +35,18 @@ order.StartAllocating(DateTimeOffset.UtcNow);
 Schema changes are Liquibase changesets, written in SQL, in `db/changelog/<module>/changes/`: one
 file per change, named `yyyyMMddHHmm-description.sql`. EF Core maps and queries; it doesn't migrate.
 
-- **Expand only.** Every change leaves the schema working for the code running now. Drops and
-  renames wait until no deployed code uses the old structure.
+- **Expand, then contract.** Every change leaves the schema working for the code running now.
+  Drops and renames wait until no code on any environment uses the old structure; track each one
+  as a tech-debt issue titled "Contraction: …" when the expand change ships.
 - **One change per changeset, each with a `--rollback`.** CI applies, rolls back and re-applies
   every changeset.
 - **Never edit an applied changeset.** Liquibase checksums it; a fix is a new changeset.
 - **Indexes on existing tables** use `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, alone in a
   changeset with `runInTransaction:false`.
-- **A rollback loses what was written since the change.** Rolling back a new column or table drops
-  the receipts, orders or allocations recorded in it. When the fault is in the code, roll forward
-  with a fix instead.
+- **Prod is fixed forward, never rolled back.** A change that breaks prod is reversed or corrected
+  by a new changeset through the Build & Test Action and QA. Rolling back a new column or table
+  would drop the receipts, orders or allocations every owner recorded in it. For a risky change,
+  write and test the reversal before it ships. See ADR-0004.
 - **A Wolverine upgrade ships with its schema change**, as a changeset in the same pull request.
   Wolverine doesn't change its tables itself.
 
@@ -63,5 +65,6 @@ ALTER TABLE orders.orders ADD COLUMN priority integer;
 - [ ] Domain dates are `AppDateTime` or `NonFutureDateTime`
 - [ ] The current time comes from `AppDateTime.Now`, read in application code
 - [ ] Integration events carry `DateTimeOffset`; handlers wrap it in `AppDateTime`
-- [ ] Schema changes are expand-only changesets, each with a `--rollback`
+- [ ] Schema changes are expand changesets, each with a `--rollback`; a contraction has its own issue
+- [ ] A fault in prod's schema is fixed by a new changeset, never by rolling prod back
 - [ ] Applied changesets are never edited; a fix is a new changeset
