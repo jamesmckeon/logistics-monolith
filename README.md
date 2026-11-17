@@ -1,6 +1,6 @@
 # logistics-monolith
 
-[![Build & Test](https://github.com/jamesmckeon/logistics-monolith/actions/workflows/build-and-test.yaml/badge.svg?branch=main)](https://github.com/jamesmckeon/logistics-monolith/actions/workflows/build-and-test.yaml)
+[![Validate Merge](https://github.com/jamesmckeon/logistics-monolith/actions/workflows/build-and-test.yaml/badge.svg?branch=main)](https://github.com/jamesmckeon/logistics-monolith/actions/workflows/build-and-test.yaml)
 
 > **🚧 Work in progress.** Throughline is under active development and is built one story
 > at a time. Some modules work end to end; others are planned scope only. See

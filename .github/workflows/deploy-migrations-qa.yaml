@@ -1,0 +1,152 @@
+name: Deploy DB (QA)
+
+# Manual trigger only. Pick the branch in "Use workflow from"; any branch's schema changes can go
+# to QA. Prod schema deploys stay in deploy-migrations.yaml, from main only.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "update applies pending changesets. preview-update prints the SQL without running it."
+        type: choice
+        options:
+          - preview-update
+          - update
+        default: preview-update
+
+# Shares the QA deploy's group, so it never overlaps a QA deploy or reset, and never cancels a run
+# halfway through.
+concurrency:
+  group: deploy-api-qa
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-throughline
+  POSTGRES_SERVER: psql-throughline-perf
+  MODULES: orders inventory receiving wolverine master_data
+  DB_HOST: psql-throughline-perf.postgres.database.azure.com
+  DB_PORT: "5432"
+  DB_NAME: throughline
+  DB_USER: throughlinetestadmin   # the QA server's admin login
+
+jobs:
+  migrate:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    # The qa environment holds AZURE_API_CLIENT_ID for the QA deploy identity, which has rights on
+    # QA's server only.
+    environment: qa
+    env:
+      # The server is fixed above, so this password can only ever be used against QA's server.
+      PGPASSWORD: ${{ secrets.QA_DB_PASSWORD }}
+      LIQUIBASE_COMMAND_PASSWORD: ${{ secrets.QA_DB_PASSWORD }}
+    steps:
+      - name: Check the database password
+        run: |
+          if [ -z "$PGPASSWORD" ]; then
+            echo "::error::The qa environment needs the QA_DB_PASSWORD secret."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The QA server is stopped every night. Starts it only if it's stopped, then waits for Ready,
+      # which also covers a start already under way.
+      - name: Start the QA database
+        run: |
+          STATE=$(az postgres flexible-server show \
+            --name "$POSTGRES_SERVER" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query state --output tsv)
+          echo "$POSTGRES_SERVER is $STATE"
+          if [ "$STATE" = "Stopped" ]; then
+            az postgres flexible-server start \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP"
+          fi
+          for i in $(seq 1 40); do
+            STATE=$(az postgres flexible-server show \
+              --name "$POSTGRES_SERVER" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query state --output tsv)
+            if [ "$STATE" = "Ready" ]; then
+              echo "$POSTGRES_SERVER is Ready."
+              exit 0
+            fi
+            echo "Attempt $i: $STATE"
+            sleep 15
+          done
+          echo "::error::$POSTGRES_SERVER did not reach Ready within 10 minutes. Last state: $STATE"
+          exit 1
+
+      - name: Build the Liquibase image
+        run: docker build -t throughline-liquibase db/
+
+      # GitHub-hosted runners reach Azure over public IPs the server's rules don't cover. A rule for
+      # this runner's IP is opened here and removed in the last step, even if a migration fails.
+      - name: Open Postgres firewall for this runner
+        id: firewall
+        run: |
+          MY_IP=$(curl -sf https://checkip.amazonaws.com)
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --name "gh-actions-${{ github.run_id }}" \
+            --start-ip-address "$MY_IP" \
+            --end-ip-address "$MY_IP"
+
+      # Safe to re-run; it only creates a schema a new database doesn't have yet
+      - name: Create schemas
+        if: inputs.action == 'update'
+        run: >-
+          docker run --rm -i -e PGPASSWORD postgres:16-alpine
+          psql "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER sslmode=require"
+          -v ON_ERROR_STOP=1 < db/create-schemas.sql
+
+      # Each module has its own changelog and tracking tables. An update lists what's pending,
+      # then applies it.
+      - name: Run Liquibase
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          liquibase() {
+            docker run --rm -e LIQUIBASE_COMMAND_PASSWORD \
+              -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase \
+              --url="jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME?sslmode=require" \
+              --username="$DB_USER" --show-banner=false \
+              --changelog-file="$module/changelog.yaml" --liquibase-schema-name="$module" "$@"
+          }
+          for module in $MODULES; do
+            echo "::group::$module"
+            # One command per line: the step runs with bash -e, which stops at the first failure
+            case "$ACTION" in
+              preview-update)
+                liquibase update-sql
+                ;;
+              update)
+                liquibase status --verbose
+                liquibase update
+                ;;
+            esac
+            echo "::endgroup::"
+          done
+
+      - name: Close Postgres firewall rule
+        if: always() && steps.firewall.outcome != 'skipped'
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$POSTGRES_SERVER" \
+            --name "gh-actions-${{ github.run_id }}" \
+            --yes
