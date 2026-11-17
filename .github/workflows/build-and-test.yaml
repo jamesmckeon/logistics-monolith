@@ -108,7 +108,7 @@ jobs:
 
       - name: Apply, roll back and re-apply every changeset
         run: |
-          for module in orders inventory receiving wolverine; do
+          for module in orders inventory receiving wolverine master_data; do
             docker run --rm --network host -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase \
               --url=jdbc:postgresql://localhost:5432/postgres --username=postgres --password=postgres \
               --show-banner=false --changelog-file="$module/changelog.yaml" --liquibase-schema-name="$module" \

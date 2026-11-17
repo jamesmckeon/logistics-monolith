@@ -40,7 +40,7 @@ permissions:
 env:
   RESOURCE_GROUP: rg-throughline
   POSTGRES_SERVER: ${{ inputs.target == 'qa' && 'psql-throughline-perf' || 'psql-throughline' }}
-  MODULES: orders inventory receiving wolverine
+  MODULES: orders inventory receiving wolverine master_data
 
 jobs:
   migrate:

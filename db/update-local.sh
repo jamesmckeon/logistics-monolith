@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 command="${1:-update}"
-modules="orders inventory receiving wolverine"
+modules="orders inventory receiving wolverine master_data"
 
 # Cached after the first build, so this is quick unless db/Dockerfile changed
 docker build -q -t throughline-liquibase db/ >/dev/null
