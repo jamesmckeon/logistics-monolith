@@ -77,10 +77,10 @@ jobs:
           path: ./test-results/*.trx
           if-no-files-found: warn
 
-  # Applies every changeset to an empty database, rolls each one back and applies it again, so a
-  # broken --rollback is caught before a deploy ever needs it.
+  # Applies every changeset to an empty database, so bad SQL or a changeset out of order fails the
+  # build before any deploy. Nothing is rolled back: prod is fixed forward (ADR-0004).
   changelogs:
-    name: Changelog rollbacks
+    name: Changelogs
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -106,11 +106,11 @@ jobs:
           docker run --rm -i --network host -e PGPASSWORD=postgres postgres:15-alpine
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 < db/create-schemas.sql
 
-      - name: Apply, roll back and re-apply every changeset
+      - name: Apply every changeset
         run: |
           for module in orders inventory receiving wolverine master_data; do
             docker run --rm --network host -v "$PWD/db/changelog:/liquibase/changelog" throughline-liquibase \
               --url=jdbc:postgresql://localhost:5432/postgres --username=postgres --password=postgres \
               --show-banner=false --changelog-file="$module/changelog.yaml" --liquibase-schema-name="$module" \
-              update-testing-rollback
+              update
           done

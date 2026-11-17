@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-11-17. The Deploy DB Action can still roll prod back; issue #60 removes that.
+Accepted — 2026-11-17.
 
 ## Context
 
@@ -46,8 +46,8 @@ new changeset; prod changesets are never rolled back.**
   fault in the schema change itself waits for the fix.
 - **Contraction is extra work.** Old columns, tables and grants stay until their contraction
   ships, and each needs an issue to keep track of it.
-- Existing changesets keep their `--rollback` lines; applied changesets are never edited. Whether
-  new changesets still need one, for QA and local use, is decided in issue #60.
+- New changesets don't carry a `--rollback`, since nothing runs one. Existing changesets keep
+  theirs; applied changesets are never edited.
 
 **Alternatives considered**
 

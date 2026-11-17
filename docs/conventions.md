@@ -38,8 +38,9 @@ file per change, named `yyyyMMddHHmm-description.sql`. EF Core maps and queries;
 - **Expand, then contract.** Every change leaves the schema working for the code running now.
   Drops and renames wait until no code on any environment uses the old structure; track each one
   as a tech-debt issue titled "Contraction: …" when the expand change ships.
-- **One change per changeset, each with a `--rollback`.** CI applies, rolls back and re-applies
-  every changeset.
+- **One change per changeset, with no `--rollback`.** Nothing rolls a changeset back: prod is
+  fixed forward, and the Build & Test Action applies every changeset to an empty database. Older
+  changesets keep their `--rollback` lines, because applied changesets are never edited.
 - **Never edit an applied changeset.** Liquibase checksums it; a fix is a new changeset.
 - **Indexes on existing tables** use `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, alone in a
   changeset with `runInTransaction:false`.
@@ -55,7 +56,6 @@ file per change, named `yyyyMMddHHmm-description.sql`. EF Core maps and queries;
 
 --changeset jamesmckeon:add-orders-priority-column
 ALTER TABLE orders.orders ADD COLUMN priority integer;
---rollback ALTER TABLE orders.orders DROP COLUMN priority;
 ```
 
 ---
@@ -65,6 +65,6 @@ ALTER TABLE orders.orders ADD COLUMN priority integer;
 - [ ] Domain dates are `AppDateTime` or `NonFutureDateTime`
 - [ ] The current time comes from `AppDateTime.Now`, read in application code
 - [ ] Integration events carry `DateTimeOffset`; handlers wrap it in `AppDateTime`
-- [ ] Schema changes are expand changesets, each with a `--rollback`; a contraction has its own issue
+- [ ] Schema changes are expand changesets, with no `--rollback`; a contraction has its own issue
 - [ ] A fault in prod's schema is fixed by a new changeset, never by rolling prod back
 - [ ] Applied changesets are never edited; a fix is a new changeset
