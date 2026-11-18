@@ -7,7 +7,7 @@ using Throughline.Simulator.Scheduling;
 namespace Throughline.Simulator.Buying;
 
 /// <summary>
-///     Each buying customer's buyer: an opening order the first time, then a weekly order replacing
+///     Each enabled customer's buyer: an opening order the first time, then a weekly order replacing
 ///     what sold. Orders become trailers in the ledger, which the receivers pick up when they arrive.
 /// </summary>
 internal sealed class BuyerWorker : BackgroundService
@@ -39,7 +39,7 @@ internal sealed class BuyerWorker : BackgroundService
         if (!_options.Enabled)
             return Task.CompletedTask;
 
-        var buyers = _options.Customers.Where(c => c.Value is { Enabled: true, Buying.Enabled: true });
+        var buyers = _options.Customers.Where(c => c.Value.Enabled);
 
         return Task.WhenAll(buyers.Select(c => RunBuyerAsync(c.Key, c.Value, stoppingToken)));
     }
@@ -95,8 +95,8 @@ internal sealed class BuyerWorker : BackgroundService
     private async Task PlaceOpeningOrderAsync(
         string customer, CustomerProfile profile, ShipmentPlanner planner, CancellationToken stoppingToken)
     {
-        var skus = await _catalogSource.GetSkusAsync(profile.OwnerId, stoppingToken);
-        var lines = PurchasePlanner.Opening(SkuCatalog.From(skus, profile.Catalog), profile);
+        var catalog = await LoadCatalogAsync(customer, profile, stoppingToken);
+        var lines = PurchasePlanner.Opening(catalog, profile);
 
         await SaveAsync(customer, profile, planner, PurchaseOrderKind.Opening, lines, stoppingToken);
     }
@@ -106,10 +106,26 @@ internal sealed class BuyerWorker : BackgroundService
         CancellationToken stoppingToken)
     {
         var unitsSold = await _ledger.GetUnitsSoldAsync(profile.OwnerId, since, _time.GetUtcNow(), stoppingToken);
-        var lines = PurchasePlanner.Weekly(unitsSold, profile.Buying);
+        var catalog = await LoadCatalogAsync(customer, profile, stoppingToken);
+        var lines = PurchasePlanner.Weekly(unitsSold, catalog, profile.Buying);
+
+        var notInCatalog = unitsSold.Keys.Where(code => !catalog.Contains(code)).ToList();
+
+        if (notInCatalog.Count > 0)
+            _logger.LogWarning(
+                "{Count} SKUs {Customer} sold aren't in its item master any more and weren't reordered: {Skus}",
+                notInCatalog.Count, customer, string.Join(", ", notInCatalog));
 
         // nothing sold: an order with no lines still records the review, so the next one is a week away
         await SaveAsync(customer, profile, planner, PurchaseOrderKind.Weekly, lines, stoppingToken);
+    }
+
+    private async Task<SkuCatalog> LoadCatalogAsync(
+        string customer, CustomerProfile profile, CancellationToken stoppingToken)
+    {
+        var skus = await _catalogSource.GetSkusAsync(profile.OwnerId, stoppingToken);
+
+        return SkuCatalog.From(customer, skus, profile.Catalog);
     }
 
     private async Task SaveAsync(

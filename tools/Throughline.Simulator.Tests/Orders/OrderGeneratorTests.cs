@@ -11,10 +11,10 @@ public sealed class OrderGeneratorTests
     private static readonly DateTimeOffset Now = new(2026, 10, 19, 15, 0, 0, TimeSpan.Zero);
 
     private static readonly SkuCatalog Catalog = new(
-        Enumerable.Range(1, 200).Select(n => $"HFO-{n:D6}").ToList(), 0.2, 0.8);
+        Enumerable.Range(1, 200).Select(n => new CatalogSku($"HFO-{n:D6}", 12, 360)).ToList(), 1);
 
     private static readonly SkuCatalog OtherCatalog = new(
-        Enumerable.Range(1, 50).Select(n => $"HFO-NEW-{n:D3}").ToList(), 0.2, 0.8);
+        Enumerable.Range(1, 50).Select(n => new CatalogSku($"HFO-NEW-{n:D3}", 12, 360)).ToList(), 1);
 
     private Mock<TimeProvider> _time = null!;
 
@@ -39,7 +39,7 @@ public sealed class OrderGeneratorTests
             Assert.That(actual.Kind, Is.EqualTo(OrderKind.New));
             Assert.That(actual.ExpectedStatus, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(actual.Request.Items, Is.Not.Empty);
-            Assert.That(actual.Request.Items.Select(i => i.Sku), Is.Unique.And.SubsetOf(Catalog.Skus));
+            Assert.That(actual.Request.Items.Select(i => i.Sku), Is.Unique.And.SubsetOf(Catalog.Skus.Select(s => s.Code)));
             Assert.That(actual.Request.Items.Select(i => i.Quantity), Is.All.GreaterThan(0));
             Assert.That(actual.Request.PurchaseOrderNumber, Is.EqualTo($"PO-{actual.Request.ReferenceNumber}"));
         });
@@ -181,7 +181,7 @@ public sealed class OrderGeneratorTests
 
         sut.UseCatalog(OtherCatalog);
 
-        Assert.That(sut.Next().Request.Items.Select(i => i.Sku), Is.SubsetOf(OtherCatalog.Skus));
+        Assert.That(sut.Next().Request.Items.Select(i => i.Sku), Is.SubsetOf(OtherCatalog.Skus.Select(s => s.Code)));
     }
 
     private void GivenNow()

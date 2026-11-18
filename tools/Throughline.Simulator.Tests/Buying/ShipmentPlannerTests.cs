@@ -1,6 +1,7 @@
 using Throughline.Simulator.Buying;
 using Throughline.Simulator.Configuration;
 using Throughline.Simulator.Ledger;
+using Throughline.Simulator.Orders;
 using Throughline.Simulator.Scheduling;
 
 namespace Throughline.Simulator.Tests.Buying;
@@ -24,7 +25,6 @@ public sealed class ShipmentPlannerTests
     private static readonly BuyingProfile Buying = new()
     {
         SupplierName = "Ridgeline Apparel Manufacturing",
-        UnitsPerPallet = 48,
         PalletsPerTrailer = 26,
         LeadTimeDaysMin = 5,
         LeadTimeDaysMax = 10,
@@ -34,9 +34,10 @@ public sealed class ShipmentPlannerTests
     // Monday 2026-10-19, 09:00 Chicago
     private static readonly DateTimeOffset OrderedAt = new(2026, 10, 19, 14, 0, 0, TimeSpan.Zero);
 
-    // 30 SKUs of 100 units: three pallets each (48, 48, 4), so 90 pallets on four trailers
+    // 30 SKUs of 100 units, in cartons of 4 and pallets of 48: three pallets each (48, 48, 4), so 90 pallets on four
+    // trailers
     private static readonly IReadOnlyList<PurchaseLine> Lines =
-        Enumerable.Range(1, 30).Select(n => new PurchaseLine($"HFO-{n:D6}", 100)).ToList();
+        Enumerable.Range(1, 30).Select(n => new PurchaseLine(new CatalogSku($"HFO-{n:D6}", 4, 48), 100)).ToList();
 
     private ShipmentPlanner _sut = null!;
 
@@ -59,6 +60,27 @@ public sealed class ShipmentPlannerTests
             Assert.That(pallets.GroupBy(p => p.Sku).Select(g => g.Sum(p => p.Quantity)), Is.All.EqualTo(100));
             Assert.That(pallets.Select(p => p.Quantity), Is.All.InRange(1, 48));
             Assert.That(pallets.Select(p => p.Lpn), Is.Unique);
+        });
+    }
+
+    [Test]
+    public void Plan_DifferentPalletQuantities_EachSkuOnItsOwnFullPalletsThenOnePartial()
+    {
+        PurchaseLine[] lines =
+        [
+            new(new CatalogSku("HFO-000001", 24, 720), 1_500),
+            new(new CatalogSku("HFO-000002", 6, 180), 30)
+        ];
+
+        var actual = _sut.Plan(1, "HFO", PurchaseOrderKind.Weekly, lines, OrderedAt);
+
+        var quantities = actual.Shipments.SelectMany(s => s.Pallets)
+            .GroupBy(p => p.Sku)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.Quantity).ToList());
+        Assert.Multiple(() =>
+        {
+            Assert.That(quantities["HFO-000001"], Is.EqualTo(new[] { 720, 720, 60 }));
+            Assert.That(quantities["HFO-000002"], Is.EqualTo(new[] { 30 }));
         });
     }
 

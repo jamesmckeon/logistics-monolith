@@ -9,12 +9,13 @@ namespace Throughline.Simulator.Allocation;
 /// <summary>
 ///     The facility's outbound planners. At each of a customer's wave times, the allocator on shift reads the
 ///     customer's backordered and unreleased orders and allocates them in planner-sized requests
-///     (<see cref="WaveRelease" />). One loop per customer, so a customer's waves never overlap.
+///     (<see cref="WaveRelease" />), then keeps reading the unreleased list until everything waiting is covered.
+///     One loop per customer, so a customer's waves never overlap.
 /// </summary>
 internal sealed class AllocatorWorker : BackgroundService
 {
     /// <summary>
-    ///     The worklists' server-set maximum, and so the most orders a wave covers
+    ///     The worklists' server-set maximum: the most orders one read of a worklist returns
     /// </summary>
     public const int MaxWaveSize = 500;
 
@@ -137,64 +138,114 @@ internal sealed class AllocatorWorker : BackgroundService
         CancellationToken stoppingToken)
     {
         var client = new InventoryClient(_httpClientFactory.CreateClient(ThroughlineHttpClients.ForStaff(allocator)));
-        var kind = sameDay ? "same-day" : "next-day";
+        var context = new WaveContext(customer, ownerId, allocator, wave, sameDay, sameDay ? "same-day" : "next-day");
 
-        WorklistResponse backordered;
-        WorklistResponse unreleased;
+        var backordered = await ReadWorklistAsync(context, client, Worklist.Backordered, stoppingToken);
+        var unreleased = backordered is null
+            ? null
+            : await ReadWorklistAsync(context, client, Worklist.Unreleased, stoppingToken);
+
+        if (backordered is null || unreleased is null)
+        {
+            _logger.LogError("Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId} was skipped",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId);
+            return;
+        }
+
+        var batch = SelectWave(backordered, unreleased, MaxWaveSize);
+
+        if (batch.Count == 0)
+        {
+            _logger.LogInformation(
+                "Allocator {Allocator} found no orders waiting for owner {OwnerId} at the {WaveKind} wave at {WaveTime}",
+                allocator, ownerId, context.Kind, wave);
+            return;
+        }
+
+        // backordered orders go first, so they're the start of the first batch
+        var progress = new WaveProgress(Math.Min(backordered.Count, batch.Count));
+        var release = new WaveRelease(client);
+
+        // The backordered list is read once: orders still short stay on it, so reading it again would return them
+        // forever. The unreleased list is read again after each batch until it has nothing new.
+        while (batch.Count > 0)
+        {
+            var result = await release.ReleaseAsync(ownerId, batch, stoppingToken);
+
+            foreach (var request in result.Requests)
+                LogRequest(context, ++progress.RequestsSent, request);
+
+            progress.Add(batch, result.OrdersReleased);
+
+            if (!result.Finished)
+                break;
+
+            var more = await ReadWorklistAsync(context, client, Worklist.Unreleased, stoppingToken);
+
+            if (more is null)
+                break;
+
+            batch = NextBatch(more, progress.Covered, MaxWaveSize);
+
+            if (batch.Count == 0)
+                progress.Finished = true;
+        }
+
+        LogRelease(context, progress);
+    }
+
+    /// <summary>
+    ///     The orders on a later read of the unreleased list that this wave hasn't already sent, up to
+    ///     <paramref name="maxOrders" />. An order the endpoint couldn't allocate can stay on the list, and sending it
+    ///     again in the same wave would loop forever.
+    /// </summary>
+    internal static IReadOnlyList<Guid> NextBatch(
+        IEnumerable<WorklistOrder> unreleased, IReadOnlySet<Guid> alreadySent, int maxOrders)
+    {
+        ArgumentNullException.ThrowIfNull(unreleased);
+        ArgumentNullException.ThrowIfNull(alreadySent);
+
+        return unreleased.Select(o => o.OrderId).Distinct().Where(id => !alreadySent.Contains(id)).Take(maxOrders)
+            .ToList();
+    }
+
+    // one worklist, or null when it couldn't be read
+    private async Task<IReadOnlyList<WorklistOrder>?> ReadWorklistAsync(
+        WaveContext context, IInventoryClient client, Worklist worklist, CancellationToken stoppingToken)
+    {
+        WorklistResponse response;
 
         try
         {
-            backordered = await client.GetWorklistAsync(ownerId, Worklist.Backordered, MaxWaveSize, stoppingToken);
-            unreleased = await client.GetWorklistAsync(ownerId, Worklist.Unreleased, MaxWaveSize, stoppingToken);
+            response = await client.GetWorklistAsync(context.OwnerId, worklist, MaxWaveSize, stoppingToken);
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
             // timeouts and connection failures that outlasted the retries
             _logger.LogError(ex,
-                "Allocator {Allocator} got no worklist for owner {OwnerId}; the {WaveKind} wave at {WaveTime} was skipped",
-                allocator, ownerId, kind, wave);
-            return;
+                "Allocator {Allocator} got no {Worklist} worklist for owner {OwnerId} at the {WaveKind} wave at {WaveTime}",
+                context.Allocator, worklist, context.OwnerId, context.Kind, context.Wave);
+            return null;
         }
 
-        if (backordered.Orders is null || unreleased.Orders is null)
-        {
-            var failed = backordered.Orders is null ? backordered.StatusCode : unreleased.StatusCode;
+        if (response.Orders is null)
             _logger.LogError(
-                "Allocator {Allocator} couldn't read the worklists for owner {OwnerId} ({StatusCode}); " +
-                "the {WaveKind} wave at {WaveTime} was skipped", allocator, ownerId, (int)failed, kind, wave);
-            return;
-        }
+                "Allocator {Allocator} couldn't read the {Worklist} worklist for owner {OwnerId} ({StatusCode}) at the " +
+                "{WaveKind} wave at {WaveTime}",
+                context.Allocator, worklist, context.OwnerId, (int)response.StatusCode, context.Kind, context.Wave);
 
-        var orderIds = SelectWave(backordered.Orders, unreleased.Orders, MaxWaveSize);
-
-        if (orderIds.Count == 0)
-        {
-            _logger.LogInformation(
-                "Allocator {Allocator} found no orders waiting for owner {OwnerId} at the {WaveKind} wave at {WaveTime}",
-                allocator, ownerId, kind, wave);
-            return;
-        }
-
-        var release = await new WaveRelease(client).ReleaseAsync(ownerId, orderIds, stoppingToken);
-        var context = new WaveContext(customer, ownerId, allocator, wave, sameDay, kind);
-
-        for (var i = 0; i < release.Requests.Count; i++)
-            LogRequest(context, i + 1, release.RequestsPlanned, release.Requests[i]);
-
-        // backordered orders go first, so they're the start of the wave
-        LogRelease(context, orderIds.Count, Math.Min(backordered.Orders.Count, orderIds.Count), release);
+        return response.Orders;
     }
 
-    private void LogRequest(WaveContext context, int number, int planned, AllocationRequestResult request)
+    private void LogRequest(WaveContext context, int number, AllocationRequestResult request)
     {
         if (request.Response is null)
         {
             _metrics.AllocationRequestSent(context.Customer, context.SameDay, null, TimeSpan.Zero);
             _logger.LogError(request.Failure,
                 "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
-                "of {RequestCount} ({OrderCount} orders) got no response from Throughline",
-                context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
-                request.OrderIds.Count);
+                "({OrderCount} orders) got no response from Throughline",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId, number, request.OrderIds.Count);
             return;
         }
 
@@ -205,29 +256,28 @@ internal sealed class AllocatorWorker : BackgroundService
         switch (WaveRelease.Classify(response.StatusCode))
         {
             case WaveResult.Allocated:
-                LogAllocated(context, number, planned, request.OrderIds.Count, response);
+                LogAllocated(context, number, request.OrderIds.Count, response);
                 break;
 
             case WaveResult.Rejected:
                 _logger.LogError(
                     "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
-                    "of {RequestCount} ({OrderCount} orders) was rejected with {StatusCode}; the simulator built a " +
-                    "bad request", context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
-                    request.OrderIds.Count, status);
+                    "({OrderCount} orders) was rejected with {StatusCode}; the simulator built a bad request",
+                    context.Allocator, context.Kind, context.Wave, context.OwnerId, number, request.OrderIds.Count,
+                    status);
                 break;
 
             default:
                 _logger.LogError(
                     "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} " +
-                    "of {RequestCount} ({OrderCount} orders) got {StatusCode}",
-                    context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned,
-                    request.OrderIds.Count, status);
+                    "({OrderCount} orders) got {StatusCode}",
+                    context.Allocator, context.Kind, context.Wave, context.OwnerId, number, request.OrderIds.Count,
+                    status);
                 break;
         }
     }
 
-    private void LogAllocated(
-        WaveContext context, int number, int planned, int orderCount, AllocationResponse response)
+    private void LogAllocated(WaveContext context, int number, int orderCount, AllocationResponse response)
     {
         var summary = WaveSummary.From(response.Result);
 
@@ -235,10 +285,10 @@ internal sealed class AllocatorWorker : BackgroundService
             _metrics.OrdersAllocated(context.Customer, outcome, count);
 
         _logger.LogInformation(
-            "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber} of " +
-            "{RequestCount}, {OrderCount} orders, {FullyAllocated} fully allocated, {PartiallyAllocated} partially " +
-            "allocated, {NotAllocated} not allocated, {Failed} failed, {UnitsShort} units short, in {ElapsedMs:F0} ms",
-            context.Allocator, context.Kind, context.Wave, context.OwnerId, number, planned, orderCount,
+            "Allocator {Allocator}'s {WaveKind} wave at {WaveTime} for owner {OwnerId}: request {RequestNumber}, " +
+            "{OrderCount} orders, {FullyAllocated} fully allocated, {PartiallyAllocated} partially allocated, " +
+            "{NotAllocated} not allocated, {Failed} failed, {UnitsShort} units short, in {ElapsedMs:F0} ms",
+            context.Allocator, context.Kind, context.Wave, context.OwnerId, number, orderCount,
             summary.Count(WaveSummary.FullyAllocated),
             summary.Count(WaveSummary.PartiallyAllocated),
             summary.Count(WaveSummary.NotAllocated),
@@ -254,25 +304,51 @@ internal sealed class AllocatorWorker : BackgroundService
                 string.Join(", ", summary.ErrorCodes.Select(e => $"{e.Key} x{e.Value}")));
     }
 
-    private void LogRelease(WaveContext context, int orderCount, int backorderedCount, WaveReleaseResult release)
+    private void LogRelease(WaveContext context, WaveProgress progress)
     {
-        if (release.Finished)
+        if (progress.Finished)
         {
             _logger.LogInformation(
                 "Allocator {Allocator} released the {WaveKind} wave at {WaveTime} for owner {OwnerId}: " +
-                "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} of " +
-                "{RequestCount} requests, finished",
-                context.Allocator, context.Kind, context.Wave, context.OwnerId, release.OrdersReleased, orderCount,
-                backorderedCount, release.Requests.Count, release.RequestsPlanned);
+                "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} requests, " +
+                "finished",
+                context.Allocator, context.Kind, context.Wave, context.OwnerId, progress.OrdersReleased,
+                progress.Covered.Count, progress.BackorderedCount, progress.RequestsSent);
             return;
         }
 
         _logger.LogWarning(
             "Allocator {Allocator} stopped the {WaveKind} wave at {WaveTime} for owner {OwnerId} early: " +
-            "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} of " +
-            "{RequestCount} requests; the rest wait for the next wave",
-            context.Allocator, context.Kind, context.Wave, context.OwnerId, release.OrdersReleased, orderCount,
-            backorderedCount, release.Requests.Count, release.RequestsPlanned);
+            "{OrdersReleased} of {OrderCount} orders ({BackorderedCount} backordered) in {RequestsSent} requests; " +
+            "the rest wait for the next wave",
+            context.Allocator, context.Kind, context.Wave, context.OwnerId, progress.OrdersReleased,
+            progress.Covered.Count, progress.BackorderedCount, progress.RequestsSent);
+    }
+
+    // what a wave has done so far, across all its batches
+    private sealed class WaveProgress(int backorderedCount)
+    {
+        public int BackorderedCount { get; } = backorderedCount;
+
+        /// <summary>
+        ///     Every order the wave has sent, or tried to
+        /// </summary>
+        public HashSet<Guid> Covered { get; } = [];
+
+        public int OrdersReleased { get; private set; }
+
+        public int RequestsSent { get; set; }
+
+        /// <summary>
+        ///     Set once a read of the unreleased list has nothing new
+        /// </summary>
+        public bool Finished { get; set; }
+
+        public void Add(IEnumerable<Guid> batch, int ordersReleased)
+        {
+            Covered.UnionWith(batch);
+            OrdersReleased += ordersReleased;
+        }
     }
 
     private sealed record WaveContext(

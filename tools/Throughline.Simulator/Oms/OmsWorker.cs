@@ -107,12 +107,13 @@ internal sealed class OmsWorker : BackgroundService
         // an order can't repeat a SKU, so a typical large order needs at least this many
         if (skus.Count < profile.LinesPerOrder.P95)
             throw new InvalidOperationException(
-                $"Throughline has {skus.Count} SKUs for owner {profile.OwnerId} ({customer}); " +
+                $"The item master has {skus.Count} SKUs for owner {profile.OwnerId} ({customer}); " +
                 $"the simulator needs at least {profile.LinesPerOrder.P95}");
 
-        _logger.LogInformation("Loaded {SkuCount} SKUs for {Customer} from Throughline", skus.Count, customer);
+        var catalog = SkuCatalog.From(customer, skus, profile.Catalog);
+        _logger.LogInformation("Loaded {SkuCount} SKUs for {Customer} from the item master", skus.Count, customer);
 
-        return SkuCatalog.From(skus, profile.Catalog);
+        return catalog;
     }
 
     private async Task RefreshCatalogAsync(
@@ -147,7 +148,7 @@ internal sealed class OmsWorker : BackgroundService
                 generator.RecordAccepted(request);
 
                 // only good orders are sales: Inventory dead-letters the deliberately bad ones
-                if (profile.Buying.Enabled && order.Kind == OrderKind.New)
+                if (order.Kind == OrderKind.New)
                     await RecordSaleAsync(customer, profile.OwnerId, request, stoppingToken);
             }
 

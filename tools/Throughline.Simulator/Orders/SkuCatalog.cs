@@ -3,77 +3,127 @@ using Throughline.Simulator.Configuration;
 namespace Throughline.Simulator.Orders;
 
 /// <summary>
-///     A customer's item master, ordered most popular first. A small "hot" share of SKUs receives
-///     most order lines, the long tail the rest.
+///     A SKU the simulator can order, buy and ship
+/// </summary>
+/// <param name="CartonQuantity">Units (eaches) in one carton; purchases are rounded up to whole cartons</param>
+/// <param name="PalletQuantity">Units (eaches) on one full single-SKU pallet; a whole number of cartons</param>
+internal sealed record CatalogSku(string Code, int CartonQuantity, int PalletQuantity);
+
+/// <summary>
+///     A customer's item master, ordered most popular first. Demand tapers smoothly with popularity: the SKU at rank
+///     <c>r</c> gets order lines in proportion to <c>1 / r^s</c>, where <c>s</c> is the Zipf exponent.
 /// </summary>
 internal sealed class SkuCatalog
 {
-    private readonly int _hotCount;
-    private readonly double _hotLineShare;
-    private readonly IReadOnlyList<string> _skus;
-    private readonly HashSet<string> _skuSet;
+    private readonly Dictionary<string, CatalogSku> _byCode;
 
-    public SkuCatalog(IReadOnlyList<string> skusByPopularity, double hotSkuShare, double hotLineShare)
+    // _cumulative[i] is the share of lines going to the SKUs ranked 1 to i + 1; the last is 1
+    private readonly double[] _cumulative;
+    private readonly double[] _shares;
+
+    public SkuCatalog(IReadOnlyList<CatalogSku> skusByPopularity, double zipfExponent)
     {
         ArgumentNullException.ThrowIfNull(skusByPopularity);
 
         if (skusByPopularity.Count == 0)
             throw new ArgumentException("A catalog must contain at least one SKU", nameof(skusByPopularity));
 
-        _skus = skusByPopularity;
-        _skuSet = new HashSet<string>(skusByPopularity, StringComparer.OrdinalIgnoreCase);
-        _hotCount = Math.Clamp((int)Math.Round(skusByPopularity.Count * hotSkuShare), 1, skusByPopularity.Count);
-        _hotLineShare = hotLineShare;
+        Skus = skusByPopularity;
+        _byCode = skusByPopularity.ToDictionary(s => s.Code, StringComparer.OrdinalIgnoreCase);
+
+        var weights = Enumerable.Range(1, skusByPopularity.Count).Select(rank => 1 / Math.Pow(rank, zipfExponent)).ToArray();
+        var total = weights.Sum();
+        _shares = weights.Select(w => w / total).ToArray();
+
+        _cumulative = new double[_shares.Length];
+        var running = 0.0;
+
+        for (var i = 0; i < _shares.Length; i++)
+        {
+            running += _shares[i];
+            _cumulative[i] = running;
+        }
+
+        // rounding can leave the sum a hair under 1, which a roll of 0.9999... would fall past
+        _cumulative[^1] = 1;
     }
 
-    public int Count => _skus.Count;
+    public int Count => Skus.Count;
 
-    public IReadOnlyList<string> Skus => _skus;
+    public IReadOnlyList<CatalogSku> Skus { get; }
 
     /// <summary>
-    ///     The most popular SKUs, which receive <see cref="HotLineShare" /> of order lines
+    ///     Each SKU's expected share of order lines, in the same order as <see cref="Skus" />; they add up to 1
     /// </summary>
-    public IReadOnlyList<string> HotSkus => _skus.Take(_hotCount).ToList();
+    public IReadOnlyList<double> Shares => _shares;
 
-    public double HotLineShare => _hotCount == Count ? 1 : _hotLineShare;
-
-    public static SkuCatalog From(IReadOnlyList<string> skusByPopularity, CatalogProfile profile)
+    /// <summary>
+    ///     The customer's catalog from its item master. Every SKU needs both a carton and a pallet quantity, since the
+    ///     simulator buys in cartons and ships on pallets.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A SKU is missing its carton or pallet quantity</exception>
+    public static SkuCatalog From(string customer, IReadOnlyList<ItemMasterSku> itemMaster, CatalogProfile profile)
     {
+        ArgumentNullException.ThrowIfNull(itemMaster);
         ArgumentNullException.ThrowIfNull(profile);
 
-        return new SkuCatalog(skusByPopularity, profile.HotSkuShare, profile.HotLineShare);
+        var skus = new List<CatalogSku>(itemMaster.Count);
+        var incomplete = new List<string>();
+
+        foreach (var sku in itemMaster)
+        {
+            if (sku is { CartonQuantity: { } carton, PalletQuantity: { } pallet })
+                skus.Add(new CatalogSku(sku.Code, carton, pallet));
+            else
+                incomplete.Add(sku.Code);
+        }
+
+        if (incomplete.Count > 0)
+            throw new InvalidOperationException(
+                $"{incomplete.Count} of {customer}'s SKUs have no carton quantity or no pallet quantity in the item " +
+                $"master, and the simulator handles only SKUs with both: {string.Join(", ", incomplete)}");
+
+        return new SkuCatalog(skus, profile.ZipfExponent);
     }
 
-    public bool Contains(string sku) => _skuSet.Contains(sku);
+    public bool Contains(string code) => _byCode.ContainsKey(code);
 
     /// <summary>
-    ///     Picks <paramref name="count" /> different SKUs; an order can't repeat a SKU
+    ///     The SKU with this code, or null when the catalog doesn't have it
     /// </summary>
-    public IReadOnlyList<string> PickDistinct(int count, Random random)
+    public CatalogSku? Find(string code) => _byCode.GetValueOrDefault(code);
+
+    /// <summary>
+    ///     Picks <paramref name="count" /> different SKUs, each by its share of lines; an order can't repeat a SKU
+    /// </summary>
+    public IReadOnlyList<CatalogSku> PickDistinct(int count, Random random)
     {
         ArgumentNullException.ThrowIfNull(random);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(count, Count);
 
-        var picked = new List<string>(count);
-        var seen = new HashSet<string>();
+        var picked = new List<CatalogSku>(count);
+        var seen = new HashSet<int>();
 
         while (picked.Count < count)
         {
-            var sku = Pick(random);
+            var rank = Pick(random);
 
-            if (seen.Add(sku))
-                picked.Add(sku);
+            if (seen.Add(rank))
+                picked.Add(Skus[rank]);
         }
 
         return picked;
     }
 
-    private string Pick(Random random)
+    // the first SKU whose cumulative share is above the roll
+    private int Pick(Random random)
     {
-        var hot = _hotCount == Count || random.NextDouble() < _hotLineShare;
+        var roll = random.NextDouble();
+        var index = Array.BinarySearch(_cumulative, roll);
 
-        return hot
-            ? _skus[random.Next(_hotCount)]
-            : _skus[_hotCount + random.Next(Count - _hotCount)];
+        // an exact match is the end of that SKU's range, so the roll belongs to the next one
+        index = index >= 0 ? index + 1 : ~index;
+
+        return Math.Min(index, Count - 1);
     }
 }
