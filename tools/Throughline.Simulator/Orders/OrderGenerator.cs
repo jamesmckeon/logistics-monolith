@@ -115,7 +115,7 @@ internal sealed class OrderGenerator
         var lineCount = SizeSampler.Sample(_linesPerOrder, _random, maxLines);
 
         var items = _catalog.PickDistinct(lineCount, _random)
-            .Select(sku => new OrderRequestItem(sku, SizeSampler.Sample(_quantityPerLine, _random, MaxQuantity)))
+            .Select(sku => new OrderRequestItem(sku.Code, SizeSampler.Sample(_quantityPerLine, _random, MaxQuantity)))
             .ToList();
 
         return new OrderRequest(

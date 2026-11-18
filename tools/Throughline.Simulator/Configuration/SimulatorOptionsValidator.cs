@@ -39,12 +39,13 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         foreach (var (customerName, profile) in enabledCustomers)
             ValidateCustomer($"Simulator:Customers:{customerName}", profile, failures);
 
-        var buying = enabledCustomers.Any(c => c.Value.Buying.Enabled);
+        // every enabled customer buys stock
+        var buying = enabledCustomers.Count > 0;
         var receiving = options.Facility.Receivers.Count > 0;
         var allocating = options.Facility.Allocators.Count > 0;
 
         if ((buying || receiving) && string.IsNullOrWhiteSpace(options.LedgerConnectionString))
-            failures.Add("Simulator:LedgerConnectionString is required when a customer buys stock or the facility has receivers");
+            failures.Add("Simulator:LedgerConnectionString is required");
 
         // buyers plan deliveries around the dock's hours, locations and carriers too; allocators only
         // need the shifts
@@ -110,8 +111,7 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
         if (string.IsNullOrWhiteSpace(profile.OmsClientSecret))
             failures.Add($"{path}:OmsClientSecret is required");
 
-        if (profile.Buying.Enabled)
-            ValidateBuying($"{path}:Buying", profile.Buying, failures);
+        ValidateBuying($"{path}:Buying", profile.Buying, failures);
     }
 
     private static void ValidateBuying(string path, BuyingProfile buying, List<string> failures)
@@ -124,12 +124,6 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
 
         if (buying.SafetyMargin < 0)
             failures.Add($"{path}:SafetyMargin must not be negative");
-
-        if (buying.CasePack < 1)
-            failures.Add($"{path}:CasePack must be at least 1");
-
-        if (buying.UnitsPerPallet < buying.CasePack)
-            failures.Add($"{path}:UnitsPerPallet must be at least one case");
 
         if (buying.PalletsPerTrailer < 1)
             failures.Add($"{path}:PalletsPerTrailer must be at least 1");
@@ -249,11 +243,8 @@ internal sealed class SimulatorOptionsValidator : IValidateOptions<SimulatorOpti
 
     private static void ValidateCatalog(string path, CatalogProfile catalog, List<string> failures)
     {
-        if (catalog.HotSkuShare is <= 0 or > 1)
-            failures.Add($"{path}:HotSkuShare must be greater than 0 and at most 1");
-
-        if (catalog.HotLineShare is < 0 or > 1)
-            failures.Add($"{path}:HotLineShare must be between 0 and 1");
+        if (!double.IsFinite(catalog.ZipfExponent) || catalog.ZipfExponent <= 0)
+            failures.Add($"{path}:ZipfExponent must be greater than 0");
     }
 
     private static void ValidateFaults(string path, FaultRates faults, List<string> failures)

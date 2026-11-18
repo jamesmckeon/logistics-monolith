@@ -64,17 +64,15 @@ public sealed class SizeProfile
 }
 
 /// <summary>
-///     How the customer's order lines spread across its SKUs, which are read from Throughline
+///     How the customer's order lines spread across its SKUs, which are read from the item master
 /// </summary>
 public sealed class CatalogProfile
 {
     /// <summary>
-    ///     Share of the catalog, most popular first, that receives <see cref="HotLineShare" /> of
-    ///     order lines
+    ///     How steeply demand falls with popularity: the SKU at rank <c>r</c> gets order lines in proportion to
+    ///     <c>1 / r^ZipfExponent</c>. At 1, rank 2 sells half as much as rank 1 and rank 10 a tenth.
     /// </summary>
-    public double HotSkuShare { get; set; } = 0.2;
-
-    public double HotLineShare { get; set; } = 0.8;
+    public double ZipfExponent { get; set; } = 1;
 }
 
 /// <summary>
@@ -93,12 +91,11 @@ public sealed class FaultRates
 
 /// <summary>
 ///     How the customer's buyer restocks the warehouse: a weekly purchase order that replaces what sold
-///     plus a safety margin, shipped by the supplier after a lead time
+///     plus a safety margin, in each SKU's cartons, shipped by the supplier after a lead time. Every enabled customer
+///     buys.
 /// </summary>
 public sealed class BuyingProfile
 {
-    public bool Enabled { get; set; }
-
     /// <summary>
     ///     The supplier named on inbound deliveries
     /// </summary>
@@ -115,16 +112,6 @@ public sealed class BuyingProfile
     ///     Ordered on top of last week's sales, e.g. 0.2 for 20%
     /// </summary>
     public double SafetyMargin { get; set; } = 0.2;
-
-    /// <summary>
-    ///     Units per case; orders are rounded up to whole cases
-    /// </summary>
-    public int CasePack { get; set; } = 12;
-
-    /// <summary>
-    ///     Most units of one SKU on a pallet; each pallet holds a single SKU
-    /// </summary>
-    public int UnitsPerPallet { get; set; } = 48;
 
     public int PalletsPerTrailer { get; set; } = 26;
 

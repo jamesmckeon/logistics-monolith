@@ -106,6 +106,34 @@ public sealed class AllocatorWorkerTests
 
     #endregion
 
+    #region NextBatch
+
+    [Test]
+    public void NextBatch_SomeAlreadySent_OnlyOrdersNotYetSent()
+    {
+        var actual = AllocatorWorker.NextBatch([First, Second, Third], new HashSet<Guid> { First.OrderId }, 500);
+
+        Assert.That(actual, Is.EqualTo(new[] { Second.OrderId, Third.OrderId }));
+    }
+
+    [Test]
+    public void NextBatch_AllAlreadySent_Empty()
+    {
+        var actual = AllocatorWorker.NextBatch([First, Second], new HashSet<Guid> { First.OrderId, Second.OrderId }, 500);
+
+        Assert.That(actual, Is.Empty);
+    }
+
+    [Test]
+    public void NextBatch_MoreThanMaximum_TakesEarliestUpToMaximum()
+    {
+        var actual = AllocatorWorker.NextBatch([First, Second, Third], new HashSet<Guid>(), 2);
+
+        Assert.That(actual, Is.EqualTo(new[] { First.OrderId, Second.OrderId }));
+    }
+
+    #endregion
+
     private static FacilityOptions Facility(params AllocatorOptions[] allocators) => new()
     {
         TimeZone = "America/Chicago",

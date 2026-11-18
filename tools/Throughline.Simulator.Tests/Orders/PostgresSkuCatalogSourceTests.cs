@@ -10,16 +10,19 @@ namespace Throughline.Simulator.Tests.Orders;
 public sealed class PostgresSkuCatalogSourceTests
 {
     // Only the columns the simulator reads. The simulator doesn't reference Throughline's code, so
-    // it can't run Inventory's migrations; a change to inventory.skus surfaces when it runs.
+    // it can't run the item master's changesets; a change to master_data.skus surfaces when it runs.
     private const string Schema = """
-                                  CREATE SCHEMA inventory;
-                                  CREATE TABLE inventory.skus (
-                                      sku_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                                      owner_id integer NOT NULL,
-                                      code     text NOT NULL);
-                                  INSERT INTO inventory.skus (owner_id, code) VALUES
-                                      (1, 'HFO-000001'), (1, 'HFO-000002'), (1, 'HFO-JKT-ALPINE-BLK-M'),
-                                      (2, 'BWN-000001'), (2, 'BWN-WHEY-VAN-2LB');
+                                  CREATE SCHEMA master_data;
+                                  CREATE TABLE master_data.skus (
+                                      sku_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                      owner_id        integer NOT NULL,
+                                      code            character varying(50) NOT NULL,
+                                      carton_quantity integer,
+                                      pallet_quantity integer);
+                                  INSERT INTO master_data.skus (owner_id, code, carton_quantity, pallet_quantity) VALUES
+                                      (1, 'HFO-000001', 24, 720), (1, 'HFO-000002', 12, 360),
+                                      (1, 'HFO-JKT-ALPINE-BLK-M', 6, NULL),
+                                      (2, 'BWN-000001', NULL, NULL), (2, 'BWN-WHEY-VAN-2LB', NULL, NULL);
                                   """;
 
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:15-alpine").Build();
@@ -60,11 +63,16 @@ public sealed class PostgresSkuCatalogSourceTests
     #region GetSkusAsync
 
     [Test]
-    public async Task GetSkusAsync_OwnerOne_ReturnsOnlyOwnerOnesSkus()
+    public async Task GetSkusAsync_OwnerOne_ReturnsOwnerOnesSkusWithQuantities()
     {
         var actual = await _sut.GetSkusAsync(1, CancellationToken.None);
 
-        Assert.That(actual, Is.EquivalentTo(new[] { "HFO-000001", "HFO-000002", "HFO-JKT-ALPINE-BLK-M" }));
+        Assert.That(actual, Is.EquivalentTo(new[]
+        {
+            new ItemMasterSku("HFO-000001", 24, 720),
+            new ItemMasterSku("HFO-000002", 12, 360),
+            new ItemMasterSku("HFO-JKT-ALPINE-BLK-M", 6, null)
+        }));
     }
 
     [Test]

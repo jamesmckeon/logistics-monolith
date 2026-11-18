@@ -94,21 +94,53 @@ public sealed class SimulatorOptionsValidatorTests
     }
 
     [Test]
-    public void Validate_BuyingWithoutLedger_FailsNamingLedger()
+    public void Validate_NoLedgerConnectionString_FailsNamingLedger()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.LedgerConnectionString = "";
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("LedgerConnectionString is required"));
+    }
+
+    [Test]
+    public void Validate_NoSupplierName_FailsNamingSupplierName()
     {
         var profile = ValidProfile();
-        profile.Buying = new BuyingProfile { Enabled = true, SupplierName = "Ridgeline Apparel Manufacturing" };
+        profile.Buying.SupplierName = "";
 
         var actual = _sut.Validate(null, ValidOptions(profile));
 
-        Assert.That(actual.Failures, Has.Some.Contains("LedgerConnectionString is required"));
+        Assert.That(actual.Failures, Has.Some.Contains("Buying:SupplierName is required"));
+    }
+
+    [Test]
+    public void Validate_NoPutawayLocations_FailsNamingPutawayLocations()
+    {
+        var options = ValidOptions(ValidProfile());
+        options.Facility.PutawayLocationCount = 0;
+
+        var actual = _sut.Validate(null, options);
+
+        Assert.That(actual.Failures, Has.Some.Contains("PutawayLocationCount of at least 1"));
+    }
+
+    [Test]
+    public void Validate_ZipfExponentZero_FailsNamingZipfExponent()
+    {
+        var profile = ValidProfile();
+        profile.Catalog.ZipfExponent = 0;
+
+        var actual = _sut.Validate(null, ValidOptions(profile));
+
+        Assert.That(actual.Failures, Has.Some.Contains("Catalog:ZipfExponent must be greater than 0"));
     }
 
     [Test]
     public void Validate_ReceiversWithoutSignInClient_FailsNamingUserClientId()
     {
         var options = ValidOptions(ValidProfile());
-        options.LedgerConnectionString = "Host=localhost;Database=simulator";
         options.Facility = ValidFacility();
         options.Facility.UserClientId = "";
 
@@ -121,7 +153,6 @@ public sealed class SimulatorOptionsValidatorTests
     public void Validate_CompleteFacilityWithReceivers_Succeeds()
     {
         var options = ValidOptions(ValidProfile());
-        options.LedgerConnectionString = "Host=localhost;Database=simulator";
         options.Facility = ValidFacility();
 
         var actual = _sut.Validate(null, options);
@@ -130,7 +161,7 @@ public sealed class SimulatorOptionsValidatorTests
     }
 
     [Test]
-    public void Validate_CompleteFacilityWithAllocatorsOnly_SucceedsWithoutLedger()
+    public void Validate_CompleteFacilityWithAllocators_Succeeds()
     {
         var profile = ValidProfile();
         profile.Allocation = ValidAllocation();
@@ -171,7 +202,6 @@ public sealed class SimulatorOptionsValidatorTests
     public void Validate_AllocatorUsernameSameAsReceivers_FailsNamingUsernames()
     {
         var options = ValidOptions(ValidProfile());
-        options.LedgerConnectionString = "Host=localhost;Database=simulator";
         options.Facility = ValidFacility();
         options.Facility.Allocators =
             [new AllocatorOptions { Username = "receiver1@example.com", Password = "password", DockShifts = [0] }];
@@ -207,11 +237,26 @@ public sealed class SimulatorOptionsValidatorTests
 
     #endregion
 
+    // every customer buys, so every facility needs what deliveries are planned around: shifts, putaway locations
+    // and carriers
+    private static FacilityOptions ValidBuyingFacility() => new()
+    {
+        TimeZone = "America/Chicago",
+        DockShifts =
+            [new ShiftOptions { Days = [DayOfWeek.Monday], Start = TimeSpan.FromHours(6), End = TimeSpan.FromHours(14.5) }],
+        PutawayLocationPrefix = "BULK-",
+        PutawayLocationCount = 40,
+        CarrierScacs = ["ODFL"]
+    };
+
     private static FacilityOptions ValidAllocatingFacility() => new()
     {
         TimeZone = "America/Chicago",
         DockShifts =
             [new ShiftOptions { Days = [DayOfWeek.Monday], Start = TimeSpan.FromHours(6), End = TimeSpan.FromHours(14.5) }],
+        PutawayLocationPrefix = "BULK-",
+        PutawayLocationCount = 40,
+        CarrierScacs = ["ODFL"],
         UserTenantId = "test-tenant",
         UserClientId = "sign-in-client",
         Allocators = [new AllocatorOptions { Username = "allocator1@example.com", Password = "password", DockShifts = [0] }]
@@ -243,6 +288,8 @@ public sealed class SimulatorOptionsValidatorTests
         TenantId = "tenant",
         ApiScope = "api://throughline/.default",
         CatalogConnectionString = "Host=localhost;Database=throughline",
+        LedgerConnectionString = "Host=localhost;Database=simulator",
+        Facility = ValidBuyingFacility(),
         Customers = new Dictionary<string, CustomerProfile> { ["HarrowFinch"] = profile }
     };
 
@@ -251,13 +298,14 @@ public sealed class SimulatorOptionsValidatorTests
         OwnerId = 1,
         ReferencePrefix = "HFO",
         TimeZone = "America/Chicago",
-        OrdersPerDay = 600,
+        OrdersPerDay = 5000,
         HourlyWeights = Enumerable.Repeat(1.0, 24).ToArray(),
         WeekdayWeights = Enumerable.Repeat(1.0, 7).ToArray(),
         LinesPerOrder = new SizeProfile { P50 = 2, P95 = 6 },
         QuantityPerLine = new SizeProfile { P50 = 1, P95 = 4 },
         Faults = new FaultRates { IdenticalResend = 0.02 },
         OmsClientId = "client",
-        OmsClientSecret = "secret"
+        OmsClientSecret = "secret",
+        Buying = new BuyingProfile { SupplierName = "Ridgeline Apparel Manufacturing" }
     };
 }

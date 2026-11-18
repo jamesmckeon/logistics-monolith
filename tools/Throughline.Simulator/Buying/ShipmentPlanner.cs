@@ -6,8 +6,8 @@ using Throughline.Simulator.Scheduling;
 namespace Throughline.Simulator.Buying;
 
 /// <summary>
-///     How the supplier ships a purchase order: single-SKU pallets, loaded onto trailers that each
-///     arrive during dock hours after the lead time
+///     How the supplier ships a purchase order: single-SKU pallets of each SKU's pallet quantity, loaded onto
+///     trailers that each arrive during dock hours after the lead time
 /// </summary>
 internal sealed class ShipmentPlanner
 {
@@ -60,14 +60,18 @@ internal sealed class ShipmentPlanner
         return new PurchaseOrder(Guid.NewGuid(), ownerId, purchaseOrderNumber, kind, orderedAt, shipments);
     }
 
+    // full pallets of the SKU's pallet quantity, then one partial pallet for the rest; both are whole cartons, since
+    // the line is and a pallet holds whole cartons
     private IEnumerable<InboundPallet> PalletsFor(PurchaseLine line)
     {
-        for (var remaining = line.Units; remaining > 0; remaining -= _buying.UnitsPerPallet)
+        var palletQuantity = line.Sku.PalletQuantity;
+
+        for (var remaining = line.Units; remaining > 0; remaining -= palletQuantity)
         {
             yield return new InboundPallet(
                 ("LPN" + Guid.NewGuid().ToString("N"))[..15].ToUpperInvariant(),
-                line.Sku,
-                Math.Min(remaining, _buying.UnitsPerPallet),
+                line.Sku.Code,
+                Math.Min(remaining, palletQuantity),
                 string.Create(CultureInfo.InvariantCulture,
                     $"{_facility.PutawayLocationPrefix}{_random.Next(1, _facility.PutawayLocationCount + 1):D2}"));
         }
