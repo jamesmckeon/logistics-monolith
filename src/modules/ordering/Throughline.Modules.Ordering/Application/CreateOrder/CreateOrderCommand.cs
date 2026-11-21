@@ -17,25 +17,43 @@ public sealed record CreateOrderCommand(
         var errors = new List<FieldError>();
 
         if (string.IsNullOrWhiteSpace(PurchaseOrderNumber))
+        {
             AddRequiredError("PurchaseOrderNumber", errors);
+        }
 
         if (string.IsNullOrWhiteSpace(ReferenceNumber))
+        {
             AddRequiredError("ReferenceNumber", errors);
+        }
 
         if (string.IsNullOrWhiteSpace(StreetAddressOne))
+        {
             AddRequiredError("StreetAddressOne", errors);
+        }
 
         if (string.IsNullOrWhiteSpace(City))
+        {
             AddRequiredError("City", errors);
+        }
 
         if (string.IsNullOrWhiteSpace(State))
+        {
             AddRequiredError("State", errors);
+        }
 
         if (string.IsNullOrWhiteSpace(PostalCode))
+        {
             AddRequiredError("PostalCode", errors);
+        }
 
         if (Items is null || !Items.Any())
+        {
             AddRequiredError("Items", errors);
+        }
+        else if (Items.Any(a => a.Quantity < 1))
+        {
+            errors.Add(FieldError.LessThanOne("Item.Quantity"));
+        }
 
         return errors.Any() ? Result.Validation(errors) : Result.Success();
     }
