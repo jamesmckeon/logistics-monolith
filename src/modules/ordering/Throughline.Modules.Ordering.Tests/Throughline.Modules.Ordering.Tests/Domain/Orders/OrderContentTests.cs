@@ -7,10 +7,8 @@ namespace Throughline.Modules.Ordering.Tests.Domain.Orders;
 [Category("Unit")]
 public sealed class OrderContentTests
 {
-    private static StreetAddress TestAddress()
-    {
-        return new StreetAddress("Test Address 1", null, "Portland", "OR", new PostalCode("97211"));
-    }
+    private static StreetAddress TestAddress() =>
+        new("Test Address 1", null, "Portland", "OR", new PostalCode("97211"));
 
     #region Equality
 
@@ -109,6 +107,30 @@ public sealed class OrderContentTests
             Assert.That(
                 result.Errors.Single().Description,
                 Is.EqualTo("An order cannot have more than one line with the same sku code"));
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void Create_InvalidQuantity_ReturnsFailure(int quantity)
+    {
+        var lines = new OrderLine[]
+        {
+            new(new SkuCode("Test"), quantity)
+        };
+
+        var result = OrderContent.Create(
+            "TestPo",
+            new StreetAddress("Test Address", null, "Portland", "OR", new PostalCode("97111")),
+            lines);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
+            Assert.That(
+                result.Errors.Single().Description,
+                Is.EqualTo("A line's quantity must be greater than zero"));
         });
     }
 

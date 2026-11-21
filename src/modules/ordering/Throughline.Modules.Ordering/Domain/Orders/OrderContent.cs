@@ -44,11 +44,21 @@ internal sealed class OrderContent : ValueObject
     {
         var errors = new List<FieldError>();
         if (purchaseOrderNumber.Trim() == "")
+        {
             errors.Add(new("purchaseOrderNumber is required"));
+        }
 
         var linesArray = orderLines.ToArray();
         if (!linesArray.Any())
+        {
             errors.Add(new FieldError("An order must have at least one line"));
+        }
+
+        if (linesArray.Any(a => a.Quantity < 1))
+        {
+            errors.Add(new FieldError("A line's quantity must be greater than zero"));
+        }
+
 
         var duplicates = linesArray
             .GroupBy(grp => grp.SkuCode)
@@ -56,7 +66,9 @@ internal sealed class OrderContent : ValueObject
             .Where(w => w.Count > 1);
 
         if (duplicates.Any())
+        {
             errors.Add(new("An order cannot have more than one line with the same sku code"));
+        }
 
         return errors.Any()
             ? Result<OrderContent>.Validation(errors)
