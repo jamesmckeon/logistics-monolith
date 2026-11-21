@@ -13,11 +13,15 @@ public sealed record FieldError
     public string Description { get; }
     public string? FieldName { get; }
 
-    public static FieldError IsRequired(string paramName)
-    {
-        return new FieldError(
+    public static FieldError IsRequired(string paramName) =>
+        new(
             $"{paramName} is required.",
             paramName
         );
-    }
+
+    public static FieldError LessThanOne(string paramName) =>
+        new(
+            $"{paramName} must be greater than zero.",
+            paramName
+        );
 }

@@ -8,7 +8,7 @@ public sealed class CreateOrderCommandTests
 {
     private static readonly CreateOrderCommandItem[] OneItem = [new("HF-10442", 6)];
 
-    private static CreateOrderCommand Given(
+    private static CreateOrderCommand TestCommand(
         string purchaseOrderNumber = "PO-48213",
         string referenceNumber = "REF-0001931",
         string streetAddressOne = "1 Main St",
@@ -16,9 +16,8 @@ public sealed class CreateOrderCommandTests
         string city = "Boston",
         string state = "MA",
         string postalCode = "02110",
-        IEnumerable<CreateOrderCommandItem>? items = null)
-    {
-        return new CreateOrderCommand(
+        IEnumerable<CreateOrderCommandItem>? items = null) =>
+        new(
             purchaseOrderNumber,
             referenceNumber,
             streetAddressOne,
@@ -27,7 +26,6 @@ public sealed class CreateOrderCommandTests
             state,
             postalCode,
             items ?? OneItem);
-    }
 
     private static void AssertRequiredError(Result result, string fieldName)
     {
@@ -44,7 +42,7 @@ public sealed class CreateOrderCommandTests
     [Test]
     public void Validate_AllFieldsPresent_Succeeds()
     {
-        var sut = Given();
+        var sut = TestCommand();
 
         var result = sut.Validate();
 
@@ -61,7 +59,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_StreetAddressTwoMissing_Succeeds(string? streetAddressTwo)
     {
-        var sut = Given(streetAddressTwo: streetAddressTwo);
+        var sut = TestCommand(streetAddressTwo: streetAddressTwo);
 
         var result = sut.Validate();
 
@@ -72,7 +70,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_PurchaseOrderNumberMissing_ReturnsRequiredError(string purchaseOrderNumber)
     {
-        var sut = Given(purchaseOrderNumber: purchaseOrderNumber);
+        var sut = TestCommand(purchaseOrderNumber);
 
         var result = sut.Validate();
 
@@ -83,7 +81,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_ReferenceNumberMissing_ReturnsRequiredError(string referenceNumber)
     {
-        var sut = Given(referenceNumber: referenceNumber);
+        var sut = TestCommand(referenceNumber: referenceNumber);
 
         var result = sut.Validate();
 
@@ -94,7 +92,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_StreetAddressOneMissing_ReturnsRequiredError(string streetAddressOne)
     {
-        var sut = Given(streetAddressOne: streetAddressOne);
+        var sut = TestCommand(streetAddressOne: streetAddressOne);
 
         var result = sut.Validate();
 
@@ -105,7 +103,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_CityMissing_ReturnsRequiredError(string city)
     {
-        var sut = Given(city: city);
+        var sut = TestCommand(city: city);
 
         var result = sut.Validate();
 
@@ -116,7 +114,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_StateMissing_ReturnsRequiredError(string state)
     {
-        var sut = Given(state: state);
+        var sut = TestCommand(state: state);
 
         var result = sut.Validate();
 
@@ -127,7 +125,7 @@ public sealed class CreateOrderCommandTests
     [TestCase("   ")]
     public void Validate_PostalCodeMissing_ReturnsRequiredError(string postalCode)
     {
-        var sut = Given(postalCode: postalCode);
+        var sut = TestCommand(postalCode: postalCode);
 
         var result = sut.Validate();
 
@@ -137,17 +135,38 @@ public sealed class CreateOrderCommandTests
     [Test]
     public void Validate_ItemsEmpty_ReturnsRequiredError()
     {
-        var sut = Given(items: []);
+        var sut = TestCommand(items: []);
 
         var result = sut.Validate();
 
         AssertRequiredError(result, "Items");
     }
 
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void Validate_InvalidLineQuantity_ReturnsValidationError(int quantity)
+    {
+        var item = new CreateOrderCommandItem("Test", quantity);
+        var sut = TestCommand(items: [item]);
+
+        var result = sut.Validate();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.ErrorType, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Errors, Is.EquivalentTo(new[]
+            {
+                FieldError.LessThanOne("Item.Quantity")
+            }));
+        });
+    }
+
+
     [Test]
     public void Validate_EveryRequiredFieldMissing_ReturnsEveryRequiredError()
     {
-        var sut = Given("", "", "", null, "", "", "", []);
+        var sut = TestCommand("", "", "", null, "", "", "", []);
 
         var result = sut.Validate();
 
