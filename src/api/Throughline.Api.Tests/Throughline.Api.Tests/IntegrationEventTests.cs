@@ -82,29 +82,24 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
     // A retry, dead-letter replay or inbox recovery rebuilds the message from its stored body with the
     // host's serializer, rather than handing the handler the published instance
     [Test]
-    public void Deserialize_PublishedEvent_KeepsIdAndOccurredOnUtc()
+    public void Deserialize_PublishedEvent_KeepsOccurredOnUtc()
     {
         var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
         var published = new OrderConfirmedIntegrationEvent(
-            Guid.CreateVersion7(), occurredOn, 1, Guid.CreateVersion7(), occurredOn,
-            [new OrderLineEventModel("SKU1", 1)]);
+            occurredOn, 1, Guid.CreateVersion7(), occurredOn, [new OrderLineEventModel("SKU1", 1)]);
         var serializer = HostSerializer();
         var stored = serializer.Write(new Envelope(published));
 
         var rebuilt = (OrderConfirmedIntegrationEvent)serializer.ReadFromData(
             typeof(OrderConfirmedIntegrationEvent), new Envelope { Data = stored });
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(rebuilt.Id, Is.EqualTo(published.Id));
-            Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(published.OccurredOnUtc));
-        });
+        Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(published.OccurredOnUtc));
     }
 
-    // The body stored before IntegrationEventBase took its values as constructor parameters; those
-    // messages may still be in the outbox or the dead letters
+    // The body stored before IntegrationEventBase took OccurredOnUtc as a constructor parameter, which also
+    // carries the Id the base no longer has; those messages may still be in the outbox or the dead letters
     [Test]
-    public void Deserialize_StoredWithPreviousBaseShape_KeepsStoredIdAndOccurredOnUtc()
+    public void Deserialize_StoredWithPreviousBaseShape_KeepsStoredOccurredOnUtc()
     {
         var id = Guid.Parse("019a9f3c-5b2e-7c41-9d3a-2f6e8b1c4d70");
         var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
@@ -125,7 +120,6 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
         Assert.Multiple(() =>
         {
-            Assert.That(rebuilt.Id, Is.EqualTo(id));
             Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(occurredOn));
             Assert.That(rebuilt.OwnerId, Is.EqualTo(1));
         });

@@ -81,8 +81,7 @@ internal sealed class CreateOrderHandler
         var order = new Order(new OrderId(), ownerReference, contentResult.Value, AppDateTime.Now);
         var orderConfirmed =
             // the order is confirmed the moment it's accepted, so the event occurred at its created date
-            new OrderConfirmedIntegrationEvent(Guid.CreateVersion7(), order.CreatedOn.Value, ownerId, order.Id.Value,
-                order.CreatedOn.Value,
+            new OrderConfirmedIntegrationEvent(order.CreatedOn.Value, ownerId, order.Id.Value, order.CreatedOn.Value,
                 order.Content.OrderLines.Select(ol => new OrderLineEventModel(ol.SkuCode.Value, ol.Quantity)).ToList()
                     .AsReadOnly());
         var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, orderConfirmed, cancellationToken);

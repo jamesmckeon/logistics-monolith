@@ -69,7 +69,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var orderId = Guid.NewGuid();
         var orderLine = new OrderLineEventModel(sku.Code, 0);
         var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(
-            Guid.CreateVersion7(), AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [orderLine]);
+            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [orderLine]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -89,8 +89,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // dont setup any skus in Inventory
         var orderId = Guid.NewGuid();
         var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
-            Guid.CreateVersion7(), AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value,
-            [new OrderLineEventModel("TEST", 1)]);
+            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
