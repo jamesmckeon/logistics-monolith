@@ -117,5 +117,22 @@ public sealed class ResultProblemMapperTests
         });
     }
 
+    [Test]
+    public void ToProblemDetails_NotFound_ReturnsNotFoundProblemDetails()
+    {
+        var result = TestResult.NotFound("Test Error 1");
+
+        var actual = result.ToProblemDetails();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Title, Is.EqualTo("The resource was not found"));
+            Assert.That(actual.Type, Is.EqualTo("https://tools.ietf.org/html/rfc9110#section-15.5.5"));
+            Assert.That(actual.Status, Is.EqualTo(StatusCodes.Status404NotFound));
+            Assert.That(actual.Detail, Is.EqualTo("Test Error 1"));
+            Assert.That(actual.Extensions, Is.Empty);
+        });
+    }
+
     #endregion
 }

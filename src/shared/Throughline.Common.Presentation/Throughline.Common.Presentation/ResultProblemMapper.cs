@@ -9,6 +9,7 @@ public static class ResultProblemMapper
 {
     private const string ConflictType = "https://tools.ietf.org/html/rfc9110#section-15.5.10";
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
+    private const string NotFoundType = "https://tools.ietf.org/html/rfc9110#section-15.5.5";
 
     /// <summary>
     ///     Maps a <b>failed</b> <see cref="Result{T}" /> to an RFC 7807 <see cref="ProblemDetails" />.
@@ -65,6 +66,7 @@ public static class ResultProblemMapper
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
             _ => throw new UnreachableException($"No status mapping for ErrorType '{type}'.")
         };
     }
@@ -75,6 +77,7 @@ public static class ResultProblemMapper
         {
             ErrorType.Validation => "One or more validation errors occurred",
             ErrorType.Conflict => "A conflict occurred",
+            ErrorType.NotFound => "The resource was not found",
             _ => throw new UnreachableException($"No title mapping for ErrorType '{type}'.")
         };
     }
@@ -85,6 +88,7 @@ public static class ResultProblemMapper
         {
             ErrorType.Validation => BadRequestType,
             ErrorType.Conflict => ConflictType,
+            ErrorType.NotFound => NotFoundType,
             _ => throw new UnreachableException($"No type mapping for ErrorType '{type}'.")
         };
     }
