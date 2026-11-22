@@ -314,3 +314,9 @@ When the user says "review my solution to STORY-XXXX" (code in `src/` or a branc
 - **Keep `backlog.md` authoritative and current.** Re-read it before reporting.
 - **Ground claims in sources (§4) and verify current .NET APIs** rather than trusting memory.
   Flag uncertainty instead of fabricating domain or SLA detail.
+- **No dead code.** Code that nothing uses doesn't ship or stay, whether Claude is writing,
+  editing or reviewing it. That includes members, types and parameters nothing calls or reads;
+  properties on contracts (integration events, API models) that no consumer reads; and
+  unreachable branches and commented-out code. A review flags each one and names what uses it;
+  if nothing does, it goes. "Might need it later" isn't a use: adding it when something needs it
+  is the cheap path.
