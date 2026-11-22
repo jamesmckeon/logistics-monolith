@@ -257,7 +257,7 @@ public sealed class SimulatorOptionsValidatorTests
         PutawayLocationPrefix = "BULK-",
         PutawayLocationCount = 40,
         CarrierScacs = ["ODFL"],
-        UserTenantId = "test-tenant",
+        UserTenantId = "simulator-tenant",
         UserClientId = "sign-in-client",
         Allocators = [new AllocatorOptions { Username = "allocator1@example.com", Password = "password", DockShifts = [0] }]
     };
@@ -277,7 +277,7 @@ public sealed class SimulatorOptionsValidatorTests
         PutawayLocationPrefix = "BULK-",
         PutawayLocationCount = 40,
         CarrierScacs = ["ODFL"],
-        UserTenantId = "test-tenant",
+        UserTenantId = "simulator-tenant",
         UserClientId = "sign-in-client",
         Receivers = [new StaffOptions { Username = "receiver1@example.com", Password = "password" }]
     };

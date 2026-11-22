@@ -35,7 +35,7 @@ public sealed class FacilityOptions
     public string[] CarrierScacs { get; set; } = [];
 
     /// <summary>
-    ///     Test tenant the simulated staff belong to
+    ///     Simulator tenant the simulated staff belong to
     /// </summary>
     public string UserTenantId { get; set; } = "";
 
@@ -64,7 +64,7 @@ public sealed class ShiftOptions
 }
 
 /// <summary>
-///     A simulated member of staff; a user in the test tenant
+///     A simulated member of staff; a user in the simulator tenant
 /// </summary>
 public sealed class StaffOptions
 {
@@ -74,7 +74,7 @@ public sealed class StaffOptions
 }
 
 /// <summary>
-///     A simulated outbound planner; a user in the test tenant who works some of the facility's shifts
+///     A simulated outbound planner; a user in the simulator tenant who works some of the facility's shifts
 /// </summary>
 public sealed class AllocatorOptions
 {
