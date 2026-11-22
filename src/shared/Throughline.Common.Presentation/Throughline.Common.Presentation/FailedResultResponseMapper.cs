@@ -17,6 +17,7 @@ public static class FailedResultResponseMapper
         {
             ErrorType.Validation => TypedResults.BadRequest(result.ToProblemDetails()),
             ErrorType.Conflict => TypedResults.Conflict(result.ToProblemDetails()),
+            ErrorType.NotFound => TypedResults.NotFound(result.ToProblemDetails()),
             _ => throw new UnreachableException($"No status mapping for ErrorType '{result.ErrorType}'.")
         };
     }

@@ -28,6 +28,7 @@
         <ProjectReference Include="..\..\modules\ordering\Throughline.Modules.Ordering\Throughline.Modules.Ordering.csproj"/>
         <ProjectReference Include="..\..\modules\inventory\Throughline.Modules.Inventory\Throughline.Modules.Inventory.csproj"/>
         <ProjectReference Include="..\..\modules\receiving\Throughline.Modules.Receiving\Throughline.Modules.Receiving.csproj"/>
+        <ProjectReference Include="..\..\modules\platform\Throughline.Modules.Platform\Throughline.Modules.Platform.csproj"/>
     </ItemGroup>
 
 </Project>

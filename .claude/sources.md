@@ -3,13 +3,16 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **six source registers**: the **design / architecture / DDD** set (the
+This file holds **seven source registers**: the **design / architecture / DDD** set (the
 table below), an **Observability & Logging** set, a **Testing — Messaging & Error
-Handling** set, a **Testing — Performance & Load** set, and a **Security — Authentication &
-Authorization** set, all under the Confirmed/Pending status legend; and a **WMS Functional /
-Vendor Reference** register (at the end of the file) under its own tier legend. Read the testing
+Handling** set, a **Testing — Performance & Load** set, an **Operations — Dead-Letter
+Handling** set, and a **Security — Authentication & Authorization** set, all under the
+Confirmed/Pending status legend; and a **WMS Functional / Vendor Reference** register (at the
+end of the file) under its own tier legend. Read the testing
 register before writing or reviewing tests for integration-event handlers. Read the performance
-& load register before planning, writing, or reviewing load tests or deciding when they run. Read the security
+& load register before planning, writing, or reviewing load tests or deciding when they run. Read
+the dead-letter register before designing or reviewing how dead-lettered messages are alerted on,
+triaged, replayed, or discarded. Read the security
 register before designing, building, or reviewing authentication, authorization (RBAC), or
 owner scoping of a caller. Read the observability register before designing, building, or reviewing
 any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
@@ -230,6 +233,39 @@ user confirms them.
 4. **Where the CI subset runs is an open design choice.** PT-1's "on-demand environment" fits
    starting QA per run; a test against an API on the CI runner would mostly repeat the
    integration tests.
+
+---
+
+# Operations — Dead-Letter Handling (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register above. Scope: what
+happens after a Wolverine message dead-letters in a deployed environment — alerting, triage,
+replay, discard, and the runbook. *Which* exceptions dead-letter, and how that's tested, stays
+in the Testing — Messaging & Error Handling register (TS-1). Added 2026-11-18 from a web search;
+all sources are Pending until the user confirms them, and the pages were found through search
+summaries, not yet read in full.
+
+## Sources
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| DL-1 | **Wolverine docs** — [Dead Letter Storage](https://wolverine.netlify.app/guide/durability/dead-letter-storage) · [Dead Letter Queues tutorial](https://wolverine.netlify.app/tutorials/dead-letter-queues) | Framework docs for the messaging library this project uses. With durable database storage, failed messages from local queues go to a `wolverine_dead_letters` table with exception details; messages are marked `replayable` (e.g. by exception type) and moved back by `storage replay` or HTTP endpoints; `storage counts` reports totals; dead-letter expiration is opt-in. | ⏳ Pending |
+| DL-2 | **CrowdStrike — [Three best practices to capture, investigate and redrive failed messages](https://www.crowdstrike.com/en-us/blog/three-best-practices-to-effectively-manage-failed-messages/)** | A company describing its own practice: capture failed messages with enough context to investigate, give engineers tooling to view and redrive them, and document the procedure so any engineer can follow it. | ⏳ Pending |
+| DL-3 | **DEV Community (G. Anhaia) — [Dead-letter queue triage: the 5 categories](https://dev.to/gabrielanhaia/dead-letter-queue-triage-the-5-categories-that-cover-95-of-failures-4p9g)** | Classify each dead letter by failure category on arrival so on-call knows which are safe to replay; predefine a playbook per category. Individual blog. | ⏳ Pending |
+| DL-4 | **DEV Community (G. Anhaia) — [Dead-letter replay without double processing](https://dev.to/gabrielanhaia/dead-letter-replay-doing-it-without-double-processing-4gln)** | Treat a replay as a new production write: fix and deploy first, replay a small batch, confirm each side effect happened once and no new dead letters appeared. Individual blog. | ⏳ Pending |
+| DL-5 | **AxonOps — [Kafka dead-letter queue operations](https://docs.axonops.com/data-platforms/kafka/operations/troubleshooting/dead-letter-queues)** | Alerting on more than a raw count: age of the oldest dead letter, a previously unseen error class, dead-letter rate, replay success rate. Vendor docs for a Kafka product; the thresholds are examples, not recommendations. | ⏳ Pending |
+
+## Notes from the 2026-11-18 search
+
+1. **Sources agree on the process:** alert, read the message and its error, classify it
+   (temporary failure / bug / bad data), then replay or discard, recording why. *(DL-2–DL-5)*
+2. **A raw count is a weak alert.** DL-5 and DL-3 both point to what changed (a new kind of
+   error, how long a message has waited) rather than "count went from 0 to 1."
+3. **Unverified for Throughline:** which Wolverine dead-letter storage Throughline actually
+   uses, and whether the `storage` commands or HTTP endpoints are enabled. Check
+   `src/api/Throughline.Api/Program.cs` and the `wolverine` schema before designing against DL-1.
+4. **Skipped:** most other search results were auto-generated corpus pages or vendor marketing;
+   none are listed here.
 
 ---
 

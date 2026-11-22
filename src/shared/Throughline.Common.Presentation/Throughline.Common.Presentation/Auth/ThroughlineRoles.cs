@@ -16,6 +16,12 @@ public static class ThroughlineRoles
     public const string OutboundPlanning = "OutboundPlanning";
 
     /// <summary>
+    ///     Name of the Entra role held by support engineers, who handle dead letters: they find the cause in the
+    ///     logs, then replay or discard
+    /// </summary>
+    public const string ApplicationSupport = "ApplicationSupport";
+
+    /// <summary>
     ///     Membership in this role, in combination with function specific roles, grants
     ///     access to endpoints for a specific owner
     /// </summary>

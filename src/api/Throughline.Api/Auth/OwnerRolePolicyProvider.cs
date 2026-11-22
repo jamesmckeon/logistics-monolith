@@ -6,7 +6,8 @@ namespace Throughline.Api.Auth;
 
 /// <summary>
 ///     Adds the owner role requirement to every named policy, so an endpoint that requires a
-///     policy is always checked for the owner named in the request as well
+///     policy is always checked for the owner named in the request as well. A policy that includes
+///     <see cref="NotOwnerScopedRequirement" /> is returned as it is.
 /// </summary>
 internal sealed class OwnerRolePolicyProvider : DefaultAuthorizationPolicyProvider
 {
@@ -23,6 +24,11 @@ internal sealed class OwnerRolePolicyProvider : DefaultAuthorizationPolicyProvid
         if (policy is null)
         {
             return null;
+        }
+
+        if (policy.Requirements.OfType<NotOwnerScopedRequirement>().Any())
+        {
+            return policy;
         }
 
         return new AuthorizationPolicyBuilder(policy)
