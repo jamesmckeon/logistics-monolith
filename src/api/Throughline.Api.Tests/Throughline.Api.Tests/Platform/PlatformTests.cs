@@ -148,7 +148,7 @@ internal sealed class PlatformTests : IntegrationTestsBase
     }
 
     private static OrderConfirmedIntegrationEvent OrderConfirmed(int ownerId) =>
-        new(ownerId, Guid.CreateVersion7(), SentAt, [new OrderLineEventModel("HFO-UNKNOWN-17", 1)]);
+        new(SentAt, ownerId, Guid.CreateVersion7(), SentAt, [new OrderLineEventModel("HFO-UNKNOWN-17", 1)]);
 
     /// <summary>
     ///     Writes a dead letter the way Wolverine stores one: the envelope, with the message serialized by

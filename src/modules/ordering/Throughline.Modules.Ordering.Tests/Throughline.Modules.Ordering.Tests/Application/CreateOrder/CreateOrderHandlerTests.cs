@@ -300,6 +300,7 @@ public sealed class CreateOrderHandlerTests
         {
             Assert.That(order?.CreatedOn.Value, Is.InRange(before.Value, after.Value));
             Assert.That(integrationEvent?.CreatedOn, Is.EqualTo(order?.CreatedOn.Value));
+            Assert.That(integrationEvent?.OccurredOnUtc, Is.EqualTo(order?.CreatedOn.Value));
         });
     }
 

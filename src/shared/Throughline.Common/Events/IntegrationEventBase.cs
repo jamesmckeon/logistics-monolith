@@ -1,7 +1,9 @@
 namespace Throughline.Common.Events;
 
-public abstract record IntegrationEventBase
-{
-    public Guid Id { get; } = Guid.CreateVersion7();
-    public DateTimeOffset OccurredOnUtc { get; } = DateTimeOffset.UtcNow;
-}
+/// <summary>
+///     The time every integration event carries. The publisher supplies it as a constructor parameter, so a
+///     handler sees the published value even when the message is rebuilt from storage (a retry, a dead-letter
+///     replay, or inbox recovery).
+/// </summary>
+/// <param name="OccurredOnUtc">When the event happened, at UTC +0</param>
+public abstract record IntegrationEventBase(DateTimeOffset OccurredOnUtc);

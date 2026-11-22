@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
@@ -11,6 +12,8 @@ using Throughline.Modules.Inventory.Domain.Common;
 using Throughline.Modules.Inventory.Domain.Skus;
 using Throughline.Modules.Inventory.Infrastructure.Db;
 using Throughline.Modules.Ordering.Application.CreateOrder;
+using Throughline.Modules.Ordering.Contracts.Events;
+using Throughline.Modules.Ordering.Contracts.Models;
 using Throughline.Modules.Ordering.Presentation;
 using Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 using Throughline.Modules.Receiving.Domain.Inventory;
@@ -18,6 +21,9 @@ using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Infrastructure.Db;
 using Throughline.Modules.Receiving.Infrastructure.Db.Models;
 using Throughline.Modules.Receiving.Presentation;
+using Wolverine;
+using Wolverine.Runtime;
+using Wolverine.Runtime.Serialization;
 using Wolverine.Tracking;
 using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orders.OrdersDbContext;
 
@@ -70,6 +76,52 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
             Assert.That(inventoryOrder.OrderId, Is.EqualTo(result.OrderId));
             Assert.That(inventoryOrder.OwnerId, Is.EqualTo(result.OwnerId));
             Assert.That(inventoryOrder.AllocationStatus, Is.EqualTo("Confirmed"));
+        });
+    }
+
+    // A retry, dead-letter replay or inbox recovery rebuilds the message from its stored body with the
+    // host's serializer, rather than handing the handler the published instance
+    [Test]
+    public void Deserialize_PublishedEvent_KeepsOccurredOnUtc()
+    {
+        var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
+        var published = new OrderConfirmedIntegrationEvent(
+            occurredOn, 1, Guid.CreateVersion7(), occurredOn, [new OrderLineEventModel("SKU1", 1)]);
+        var serializer = HostSerializer();
+        var stored = serializer.Write(new Envelope(published));
+
+        var rebuilt = (OrderConfirmedIntegrationEvent)serializer.ReadFromData(
+            typeof(OrderConfirmedIntegrationEvent), new Envelope { Data = stored });
+
+        Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(published.OccurredOnUtc));
+    }
+
+    // The body stored before IntegrationEventBase took OccurredOnUtc as a constructor parameter, which also
+    // carries the Id the base no longer has; those messages may still be in the outbox or the dead letters
+    [Test]
+    public void Deserialize_StoredWithPreviousBaseShape_KeepsStoredOccurredOnUtc()
+    {
+        var id = Guid.Parse("019a9f3c-5b2e-7c41-9d3a-2f6e8b1c4d70");
+        var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
+        var stored = Encoding.UTF8.GetBytes(
+            $$"""
+              {
+                "ownerId": 1,
+                "orderId": "019a9f3c-5b2e-7c41-9d3a-2f6e8b1c4d71",
+                "createdOn": "2026-11-20T09:30:00+00:00",
+                "lines": [{ "skuCode": "SKU1", "quantity": 1 }],
+                "id": "{{id}}",
+                "occurredOnUtc": "2026-11-20T09:30:00+00:00"
+              }
+              """);
+
+        var rebuilt = (OrderConfirmedIntegrationEvent)HostSerializer()
+            .ReadFromData(typeof(OrderConfirmedIntegrationEvent), new Envelope { Data = stored });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(occurredOn));
+            Assert.That(rebuilt.OwnerId, Is.EqualTo(1));
         });
     }
 
@@ -173,6 +225,9 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
 
     #region Helpers
+
+    private IMessageSerializer HostSerializer() =>
+        _testFactory.Services.GetRequiredService<IWolverineRuntime>().Options.DefaultSerializer;
 
     private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)

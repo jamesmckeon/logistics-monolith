@@ -68,7 +68,8 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // trigger a OrderLineAllocation.create() failure
         var orderId = Guid.NewGuid();
         var orderLine = new OrderLineEventModel(sku.Code, 0);
-        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(1, orderId, AppDateTime.Now.Value, [orderLine]);
+        var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(
+            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [orderLine]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -88,7 +89,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // dont setup any skus in Inventory
         var orderId = Guid.NewGuid();
         var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
-            1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)]);
+            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)]);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
