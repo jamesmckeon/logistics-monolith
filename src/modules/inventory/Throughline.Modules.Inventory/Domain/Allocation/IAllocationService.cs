@@ -4,10 +4,12 @@ namespace Throughline.Modules.Inventory.Domain.Allocation;
 
 internal interface IAllocationService
 {
+    /// <param name="allocatedBy">The Entra object ID (<c>oid</c>) of the caller allocating the order</param>
     void AllocateOrderLine(
         Guid orderId,
         OrderLineAllocation orderLine,
-        IEnumerable<SkuReceipt> skuReceipts);
+        IEnumerable<SkuReceipt> skuReceipts,
+        Guid allocatedBy);
 
     /// <summary>
     ///     Returns true if an owner's <c>AllocationPolicy</c> can be satisfied with a set of SkuReceipts

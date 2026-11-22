@@ -43,8 +43,10 @@ internal sealed class ReceiveDeliveryHandler
     }
 
 
+    /// <param name="callerId">The Entra object ID (<c>oid</c>) of the caller submitting the delivery</param>
     public async Task<Result<ReceiveDeliveryResult>> ReceiveDeliveryAsync(
         int ownerId,
+        Guid callerId,
         ReceiveDeliveryCommand command,
         CancellationToken token)
     {
@@ -110,9 +112,10 @@ internal sealed class ReceiveDeliveryHandler
             shipment,
             serviceResult.ValidPallets,
             serviceResult.InvalidPallets,
-            AppDateTime.Now);
+            AppDateTime.Now,
+            callerId);
 
-        var integrationEvent = ToEvent(deliveryReceipt);
+        var integrationEvent = ToEvent(deliveryReceipt, callerId);
 
         if (integrationEvent != null)
         {
@@ -125,7 +128,7 @@ internal sealed class ReceiveDeliveryHandler
 
         var result = ToResult(deliveryReceipt);
 
-        var submission = DeliverySubmission.FromCommandResult(ownerId, command, result);
+        var submission = DeliverySubmission.FromCommandResult(ownerId, command, result, callerId);
         _submissionStore.Add(submission);
 
         await _unitOfWork.SaveChangesAsync(token);
@@ -165,7 +168,7 @@ internal sealed class ReceiveDeliveryHandler
     /// </summary>
     /// <param name="receipt"></param>
     /// <returns> An event instance if at least one pallet on the receipt has allocatable inventory</returns>
-    private static AllocatablePalletsIntegrationEvent? ToEvent(DeliveryReceipt receipt)
+    private static AllocatablePalletsIntegrationEvent? ToEvent(DeliveryReceipt receipt, Guid callerId)
     {
         if (!receipt.Pallets.Any(a => a.IsAllocatable))
         {
@@ -180,6 +183,7 @@ internal sealed class ReceiveDeliveryHandler
                     p.Quantity,
                     p.Location.Id.Value))
                 .ToList()
-                .AsReadOnly());
+                .AsReadOnly(),
+            callerId);
     }
 }

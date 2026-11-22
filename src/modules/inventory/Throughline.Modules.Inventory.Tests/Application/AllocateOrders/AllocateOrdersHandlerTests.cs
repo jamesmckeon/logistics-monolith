@@ -10,6 +10,8 @@ namespace Throughline.Modules.Inventory.Tests.Application.AllocateOrders;
 [Category("Unit")]
 internal sealed class AllocateOrdersHandlerTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     private Mock<IOrderAllocationRepository> _orderAllocationRepository;
     private Mock<IOrderAllocationService> _orderAllocationService;
     private Mock<IOwnerProvider> _ownerProvider;
@@ -36,7 +38,7 @@ internal sealed class AllocateOrdersHandlerTests
             .ToList();
         var command = new AllocateOrdersCommand(orders);
 
-        var result = await _sut.AllocateOrdersAsync(1, command, CancellationToken.None);
+        var result = await _sut.AllocateOrdersAsync(1, CallerId, command, CancellationToken.None);
 
         Assert.Multiple(() =>
         {

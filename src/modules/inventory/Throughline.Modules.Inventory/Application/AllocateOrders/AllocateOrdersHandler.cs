@@ -24,8 +24,10 @@ internal sealed class AllocateOrdersHandler
         _ownerProvider = ownerProvider;
     }
 
+    /// <param name="callerId">The Entra object ID (<c>oid</c>) of the caller allocating the orders</param>
     public async Task<AllocateOrdersResult> AllocateOrdersAsync(
         int ownerId,
+        Guid callerId,
         AllocateOrdersCommand command,
         CancellationToken token)
     {
@@ -70,6 +72,7 @@ internal sealed class AllocateOrdersHandler
         {
             var allocatedOrder = await _orderAllocationService.AllocateOrderAsync(
                 ownerId,
+                callerId,
                 orderId,
                 owner.AllocationPolicy,
                 token);

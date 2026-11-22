@@ -36,6 +36,9 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
                 v => v!.Value,
                 v => new AppDateTime(v));
 
+        builder.Property(o => o.CreatedBy).HasColumnName("created_by").HasColumnType("uuid");
+        builder.Property(o => o.UpdatedBy).HasColumnName("updated_by").HasColumnType("uuid");
+
         // Optimistic concurrency via PostgreSQL's xmin system column
         builder.Property<uint>("Version")
             .HasColumnName("xmin")
@@ -61,6 +64,7 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
             line.Property(l => l.LastUpdated)
                 .HasColumnName("last_updated")
                 .HasConversion<AppDateTimeValueConverter>();
+            line.Property(l => l.UpdatedBy).HasColumnName("updated_by").HasColumnType("uuid");
 
             line.OwnsMany(l => l.ReceiptAllocations, receipt =>
             {
@@ -78,6 +82,7 @@ internal sealed class OrderAllocationConfiguration : IEntityTypeConfiguration<Or
                 receipt.Property(r => r.AllocatedOn)
                     .HasColumnName("allocated_on")
                     .HasConversion<AppDateTimeValueConverter>();
+                receipt.Property(r => r.CreatedBy).HasColumnName("created_by").HasColumnType("uuid");
 
                 // Reverse lookup: which order lines hold stock from a given receipt.
                 receipt.HasIndex(r => r.SkuReceiptId, "ix_receipt_allocations_sku_receipt_id");

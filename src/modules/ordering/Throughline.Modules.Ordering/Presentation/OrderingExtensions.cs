@@ -62,7 +62,7 @@ public static class OrderingExtensions
             CancellationToken token) =>
         {
             using var _ = OwnerScope(loggerFactory, requestContext.OwnerId);
-            var result = await handler.CreateOrderAsync(requestContext.OwnerId, command, token);
+            var result = await handler.CreateOrderAsync(requestContext.OwnerId, requestContext.CallerId, command, token);
 
             if (!result.Succeeded)
             {

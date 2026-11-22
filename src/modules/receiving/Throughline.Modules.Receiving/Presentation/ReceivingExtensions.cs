@@ -75,7 +75,7 @@ public static class ReceivingExtensions
                 loggerFactory.CreateLogger("Receiving"),
                 requestContext.OwnerId);
 
-            var result = await handler.ReceiveDeliveryAsync(requestContext.OwnerId, command, token);
+            var result = await handler.ReceiveDeliveryAsync(requestContext.OwnerId, requestContext.CallerId, command, token);
 
             if (!result.Succeeded)
             {

@@ -31,5 +31,7 @@ internal sealed class DeliverySubmissionConfiguration : IEntityTypeConfiguration
             .HasColumnName("result")
             .HasColumnType("jsonb")
             .HasConversion<ReceiveDeliveryResultValueConverter>();
+
+        builder.Property(s => s.CreatedBy).HasColumnName("created_by").HasColumnType("uuid");
     }
 }

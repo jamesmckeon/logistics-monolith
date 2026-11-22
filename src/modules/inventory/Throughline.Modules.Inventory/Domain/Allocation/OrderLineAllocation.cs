@@ -36,6 +36,12 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
     public IReadOnlyCollection<ReceiptAllocation> ReceiptAllocations => _allocations;
     public AppDateTime? LastUpdated { get; private set; }
 
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who last allocated a receipt to the line; set with
+    ///     <see cref="LastUpdated" />
+    /// </summary>
+    public Guid? UpdatedBy { get; private set; }
+
     public AllocationStatuses AllocationStatus
     {
         get
@@ -62,7 +68,8 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         return new OrderLineAllocation(orderLineId, skuId, quantityRequested, 0, quantityRequested);
     }
 
-    public void AllocateReceipt(SkuReceipt receipt, AppDateTime allocatedOn)
+    /// <param name="allocatedBy">The Entra object ID (<c>oid</c>) of the caller allocating the order</param>
+    public void AllocateReceipt(SkuReceipt receipt, AppDateTime allocatedOn, Guid allocatedBy)
     {
         if (receipt.SkuId != SkuId)
             throw new ArgumentException("Receipt sku must be the same as the line's sku",
@@ -80,14 +87,16 @@ internal sealed class OrderLineAllocation : Entity<EntityId>
         var allocation = new ReceiptAllocation(
             receipt.Id,
             Math.Min(QuantityShort, receipt.QuantityAvailable),
-            allocatedOn);
+            allocatedOn,
+            allocatedBy);
         _allocations.Add(allocation);
 
         QuantityAllocated += allocation.QuantityAllocated;
         QuantityShort = QuantityRequested - QuantityAllocated;
         LastUpdated = allocatedOn;
+        UpdatedBy = allocatedBy;
 
-        receipt.Allocate(allocation.QuantityAllocated, allocatedOn);
+        receipt.Allocate(allocation.QuantityAllocated, allocatedOn, allocatedBy);
     }
 
     public bool CanAllocateReceipt(SkuReceipt receipt)

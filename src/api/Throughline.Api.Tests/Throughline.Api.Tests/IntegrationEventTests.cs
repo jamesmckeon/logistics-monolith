@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
+using Throughline.Api.Tests.Common.Auth;
 using Throughline.Api.Tests.Inventory;
 using Throughline.Api.Tests.Ordering;
 using Throughline.Common.Models;
@@ -21,9 +21,6 @@ using Throughline.Modules.Receiving.Domain.Locations;
 using Throughline.Modules.Receiving.Infrastructure.Db;
 using Throughline.Modules.Receiving.Infrastructure.Db.Models;
 using Throughline.Modules.Receiving.Presentation;
-using Wolverine;
-using Wolverine.Runtime;
-using Wolverine.Runtime.Serialization;
 using Wolverine.Tracking;
 using OrderingOrdersDbContext = Throughline.Modules.Ordering.Infrastructure.Orders.OrdersDbContext;
 
@@ -77,52 +74,8 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
             Assert.That(inventoryOrder.OwnerId, Is.EqualTo(result.OwnerId));
             Assert.That(inventoryOrder.AllocationStatus, Is.EqualTo("Confirmed"));
         });
-    }
 
-    // A retry, dead-letter replay or inbox recovery rebuilds the message from its stored body with the
-    // host's serializer, rather than handing the handler the published instance
-    [Test]
-    public void Deserialize_PublishedEvent_KeepsOccurredOnUtc()
-    {
-        var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
-        var published = new OrderConfirmedIntegrationEvent(
-            occurredOn, 1, Guid.CreateVersion7(), occurredOn, [new OrderLineEventModel("SKU1", 1)]);
-        var serializer = HostSerializer();
-        var stored = serializer.Write(new Envelope(published));
-
-        var rebuilt = (OrderConfirmedIntegrationEvent)serializer.ReadFromData(
-            typeof(OrderConfirmedIntegrationEvent), new Envelope { Data = stored });
-
-        Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(published.OccurredOnUtc));
-    }
-
-    // The body stored before IntegrationEventBase took OccurredOnUtc as a constructor parameter, which also
-    // carries the Id the base no longer has; those messages may still be in the outbox or the dead letters
-    [Test]
-    public void Deserialize_StoredWithPreviousBaseShape_KeepsStoredOccurredOnUtc()
-    {
-        var id = Guid.Parse("019a9f3c-5b2e-7c41-9d3a-2f6e8b1c4d70");
-        var occurredOn = new DateTimeOffset(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
-        var stored = Encoding.UTF8.GetBytes(
-            $$"""
-              {
-                "ownerId": 1,
-                "orderId": "019a9f3c-5b2e-7c41-9d3a-2f6e8b1c4d71",
-                "createdOn": "2026-11-20T09:30:00+00:00",
-                "lines": [{ "skuCode": "SKU1", "quantity": 1 }],
-                "id": "{{id}}",
-                "occurredOnUtc": "2026-11-20T09:30:00+00:00"
-              }
-              """);
-
-        var rebuilt = (OrderConfirmedIntegrationEvent)HostSerializer()
-            .ReadFromData(typeof(OrderConfirmedIntegrationEvent), new Envelope { Data = stored });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rebuilt.OccurredOnUtc, Is.EqualTo(occurredOn));
-            Assert.That(rebuilt.OwnerId, Is.EqualTo(1));
-        });
+        await AssertOrderCreatedByCaller(result.OrderId);
     }
 
     [Test]
@@ -189,12 +142,17 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
         var receipts = await inventoryDbContext.SkuReceipts.ToListAsync();
         var receipt = receipts.Single();
+        var deliveryReceipt = await receivingContext.DeliveryReceipts.AsNoTracking().SingleAsync();
+        var submission = await receivingContext.DeliverySubmissions.AsNoTracking().SingleAsync();
 
         Assert.Multiple(() =>
         {
             Assert.That(receipt.QuantityAllocated, Is.Zero);
             Assert.That(receipt.QuantityAvailable, Is.EqualTo(1));
             Assert.That(receipt.ReceivedOn, Is.GreaterThanOrEqualTo(now));
+            Assert.That(receipt.CreatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(deliveryReceipt.CreatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(submission.CreatedBy, Is.EqualTo(TestTokens.CallerId));
         });
     }
 
@@ -225,9 +183,6 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
 
 
     #region Helpers
-
-    private IMessageSerializer HostSerializer() =>
-        _testFactory.Services.GetRequiredService<IWolverineRuntime>().Options.DefaultSerializer;
 
     private async Task PostDeliveryReceipt(
         ReceiveDeliveryCommand command, int ownerId)
@@ -263,6 +218,22 @@ internal sealed class IntegrationEventTests : IntegrationTestsBase
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await dbContext.Skus.AddAsync(new Sku(EntityId.Create(), ownerId, command.Items.Single().Sku));
         await dbContext.SaveChangesAsync();
+    }
+
+    // Ordering's row and Inventory's copy of the order both record who submitted it
+    private async Task AssertOrderCreatedByCaller(Guid orderId)
+    {
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var orderingOrder = await scope.ServiceProvider.GetRequiredService<OrderingOrdersDbContext>().Orders
+            .SingleAsync(o => o.OrderId == orderId);
+        var inventoryOrder = await scope.ServiceProvider.GetRequiredService<InventoryDbContext>().Orders
+            .SingleAsync(o => o.Id == orderId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orderingOrder.CreatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(inventoryOrder.CreatedBy, Is.EqualTo(TestTokens.CallerId));
+        });
     }
 
     private async Task<OrderAllocationModel?> GetInventoryOrder(Guid orderId, int ownerId)

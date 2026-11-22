@@ -22,8 +22,10 @@ internal sealed class CreateOrderHandler
         _logger = logger;
     }
 
+    /// <param name="callerId">The Entra object ID (<c>oid</c>) of the caller submitting the order</param>
     public async Task<Result<CreateOrderResult>> CreateOrderAsync(
         int ownerId,
+        Guid callerId,
         CreateOrderCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -78,12 +80,12 @@ internal sealed class CreateOrderHandler
             return new CreateOrderResult(false, existingOrder.Id.Value, ownerId, command.ReferenceNumber);
         }
 
-        var order = new Order(new OrderId(), ownerReference, contentResult.Value, AppDateTime.Now);
+        var order = new Order(new OrderId(), ownerReference, contentResult.Value, AppDateTime.Now, callerId);
         var orderConfirmed =
-            // the order is confirmed the moment it's accepted, so the event occurred at its created date
-            new OrderConfirmedIntegrationEvent(order.CreatedOn.Value, ownerId, order.Id.Value, order.CreatedOn.Value,
+            new OrderConfirmedIntegrationEvent(ownerId, order.Id.Value, order.CreatedOn.Value,
                 order.Content.OrderLines.Select(ol => new OrderLineEventModel(ol.SkuCode.Value, ol.Quantity)).ToList()
-                    .AsReadOnly());
+                    .AsReadOnly(),
+                callerId);
         var saveOrderResult = await _ordersRepository.SaveOrderAsync(order, orderConfirmed, cancellationToken);
 
         if (saveOrderResult.Created)

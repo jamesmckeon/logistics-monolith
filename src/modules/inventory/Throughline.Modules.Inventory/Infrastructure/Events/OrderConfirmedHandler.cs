@@ -67,7 +67,8 @@ public sealed class OrderConfirmedHandler
             // must have a value
             OrderAllocation.Create(
                 message.OwnerId, message.OrderId, new NonFutureDateTime(message.CreatedOn),
-                lineResults.Select(r => r.Value!));
+                lineResults.Select(r => r.Value!),
+                message.CreatedBy);
 
         if (!orderResult.Succeeded)
             throw Poison(message, logger, orderResult.Errors.Select(e => e.Description));
