@@ -33,6 +33,16 @@ public sealed class FailedResultResponseMapperTests
         Assert.That(actual.Value, Is.InstanceOf<ProblemDetails>());
     }
 
+    [Test]
+    public void ToFailureResponse_NotFoundError_ReturnsNotFound()
+    {
+        var result = Result<object>.NotFound("Test Error");
+
+        var actual = result.ToFailureResponse();
+
+        Assert.That(actual, Is.InstanceOf<NotFound<ProblemDetails>>());
+    }
+
     private static bool AreEqual(ProblemDetails x, ProblemDetails y)
     {
         return x.Type == y.Type && x.Title == y.Title && x.Status == y.Status && x.Detail == y.Detail &&

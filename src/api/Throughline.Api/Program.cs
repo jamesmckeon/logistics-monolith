@@ -10,6 +10,7 @@ using Throughline.Common.Events;
 using Throughline.Common.Presentation.Http;
 using Throughline.Modules.Inventory.Presentation;
 using Throughline.Modules.Ordering.Presentation;
+using Throughline.Modules.Platform.Presentation;
 using Throughline.Modules.Receiving.Presentation;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
@@ -99,6 +100,7 @@ builder.Services.AddScoped<IRequestContext, RequestContext>();
 builder.Services.AddOrdering(builder.Configuration);
 builder.Services.AddInventory(builder.Configuration);
 builder.Services.AddReceiving(builder.Configuration);
+builder.Services.AddPlatform(builder.Configuration);
 
 var app = builder.Build();
 
@@ -113,6 +115,7 @@ app.UseExceptionHandler();
 app.MapOrdering();
 app.MapInventory();
 app.MapReceiving();
+app.MapPlatform();
 app.MapThroughlineHealthChecks();
 
 app.Run();
