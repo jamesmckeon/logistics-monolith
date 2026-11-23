@@ -9,16 +9,18 @@ namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 [Category("Unit")]
 internal sealed class OrderAllocationTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     [Test]
     public void UnallocatedLines_HasUnallocated_ReturnsExpected()
     {
         var partialLine = CreateLine(2);
         var receipt = CreateReceipt(partialLine);
-        partialLine.AllocateReceipt(receipt, AppDateTime.Now);
+        partialLine.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var allocatedLine = CreateLine();
         var receiptTwo = CreateReceipt(allocatedLine);
-        allocatedLine.AllocateReceipt(receiptTwo, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(receiptTwo, AppDateTime.Now, CallerId);
 
         var confirmedLine = CreateLine();
         var order = CreateOrder(partialLine, confirmedLine, allocatedLine);
@@ -31,7 +33,7 @@ internal sealed class OrderAllocationTests
     {
         var allocatedLine = CreateLine();
         var receipt = CreateReceipt(allocatedLine);
-        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(allocatedLine);
 
@@ -43,7 +45,7 @@ internal sealed class OrderAllocationTests
     [Test]
     public void Create_EmptyLines_ReturnsValidationFailure()
     {
-        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, []);
+        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -60,7 +62,7 @@ internal sealed class OrderAllocationTests
         var lineOne = CreateLine();
         var duplicate = CreateLine(lineOne.SkuId, 2);
 
-        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [lineOne, duplicate]);
+        var actual = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [lineOne, duplicate], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -79,7 +81,7 @@ internal sealed class OrderAllocationTests
         var ownerId = 99;
         var orderId = Guid.CreateVersion7();
 
-        var actual = OrderAllocation.Create(ownerId, orderId, AppDateTime.Now, [line]);
+        var actual = OrderAllocation.Create(ownerId, orderId, AppDateTime.Now, [line], CallerId);
 
         Assert.That(actual.Value, Is.Not.Null);
 
@@ -89,6 +91,8 @@ internal sealed class OrderAllocationTests
             Assert.That(actual.Value.Id, Is.EqualTo(orderId));
             Assert.That(actual.Value.OwnerId, Is.EqualTo(ownerId));
             Assert.That(actual.Value.OrderLines, Is.EquivalentTo([line]));
+            Assert.That(actual.Value.CreatedBy, Is.EqualTo(CallerId));
+            Assert.That(actual.Value.UpdatedBy, Is.Null);
         });
     }
 
@@ -97,7 +101,7 @@ internal sealed class OrderAllocationTests
     {
         var orderCreatedOn = new NonFutureDateTime(new DateTimeOffset(2026, 10, 1, 14, 30, 0, TimeSpan.Zero));
 
-        var actual = OrderAllocation.Create(1, Guid.CreateVersion7(), orderCreatedOn, [CreateLine()]);
+        var actual = OrderAllocation.Create(1, Guid.CreateVersion7(), orderCreatedOn, [CreateLine()], CallerId);
 
         Assert.That(actual.Value?.OrderCreatedOn, Is.EqualTo(orderCreatedOn));
     }
@@ -114,12 +118,13 @@ internal sealed class OrderAllocationTests
         Assert.That(order.Allocating, Is.False);
 
         var lastUpdated = AppDateTime.Now;
-        order.StartAllocating(lastUpdated);
+        order.StartAllocating(lastUpdated, CallerId);
 
         Assert.Multiple(() =>
         {
             Assert.That(order.Allocating, Is.True);
             Assert.That(order.LastUpdated, Is.EqualTo(lastUpdated));
+            Assert.That(order.UpdatedBy, Is.EqualTo(CallerId));
         });
     }
 
@@ -129,14 +134,18 @@ internal sealed class OrderAllocationTests
         var order = CreateOrder(CreateLine());
 
         var lastUpdated = AppDateTime.Now;
-        order.StartAllocating(lastUpdated);
+        order.StartAllocating(lastUpdated, CallerId);
 
         Assert.That(order.Allocating, Is.True);
 
         var newUpdated = lastUpdated.Add(new(0, 0, 1));
-        order.StartAllocating(newUpdated);
+        order.StartAllocating(newUpdated, Guid.CreateVersion7());
 
-        Assert.That(order.LastUpdated, Is.EqualTo(lastUpdated));
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.LastUpdated, Is.EqualTo(lastUpdated));
+            Assert.That(order.UpdatedBy, Is.EqualTo(CallerId));
+        });
     }
 
     #endregion
@@ -148,15 +157,16 @@ internal sealed class OrderAllocationTests
     {
         var order = CreateOrder(CreateLine());
         var started = AppDateTime.Now.Subtract(new(1, 0, 0));
-        order.StartAllocating(started);
+        order.StartAllocating(started, Guid.CreateVersion7());
 
         var stopped = AppDateTime.Now;
-        order.StopAllocating(stopped);
+        order.StopAllocating(stopped, CallerId);
 
         Assert.Multiple(() =>
         {
             Assert.That(order.Allocating, Is.False);
             Assert.That(order.LastUpdated, Is.EqualTo(stopped));
+            Assert.That(order.UpdatedBy, Is.EqualTo(CallerId));
         });
     }
 
@@ -168,9 +178,13 @@ internal sealed class OrderAllocationTests
         Assert.That(order.Allocating, Is.False);
 
         var lastUpdated = AppDateTime.Now;
-        order.StopAllocating(lastUpdated);
+        order.StopAllocating(lastUpdated, CallerId);
 
-        Assert.That(order.LastUpdated, Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.LastUpdated, Is.Null);
+            Assert.That(order.UpdatedBy, Is.Null);
+        });
     }
 
     #endregion
@@ -192,7 +206,7 @@ internal sealed class OrderAllocationTests
         var line = CreateLine();
         var partialLine = CreateLine(2);
         var receipt = CreateReceipt(partialLine);
-        partialLine.AllocateReceipt(receipt, AppDateTime.Now);
+        partialLine.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(line, partialLine);
 
@@ -204,11 +218,11 @@ internal sealed class OrderAllocationTests
     {
         var allocatedLine = CreateLine();
         var receipt = CreateReceipt(allocatedLine);
-        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var partialLine = CreateLine(2);
         var receiptTwo = CreateReceipt(partialLine);
-        partialLine.AllocateReceipt(receiptTwo, AppDateTime.Now);
+        partialLine.AllocateReceipt(receiptTwo, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(allocatedLine, partialLine);
 
@@ -220,7 +234,7 @@ internal sealed class OrderAllocationTests
     {
         var line = CreateLine();
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(line);
 
@@ -246,13 +260,13 @@ internal sealed class OrderAllocationTests
 
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines)
+        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines, CallerId)
             .Value!;
     }
 
     private static SkuReceipt CreateReceipt(OrderLineAllocation line, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), line.SkuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), line.SkuId, quantityReceived, AppDateTime.Now, CallerId)
             .Value!;
     }
 

@@ -12,7 +12,8 @@ internal sealed class SkuReceipt : Entity<EntityId>
         int quantityReceived,
         int quantityAllocated,
         AppDateTime receivedOn,
-        int quantityAvailable)
+        int quantityAvailable,
+        Guid? createdBy)
         : base(id)
     {
         SkuId = skuId;
@@ -20,6 +21,7 @@ internal sealed class SkuReceipt : Entity<EntityId>
         QuantityAllocated = quantityAllocated;
         ReceivedOn = receivedOn;
         QuantityAvailable = quantityAvailable;
+        CreatedBy = createdBy;
     }
 
     public EntityId SkuId { get; }
@@ -29,8 +31,21 @@ internal sealed class SkuReceipt : Entity<EntityId>
     public AppDateTime? LastUpdated { get; private set; }
     public int QuantityAvailable { get; private set; }
 
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who received the delivery. Null for receipts created
+    ///     before it was recorded, and for messages stored before events carried it.
+    /// </summary>
+    public Guid? CreatedBy { get; }
+
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who last allocated from the receipt; set with
+    ///     <see cref="LastUpdated" />
+    /// </summary>
+    public Guid? UpdatedBy { get; private set; }
+
+    /// <param name="createdBy">The Entra object ID (<c>oid</c>) of the caller who received the delivery</param>
     public static Result<SkuReceipt> Create(
-        EntityId id, EntityId skuId, int quantityReceived, AppDateTime receivedOn)
+        EntityId id, EntityId skuId, int quantityReceived, AppDateTime receivedOn, Guid? createdBy)
     {
         if (quantityReceived <= 0)
             return Result<SkuReceipt>.Validation("quantityReceived must be greater than zero");
@@ -38,10 +53,11 @@ internal sealed class SkuReceipt : Entity<EntityId>
         if (receivedOn > AppDateTime.Now)
             return Result<SkuReceipt>.Validation("receivedOn must be in the past");
 
-        return new SkuReceipt(id, skuId, quantityReceived, 0, receivedOn, quantityReceived);
+        return new SkuReceipt(id, skuId, quantityReceived, 0, receivedOn, quantityReceived, createdBy);
     }
 
-    public void Allocate(int quantity, AppDateTime allocatedOn)
+    /// <param name="allocatedBy">The Entra object ID (<c>oid</c>) of the caller allocating the order</param>
+    public void Allocate(int quantity, AppDateTime allocatedOn, Guid allocatedBy)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(quantity, 0);
 
@@ -57,5 +73,6 @@ internal sealed class SkuReceipt : Entity<EntityId>
         QuantityAllocated += quantity;
         QuantityAvailable -= quantity;
         LastUpdated = allocatedOn;
+        UpdatedBy = allocatedBy;
     }
 }

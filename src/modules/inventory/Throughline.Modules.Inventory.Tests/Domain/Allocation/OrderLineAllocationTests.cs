@@ -9,12 +9,14 @@ namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 [Category("Unit")]
 internal sealed class OrderLineAllocationTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     [Test]
     public void IsAllocatable_NotFullyAllocated_ReturnsTrue()
     {
         var line = CreateLine(2);
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(line.IsAllocatable, Is.True);
     }
@@ -24,7 +26,7 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(2);
         var receipt = CreateReceipt(line, 2);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(line.IsAllocatable, Is.False);
     }
@@ -35,7 +37,7 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(3);
         var receipt = CreateReceipt(line, quantityAllocated);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(line.QuantityShort, Is.EqualTo(expected));
     }
@@ -55,7 +57,7 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(1);
         var firstReceipt = CreateReceipt(line);
-        line.AllocateReceipt(firstReceipt, AppDateTime.Now);
+        line.AllocateReceipt(firstReceipt, AppDateTime.Now, CallerId);
 
         var secondReceipt = CreateReceipt(line);
         Assert.That(line.CanAllocateReceipt(secondReceipt), Is.False);
@@ -67,7 +69,7 @@ internal sealed class OrderLineAllocationTests
         var line = CreateLine(1);
 
         var receipt = CreateReceipt(line);
-        receipt.Allocate(1, AppDateTime.Now);
+        receipt.Allocate(1, AppDateTime.Now, CallerId);
 
         Assert.That(line.CanAllocateReceipt(receipt), Is.False);
     }
@@ -90,7 +92,7 @@ internal sealed class OrderLineAllocationTests
         var line = CreateLine(1);
         var receipt = CreateReceipt(EntityId.Create());
 
-        var ex = Assert.Throws<ArgumentException>(() => line.AllocateReceipt(receipt, AppDateTime.Now));
+        var ex = Assert.Throws<ArgumentException>(() => line.AllocateReceipt(receipt, AppDateTime.Now, CallerId));
 
         Assert.Multiple(() =>
         {
@@ -106,7 +108,7 @@ internal sealed class OrderLineAllocationTests
         var receipt = CreateReceipt(line);
 
         var now = AppDateTime.Now.Add(new(0, 0, 0, 1));
-        var ex = Assert.Throws<ArgumentException>(() => line.AllocateReceipt(receipt, now));
+        var ex = Assert.Throws<ArgumentException>(() => line.AllocateReceipt(receipt, now, CallerId));
 
         Assert.Multiple(() =>
         {
@@ -120,12 +122,12 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(1);
         var firstReceipt = CreateReceipt(line);
-        line.AllocateReceipt(firstReceipt, AppDateTime.Now);
+        line.AllocateReceipt(firstReceipt, AppDateTime.Now, CallerId);
 
         var secondReceipt = CreateReceipt(line);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            line.AllocateReceipt(secondReceipt, AppDateTime.Now));
+            line.AllocateReceipt(secondReceipt, AppDateTime.Now, CallerId));
 
         Assert.That(ex.Message, Is.EqualTo("Cannot add a receipt to a fully allocated line"));
     }
@@ -136,10 +138,10 @@ internal sealed class OrderLineAllocationTests
         var line = CreateLine(1);
 
         var receipt = CreateReceipt(line);
-        receipt.Allocate(1, AppDateTime.Now);
+        receipt.Allocate(1, AppDateTime.Now, CallerId);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            line.AllocateReceipt(receipt, AppDateTime.Now));
+            line.AllocateReceipt(receipt, AppDateTime.Now, CallerId));
 
 
         Assert.That(ex.Message, Is.EqualTo("Cannot allocate a fully allocated receipt"));
@@ -156,16 +158,19 @@ internal sealed class OrderLineAllocationTests
         var receipt = CreateReceipt(line, quantityReceived);
 
         var now = AppDateTime.Now;
-        line.AllocateReceipt(receipt, now);
+        line.AllocateReceipt(receipt, now, CallerId);
 
         var allocatedReceipt = line.ReceiptAllocations.Single();
         Assert.Multiple(() =>
         {
             Assert.That(line.QuantityAllocated, Is.EqualTo(expectedAllocated));
             Assert.That(line.LastUpdated, Is.EqualTo(now));
+            Assert.That(line.UpdatedBy, Is.EqualTo(CallerId));
             Assert.That(allocatedReceipt.QuantityAllocated, Is.EqualTo(expectedAllocated));
             Assert.That(allocatedReceipt.AllocatedOn, Is.EqualTo(now));
             Assert.That(allocatedReceipt.SkuReceiptId, Is.EqualTo(receipt.Id));
+            Assert.That(allocatedReceipt.CreatedBy, Is.EqualTo(CallerId));
+            Assert.That(receipt.UpdatedBy, Is.EqualTo(CallerId));
         });
     }
 
@@ -228,7 +233,7 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(2);
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.PartiallyAllocated));
     }
@@ -238,7 +243,7 @@ internal sealed class OrderLineAllocationTests
     {
         var line = CreateLine(2);
         var receipt = CreateReceipt(line, 2);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(line.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
     }
@@ -256,13 +261,13 @@ internal sealed class OrderLineAllocationTests
 
     private static SkuReceipt CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now, CallerId)
             .Value!;
     }
 
     private static SkuReceipt CreateReceipt(EntityId skuId, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now, CallerId)
             .Value!;
     }
 

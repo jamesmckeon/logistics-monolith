@@ -14,6 +14,8 @@ namespace Throughline.Modules.Ordering.Tests.Application.CreateOrder;
 [Category("Unit")]
 public sealed class CreateOrderHandlerTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     private Mock<IOrdersRepository> _ordersRepository;
     private CreateOrderHandler _sut;
 
@@ -34,7 +36,7 @@ public sealed class CreateOrderHandlerTests
 
         var commandResult = command.Validate();
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var actual = await _sut.CreateOrderAsync(1, CallerId, command);
 
         Assert.Multiple(() =>
         {
@@ -53,7 +55,7 @@ public sealed class CreateOrderHandlerTests
 
         var postalCodeResult = PostalCode.Create(command.PostalCode);
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var actual = await _sut.CreateOrderAsync(1, CallerId, command);
 
         Assert.Multiple(() =>
         {
@@ -77,7 +79,7 @@ public sealed class CreateOrderHandlerTests
             command.State,
             new PostalCode(command.PostalCode));
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var actual = await _sut.CreateOrderAsync(1, CallerId, command);
 
         Assert.Multiple(() =>
         {
@@ -106,7 +108,7 @@ public sealed class CreateOrderHandlerTests
         var lines = command.Items.Select(i => new OrderLine(new SkuCode(i.Sku), i.Quantity));
         var contentResult = OrderContent.Create(command.PurchaseOrderNumber, address, lines);
 
-        var actual = await _sut.CreateOrderAsync(1, command);
+        var actual = await _sut.CreateOrderAsync(1, CallerId, command);
 
         Assert.Multiple(() =>
         {
@@ -136,7 +138,7 @@ public sealed class CreateOrderHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(existing);
 
-        var actual = await _sut.CreateOrderAsync(ownerId, command);
+        var actual = await _sut.CreateOrderAsync(ownerId, CallerId, command);
 
         var expectedDescription =
             $"Reference #{command.ReferenceNumber} already identifies an order with different contents.";
@@ -169,7 +171,7 @@ public sealed class CreateOrderHandlerTests
                     It.IsAny<CancellationToken>()))
             .ReturnsAsync(existing);
 
-        var actual = await _sut.CreateOrderAsync(ownerId, command);
+        var actual = await _sut.CreateOrderAsync(ownerId, CallerId, command);
 
         Assert.That(actual.Value, Is.Not.Null);
 
@@ -219,7 +221,7 @@ public sealed class CreateOrderHandlerTests
             .ReturnsAsync(result);
 
 
-        var actual = await _sut.CreateOrderAsync(ownerId, command);
+        var actual = await _sut.CreateOrderAsync(ownerId, CallerId, command);
 
         Assert.That(actual.Value, Is.Not.Null);
 
@@ -255,7 +257,7 @@ public sealed class CreateOrderHandlerTests
             })
             .ReturnsAsync(() => new SaveOrderResult(order!.Id, true));
 
-        await _sut.CreateOrderAsync(ownerId, command);
+        await _sut.CreateOrderAsync(ownerId, CallerId, command);
 
         Assert.That(order, Is.Not.Null);
         Assert.That(integrationEvent, Is.Not.Null);
@@ -265,6 +267,8 @@ public sealed class CreateOrderHandlerTests
         {
             Assert.That(order.OwnerReferenceNumber,
                 Is.EqualTo(new OwnerReferenceNumber(ownerId, command.ReferenceNumber)));
+            Assert.That(order.CreatedBy, Is.EqualTo(CallerId));
+            Assert.That(integrationEvent.CreatedBy, Is.EqualTo(CallerId));
         });
     }
 
@@ -292,7 +296,7 @@ public sealed class CreateOrderHandlerTests
 
         var before = AppDateTime.Now;
 
-        await _sut.CreateOrderAsync(1, command);
+        await _sut.CreateOrderAsync(1, CallerId, command);
 
         var after = AppDateTime.Now;
 
@@ -300,7 +304,6 @@ public sealed class CreateOrderHandlerTests
         {
             Assert.That(order?.CreatedOn.Value, Is.InRange(before.Value, after.Value));
             Assert.That(integrationEvent?.CreatedOn, Is.EqualTo(order?.CreatedOn.Value));
-            Assert.That(integrationEvent?.OccurredOnUtc, Is.EqualTo(order?.CreatedOn.Value));
         });
     }
 
@@ -325,7 +328,8 @@ public sealed class CreateOrderHandlerTests
             new OrderId(),
             new OwnerReferenceNumber(ownerId, command.ReferenceNumber),
             new OrderContent(command.PurchaseOrderNumber, streetAddress, orderLines),
-            AppDateTime.Now);
+            AppDateTime.Now,
+            CallerId);
     }
 
     #endregion

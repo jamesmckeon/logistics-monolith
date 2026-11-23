@@ -18,4 +18,7 @@ internal sealed class OrderRecord
 
     // When Throughline accepted the order (Order.CreatedOn); the database default is only a backstop
     public DateTimeOffset CreatedDate { get; set; }
+
+    // Who submitted the order (Order.CreatedBy); null for orders accepted before it was recorded
+    public Guid? CreatedBy { get; set; }
 }

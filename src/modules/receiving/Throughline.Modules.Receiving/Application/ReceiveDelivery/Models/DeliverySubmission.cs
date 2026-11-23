@@ -9,12 +9,14 @@ namespace Throughline.Modules.Receiving.Application.ReceiveDelivery.Models;
 /// </summary>
 internal sealed class DeliverySubmission
 {
-    private DeliverySubmission(Guid deliveryId, int ownerId, string request, ReceiveDeliveryResult result)
+    private DeliverySubmission(
+        Guid deliveryId, int ownerId, string request, ReceiveDeliveryResult result, Guid? createdBy)
     {
         DeliveryId = deliveryId;
         OwnerId = ownerId;
         Request = request;
         Result = result;
+        CreatedBy = createdBy;
     }
 
     /// <summary>
@@ -34,8 +36,14 @@ internal sealed class DeliverySubmission
     /// </summary>
     public ReceiveDeliveryResult Result { get; }
 
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who submitted it; null only for submissions made before
+    ///     it was recorded
+    /// </summary>
+    public Guid? CreatedBy { get; }
+
     public static DeliverySubmission FromCommandResult(
-        int ownerId, ReceiveDeliveryCommand command, ReceiveDeliveryResult result)
+        int ownerId, ReceiveDeliveryCommand command, ReceiveDeliveryResult result, Guid createdBy)
     {
         if (!command.Validate().Succeeded)
         {
@@ -47,7 +55,8 @@ internal sealed class DeliverySubmission
             command.ReceiptId,
             ownerId,
             NormalizeRequest(command),
-            result);
+            result,
+            createdBy);
     }
 
     public static string NormalizeRequest(ReceiveDeliveryCommand command) =>

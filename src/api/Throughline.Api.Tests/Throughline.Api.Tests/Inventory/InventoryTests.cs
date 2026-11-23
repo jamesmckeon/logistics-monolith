@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Throughline.Api.Tests.Common;
+using Throughline.Api.Tests.Common.Auth;
 using Throughline.Common.Models;
 using Throughline.Common.Presentation.Auth;
 using Throughline.Modules.Inventory.Application.AllocateOrders;
@@ -69,7 +70,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var orderId = Guid.NewGuid();
         var orderLine = new OrderLineEventModel(sku.Code, 0);
         var orderAllocatedEvent = new OrderConfirmedIntegrationEvent(
-            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [orderLine]);
+            1, orderId, AppDateTime.Now.Value, [orderLine], TestTokens.CallerId);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -89,7 +90,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         // dont setup any skus in Inventory
         var orderId = Guid.NewGuid();
         var orderConfirmedEvent = new OrderConfirmedIntegrationEvent(
-            AppDateTime.Now.Value, 1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)]);
+            1, orderId, AppDateTime.Now.Value, [new OrderLineEventModel("TEST", 1)], TestTokens.CallerId);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -125,7 +126,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var receiptId = Guid.NewGuid();
         var palletsEvent = new AllocatablePalletsIntegrationEvent(
             1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
-            [new AllocatablePalletModel("TESTLPN", sku.Code, 0, "BULK-01")]);
+            [new AllocatablePalletModel("TESTLPN", sku.Code, 0, "BULK-01")], TestTokens.CallerId);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -146,7 +147,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
         var receiptId = Guid.NewGuid();
         var palletsEvent = new AllocatablePalletsIntegrationEvent(
             1, receiptId, "R-TEST", DateTimeOffset.UtcNow.AddMinutes(-1),
-            [new AllocatablePalletModel("TESTLPN", "TESTSKU", 0, "BULK-01")]);
+            [new AllocatablePalletModel("TESTLPN", "TESTSKU", 0, "BULK-01")], TestTokens.CallerId);
 
         var session = await _testFactory.Services.TrackActivity()
             .DoNotAssertOnExceptionsDetected()
@@ -242,7 +243,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     {
         var orderId = Guid.CreateVersion7();
         var order = CreateOrder(PartialAllocationOwner, orderId, CreateLine(TestSkus.First()));
-        order.StartAllocating(AppDateTime.Now);
+        order.StartAllocating(AppDateTime.Now, TestTokens.CallerId);
 
         await using var scope = _testFactory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
@@ -369,6 +370,35 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
     }
 
     [Test]
+    public async Task Post_OrderAllocated_RecordsCallerAsUpdater()
+    {
+        var orderId = Guid.CreateVersion7();
+        var sku = TestSkus.First();
+        var order = CreateOrder(PartialAllocationOwner, orderId, CreateLine(sku, 1));
+        var receipt = CreateSkuReceipt(sku.Id, 1);
+        await SeedOrdersAndReceiptsAsync([receipt], order);
+
+        var response = await PostOrderAllocationsAsync(
+            new AllocateOrdersCommand([orderId]),
+            PartialAllocationOwner.Id);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        await using var scope = _testFactory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        var savedOrder = await dbContext.Orders.SingleAsync(o => o.Id == orderId);
+        var savedLine = savedOrder.OrderLines.Single();
+        var savedReceipt = await dbContext.SkuReceipts.SingleAsync(r => r.Id == receipt.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(savedOrder.UpdatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(savedLine.UpdatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(savedLine.ReceiptAllocations.Single().CreatedBy, Is.EqualTo(TestTokens.CallerId));
+            Assert.That(savedReceipt.UpdatedBy, Is.EqualTo(TestTokens.CallerId));
+        });
+    }
+
+    [Test]
     public async Task Post_MultipleOrdersCompeteForStock_AllocatesInRequestedOrder()
     {
         var sku = TestSkus.First();
@@ -488,11 +518,11 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
         var allocatedLine = CreateLine(sku);
         var receipt = CreateSkuReceipt(sku.Id, 1);
-        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(receipt, AppDateTime.Now, TestTokens.CallerId);
         var allocated = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), allocatedLine);
 
         var allocating = CreateOrder(PartialAllocationOwner, Guid.CreateVersion7(), CreateLine(sku));
-        allocating.StartAllocating(AppDateTime.Now);
+        allocating.StartAllocating(AppDateTime.Now, TestTokens.CallerId);
 
         var otherOwners = CreateOrder(ShipCompleteOwner, Guid.CreateVersion7(), CreateLine(sku));
 
@@ -544,7 +574,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
     private static OrderAllocation CreateOrder(
         Owner owner, Guid orderId, NonFutureDateTime createdOn, params OrderLineAllocation[] lines) =>
-        OrderAllocation.Create(owner.Id, orderId, createdOn, lines).Value
+        OrderAllocation.Create(owner.Id, orderId, createdOn, lines, TestTokens.CallerId).Value
         ?? throw new InvalidOperationException("test order could not be created");
 
     private const string UnreleasedList = "unreleased";
@@ -602,7 +632,7 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
 
 
     private static OrderAllocation CreateOrder(Owner owner, Guid orderId, params OrderLineAllocation[] lines) =>
-        OrderAllocation.Create(owner.Id, orderId, AppDateTime.Now, lines)
+        OrderAllocation.Create(owner.Id, orderId, AppDateTime.Now, lines, TestTokens.CallerId)
             .Value!;
 
     private static OrderLineAllocation CreateLine(Sku sku, int quantityRequested = 1) =>
@@ -610,11 +640,11 @@ internal sealed class InventoryTests : IntegrationTestsBase<InventoryDbContext>
             .Value!;
 
     private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived) =>
-        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now)
+        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, AppDateTime.Now, TestTokens.CallerId)
             .Value!;
 
     private static SkuReceipt CreateSkuReceipt(EntityId skudId, int quantityReceived, AppDateTime receivedOn) =>
-        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn)
+        SkuReceipt.Create(EntityId.Create(), skudId, quantityReceived, receivedOn, TestTokens.CallerId)
             .Value!;
 
     private static Task<AllocationError[]?> GetBadRequestErrors(HttpResponseMessage message) =>

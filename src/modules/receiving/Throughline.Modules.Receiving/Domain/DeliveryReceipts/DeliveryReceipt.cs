@@ -29,8 +29,9 @@ internal sealed class DeliveryReceipt : Entity<UniqueId>
         Shipment shipment,
         IEnumerable<Pallet> receivedPallets,
         IEnumerable<InvalidPallet> invalidPallets,
-        NonFutureDateTime createdOn) :
-        this(receiptId, receiptNumber, ownerId, operatorId, receivedOn, createdOn)
+        NonFutureDateTime createdOn,
+        Guid createdBy) :
+        this(receiptId, receiptNumber, ownerId, operatorId, receivedOn, createdOn, createdBy)
     {
         var received = receivedPallets.ToArray();
         var invalid = invalidPallets.ToArray();
@@ -74,13 +75,15 @@ internal sealed class DeliveryReceipt : Entity<UniqueId>
         int ownerId,
         UniqueId operatorId,
         NonFutureDateTime receivedOn,
-        NonFutureDateTime createdOn) : base(id)
+        NonFutureDateTime createdOn,
+        Guid? createdBy) : base(id)
     {
         ReceiptNumber = receiptNumber;
         OwnerId = ownerId;
         OperatorId = operatorId;
         ReceivedOn = receivedOn;
         CreatedOn = createdOn;
+        CreatedBy = createdBy;
         _pallets = [];
         _invalidPallets = [];
     }
@@ -103,4 +106,10 @@ internal sealed class DeliveryReceipt : Entity<UniqueId>
 
     public NonFutureDateTime ReceivedOn { get; }
     public NonFutureDateTime CreatedOn { get; }
+
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who submitted the receipt, which isn't necessarily
+    ///     <see cref="OperatorId" />. Null only for receipts created before it was recorded.
+    /// </summary>
+    public Guid? CreatedBy { get; }
 }

@@ -8,6 +8,8 @@ namespace Throughline.Modules.Inventory.Tests.Domain.Allocation;
 [Category("Unit")]
 internal sealed class AllocationServiceTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     private AllocationService _sut { get; set; }
 
     [SetUp]
@@ -26,7 +28,7 @@ internal sealed class AllocationServiceTests
         var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(2, 0, 0)));
         var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(1, 0, 0)), 2);
 
-        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -49,7 +51,7 @@ internal sealed class AllocationServiceTests
         var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(0, 0, 0, 1)), 2);
         var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now, 2);
 
-        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -71,7 +73,7 @@ internal sealed class AllocationServiceTests
         var receiptOne = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(2, 0, 0)));
         var receiptTwo = CreateReceipt(line.SkuId, AppDateTime.Now.Subtract(new(1, 0, 0)), 2);
 
-        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo]);
+        _sut.AllocateOrderLine(orderId, line, [receiptOne, receiptTwo], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -90,7 +92,7 @@ internal sealed class AllocationServiceTests
         // a receipt for a different sku, e.g. another line on the same order
         var otherSkuReceipt = CreateReceipt(EntityId.Create(), 5);
 
-        _sut.AllocateOrderLine(orderId, line, [otherSkuReceipt]);
+        _sut.AllocateOrderLine(orderId, line, [otherSkuReceipt], CallerId);
 
         Assert.Multiple(() =>
         {
@@ -110,7 +112,7 @@ internal sealed class AllocationServiceTests
     {
         var line = CreateLine();
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(line);
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
@@ -207,7 +209,7 @@ internal sealed class AllocationServiceTests
         var line = CreateLine();
         var order = CreateOrder(line);
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         var actual = _sut.GetShortedSkus(order, [CreateReceipt(line.SkuId)]);
 
@@ -222,7 +224,7 @@ internal sealed class AllocationServiceTests
         // create one allocated line - this shouldn't be returned
         var allocatedLine = CreateLine();
         var allocatedReceipt = CreateReceipt(allocatedLine);
-        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(shortedLine, allocatedLine);
 
@@ -243,7 +245,7 @@ internal sealed class AllocationServiceTests
         // create one allocated line - this shouldn't be returned
         var allocatedLine = CreateLine();
         var allocatedReceipt = CreateReceipt(allocatedLine);
-        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now);
+        allocatedLine.AllocateReceipt(allocatedReceipt, AppDateTime.Now, CallerId);
 
         var order = CreateOrder(shortedLine, allocatedLine);
 
@@ -269,10 +271,10 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line], CallerId)
             .Value!;
         // receipt with a different sku id than on the order line
-        var skuReceipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now)
+        var skuReceipt = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1, AppDateTime.Now, CallerId)
             .Value!;
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
@@ -287,7 +289,7 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 2)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line], CallerId)
             .Value!;
 
         // allocate the quantity that could potentially be used to complete the first order
@@ -296,7 +298,7 @@ internal sealed class AllocationServiceTests
         var otherLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
         var skuReceipt = CreateReceipt(otherLine, 2);
-        otherLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
+        otherLine.AllocateReceipt(skuReceipt, AppDateTime.Now, CallerId);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
 
@@ -314,7 +316,7 @@ internal sealed class AllocationServiceTests
     {
         var line = CreateLine();
         var lineTwo = CreateLine();
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line, lineTwo])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line, lineTwo], CallerId)
             .Value!;
 
         // create a receipt for the sku on line, but not one for the sku
@@ -333,20 +335,20 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line], CallerId)
             .Value!;
-        var skuReceipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now)
+        var skuReceipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, 2, AppDateTime.Now, CallerId)
             .Value!;
 
         // partially allocate receipt to another order to ensure SUT uses receipt's allocatable
         // quantity
         var otherLine = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var otherOrder = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [otherLine])
+        var otherOrder = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [otherLine], CallerId)
             .Value!;
         var otherReceipt = CreateReceipt(otherLine);
 
-        otherLine.AllocateReceipt(otherReceipt, AppDateTime.Now);
+        otherLine.AllocateReceipt(otherReceipt, AppDateTime.Now, CallerId);
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [skuReceipt], policy);
 
@@ -359,11 +361,11 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 3)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line], CallerId)
             .Value!;
-        var receiptOne = SkuReceipt.Create(EntityId.Create(), line.SkuId, 1, AppDateTime.Now)
+        var receiptOne = SkuReceipt.Create(EntityId.Create(), line.SkuId, 1, AppDateTime.Now, CallerId)
             .Value!;
-        var receiptTwo = SkuReceipt.Create(EntityId.Create(), line.SkuId, 3, AppDateTime.Now)
+        var receiptTwo = SkuReceipt.Create(EntityId.Create(), line.SkuId, 3, AppDateTime.Now, CallerId)
             .Value!;
 
         var actual = _sut.CanSatisfyPolicyWithCurrentReceipts(order, [receiptOne, receiptTwo], policy);
@@ -377,10 +379,10 @@ internal sealed class AllocationServiceTests
     {
         var line = OrderLineAllocation.Create(EntityId.Create(), EntityId.Create(), 1)
             .Value!;
-        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line])
+        var order = OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, [line], CallerId)
             .Value!;
         var receipt = CreateReceipt(line);
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
 
         Assert.That(order.AllocationStatus, Is.EqualTo(AllocationStatuses.Allocated));
 
@@ -395,19 +397,19 @@ internal sealed class AllocationServiceTests
 
     private static SkuReceipt CreateReceipt(EntityId skuId, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, AppDateTime.Now, CallerId)
             .Value!;
     }
 
     private static SkuReceipt CreateReceipt(EntityId skuId, AppDateTime receivedOn, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, receivedOn)
+        return SkuReceipt.Create(EntityId.Create(), skuId, quantityReceived, receivedOn, CallerId)
             .Value!;
     }
 
     private static SkuReceipt CreateReceipt(OrderLineAllocation orderLine, int quantityReceived = 1)
     {
-        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now)
+        return SkuReceipt.Create(EntityId.Create(), orderLine.SkuId, quantityReceived, AppDateTime.Now, CallerId)
             .Value!;
     }
 
@@ -420,7 +422,7 @@ internal sealed class AllocationServiceTests
 
     private static OrderAllocation CreateOrder(params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines).Value!;
+        return OrderAllocation.Create(1, Guid.Empty, AppDateTime.Now, lines, CallerId).Value!;
     }
 
     #endregion

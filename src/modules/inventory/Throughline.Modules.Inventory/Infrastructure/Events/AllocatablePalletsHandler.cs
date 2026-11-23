@@ -51,7 +51,7 @@ public sealed class AllocatablePalletsHandler
         {
             var sku = validSkus.First(f => f.Code == pallet.SkuCode);
             var receiptResult = SkuReceipt.Create(
-                EntityId.Create(), sku.Id, pallet.Quantity, new AppDateTime(message.ReceivedOn));
+                EntityId.Create(), sku.Id, pallet.Quantity, new AppDateTime(message.ReceivedOn), message.CreatedBy);
 
             if (receiptResult.Succeeded)
             {

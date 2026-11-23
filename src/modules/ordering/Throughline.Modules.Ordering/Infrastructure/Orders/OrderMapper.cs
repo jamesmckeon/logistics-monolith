@@ -22,6 +22,7 @@ internal static class OrderMapper
             State = order.Content.Destination.State,
             Zipcode = order.Content.Destination.ZipCode.Value,
             CreatedDate = order.CreatedOn.Value,
+            CreatedBy = order.CreatedBy,
             OrderLines = order.Content.OrderLines
                 .Select(l => new OrderLineRecord
                 {
@@ -51,6 +52,7 @@ internal static class OrderMapper
             new OrderId(record.OrderId),
             new OwnerReferenceNumber(record.OwnerId, record.ReferenceNumber),
             new OrderContent(record.PurchaseOrderNumber, destination, orderLines),
-            new NonFutureDateTime(record.CreatedDate));
+            new NonFutureDateTime(record.CreatedDate),
+            record.CreatedBy);
     }
 }

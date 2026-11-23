@@ -16,7 +16,8 @@ internal sealed class OrderAllocation : Entity<Guid>
         Guid orderId,
         NonFutureDateTime orderCreatedOn,
         IEnumerable<OrderLineAllocation> orderLines,
-        bool allocating)
+        bool allocating,
+        Guid? createdBy)
         : base(orderId)
     {
         ArgumentNullException.ThrowIfNull(orderCreatedOn);
@@ -26,17 +27,19 @@ internal sealed class OrderAllocation : Entity<Guid>
         OwnerId = ownerId;
         OrderCreatedOn = orderCreatedOn;
         Allocating = allocating;
+        CreatedBy = createdBy;
     }
 
     // EF materialization constructor
     private OrderAllocation(
-        Guid id, int ownerId, NonFutureDateTime orderCreatedOn, bool allocating)
+        Guid id, int ownerId, NonFutureDateTime orderCreatedOn, bool allocating, Guid? createdBy)
         : base(id)
     {
         _orderLines = [];
         OwnerId = ownerId;
         OrderCreatedOn = orderCreatedOn;
         Allocating = allocating;
+        CreatedBy = createdBy;
     }
 
     public int OwnerId { get; }
@@ -77,9 +80,26 @@ internal sealed class OrderAllocation : Entity<Guid>
 
     public bool Allocating { get; private set; }
 
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who submitted the order. Null for orders confirmed before
+    ///     it was recorded, and for messages stored before events carried it.
+    /// </summary>
+    public Guid? CreatedBy { get; }
+
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller whose allocation attempt last started or stopped on the
+    ///     order; set with <see cref="LastUpdated" />
+    /// </summary>
+    public Guid? UpdatedBy { get; private set; }
+
     /// <param name="orderCreatedOn">When Throughline accepted the order</param>
+    /// <param name="createdBy">The Entra object ID (<c>oid</c>) of the caller who submitted the order</param>
     public static Result<OrderAllocation> Create(
-        int ownerId, Guid orderId, NonFutureDateTime orderCreatedOn, IEnumerable<OrderLineAllocation> lines)
+        int ownerId,
+        Guid orderId,
+        NonFutureDateTime orderCreatedOn,
+        IEnumerable<OrderLineAllocation> lines,
+        Guid? createdBy)
     {
         ArgumentNullException.ThrowIfNull(orderCreatedOn);
         ArgumentNullException.ThrowIfNull(lines);
@@ -96,11 +116,12 @@ internal sealed class OrderAllocation : Entity<Guid>
         if (duplicates.Any())
             return Result<OrderAllocation>.Validation("lines must contain unique Sku IDs");
 
-        return new OrderAllocation(ownerId, orderId, orderCreatedOn, linesArray, false);
+        return new OrderAllocation(ownerId, orderId, orderCreatedOn, linesArray, false, createdBy);
     }
 
 
-    public void StartAllocating(AppDateTime started)
+    /// <param name="startedBy">The Entra object ID (<c>oid</c>) of the caller allocating the order</param>
+    public void StartAllocating(AppDateTime started, Guid startedBy)
     {
         if (AllocationStatus == AllocationStatuses.Allocated)
             throw new InvalidOperationException("An order can only be allocated once");
@@ -109,15 +130,18 @@ internal sealed class OrderAllocation : Entity<Guid>
         {
             Allocating = true;
             LastUpdated = started;
+            UpdatedBy = startedBy;
         }
     }
 
-    public void StopAllocating(AppDateTime stopped)
+    /// <param name="stoppedBy">The Entra object ID (<c>oid</c>) of the caller allocating the order</param>
+    public void StopAllocating(AppDateTime stopped, Guid stoppedBy)
     {
         if (Allocating)
         {
             Allocating = false;
             LastUpdated = stopped;
+            UpdatedBy = stoppedBy;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Moq;
@@ -104,4 +105,48 @@ internal sealed class RequestContextTests
     }
 
     #endregion
+
+    #region CallerId
+
+    [Test]
+    public void CallerId_ObjectIdClaimPresent_ReturnsObjectId()
+    {
+        var objectId = Guid.Parse("5d0c6e2a-3f1b-4a7c-8e94-b2a1c3d4e5f6");
+        Accessor.Setup(s => s.HttpContext)
+            .Returns(ContextWithClaim(objectId.ToString()));
+
+        Assert.That(Sut.CallerId, Is.EqualTo(objectId));
+    }
+
+    [Test]
+    public void CallerId_NullContext_ThrowsInvalidOperationException()
+    {
+        Accessor.Setup(s => s.HttpContext)
+            .Returns(null as HttpContext);
+
+        Assert.That(() => Sut.CallerId, Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void CallerId_ObjectIdClaimMissing_ThrowsInvalidOperationException()
+    {
+        Accessor.Setup(s => s.HttpContext)
+            .Returns(new DefaultHttpContext());
+
+        Assert.That(() => Sut.CallerId, Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void CallerId_ObjectIdClaimNotAGuid_ThrowsInvalidOperationException()
+    {
+        Accessor.Setup(s => s.HttpContext)
+            .Returns(ContextWithClaim("not-a-guid"));
+
+        Assert.That(() => Sut.CallerId, Throws.InvalidOperationException);
+    }
+
+    #endregion
+
+    private static DefaultHttpContext ContextWithClaim(string objectId) =>
+        new() { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(RequestContext.ObjectIdClaimType, objectId)])) };
 }

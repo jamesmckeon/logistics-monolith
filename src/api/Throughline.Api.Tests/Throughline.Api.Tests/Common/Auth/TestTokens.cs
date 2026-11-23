@@ -13,6 +13,11 @@ internal static class TestTokens
     public static readonly string SigningKeyBase64 = Convert.ToBase64String(SigningKey);
 
     /// <summary>
+    ///     The Entra object ID every token from <see cref="Create" /> carries in its <c>oid</c> claim
+    /// </summary>
+    public static readonly Guid CallerId = new("5d0c6e2a-3f1b-4a7c-8e94-b2a1c3d4e5f6");
+
+    /// <summary>
     ///     The app settings a test host needs to accept tokens from <see cref="Create" />: the issuer and
     ///     audience it trusts, and the key that proves a token came from that issuer.
     /// </summary>
@@ -29,8 +34,8 @@ internal static class TestTokens
         };
 
     /// <summary>
-    ///     Creates a signed access token for a test caller holding the given app roles. The token is
-    ///     issued by <see cref="Issuer" /> for <see cref="Audience" />, signed with
+    ///     Creates a signed access token for the test caller (<see cref="CallerId" />) holding the given app
+    ///     roles. The token is issued by <see cref="Issuer" /> for <see cref="Audience" />, signed with
     ///     <see cref="SigningKey" />, and expires after five minutes.
     /// </summary>
     /// <param name="roles">
@@ -46,7 +51,7 @@ internal static class TestTokens
             Issuer = Issuer,
             Audience = Audience,
             Expires = DateTime.UtcNow.AddMinutes(5),
-            Claims = new Dictionary<string, object> { ["roles"] = roles },
+            Claims = new Dictionary<string, object> { ["roles"] = roles, ["oid"] = CallerId.ToString() },
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(SigningKey),
                 SecurityAlgorithms.HmacSha256)

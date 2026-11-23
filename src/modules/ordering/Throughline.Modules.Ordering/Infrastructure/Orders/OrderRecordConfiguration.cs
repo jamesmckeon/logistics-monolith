@@ -42,6 +42,9 @@ internal sealed class OrderRecordConfiguration : IEntityTypeConfiguration<OrderR
             .HasDefaultValueSql("now()")
             .ValueGeneratedOnAdd();
 
+        builder.Property(o => o.CreatedBy)
+            .HasColumnType("uuid");
+
         builder.HasMany(o => o.OrderLines)
             .WithOne()
             .HasForeignKey(l => l.OrderId);

@@ -33,6 +33,9 @@ internal sealed class SkuReceiptConfiguration : IEntityTypeConfiguration<SkuRece
             .HasColumnName("last_updated")
             .HasConversion<AppDateTimeValueConverter>();
 
+        builder.Property(r => r.CreatedBy).HasColumnName("created_by").HasColumnType("uuid");
+        builder.Property(r => r.UpdatedBy).HasColumnName("updated_by").HasColumnType("uuid");
+
         // Referential integrity to the SKU catalog (no orphaned receipts), by identity only —
         // no navigation, so the receipt stays decoupled from the Sku aggregate.
         builder.HasOne<Sku>()

@@ -37,6 +37,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
 
     public async Task<AllocatedOrder> AllocateOrderAsync(
         int ownerId,
+        Guid callerId,
         Guid orderId,
         AllocationPolicies policy,
         CancellationToken token)
@@ -66,7 +67,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
             return AllocatedOrder.FullyAllocated(order.Id);
         }
 
-        order.StartAllocating(AppDateTime.Now);
+        order.StartAllocating(AppDateTime.Now, callerId);
 
         try
         {
@@ -98,7 +99,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
             {
                 await transaction.RollbackAsync(token);
 
-                order.StopAllocating(AppDateTime.Now);
+                order.StopAllocating(AppDateTime.Now, callerId);
                 await _unitOfWork.SaveChangesAsync(token);
 
                 _logger.LogInformation(
@@ -110,9 +111,9 @@ internal sealed class OrderAllocationService : IOrderAllocationService
             }
 
             foreach (var line in order.UnallocatedLines)
-                _allocationService.AllocateOrderLine(order.Id, line, receipts);
+                _allocationService.AllocateOrderLine(order.Id, line, receipts, callerId);
 
-            order.StopAllocating(AppDateTime.Now);
+            order.StopAllocating(AppDateTime.Now, callerId);
 
             await _unitOfWork.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
@@ -129,7 +130,7 @@ internal sealed class OrderAllocationService : IOrderAllocationService
                 await transaction.RollbackAsync(CancellationToken.None);
             }
 
-            order.StopAllocating(AppDateTime.Now);
+            order.StopAllocating(AppDateTime.Now, callerId);
             await _unitOfWork.SaveChangesAsync(CancellationToken.None);
             throw;
         }

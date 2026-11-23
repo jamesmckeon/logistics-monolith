@@ -8,7 +8,8 @@ internal sealed class AllocationService : IAllocationService
     public void AllocateOrderLine(
         Guid orderId,
         OrderLineAllocation orderLine,
-        IEnumerable<SkuReceipt> skuReceipts)
+        IEnumerable<SkuReceipt> skuReceipts,
+        Guid allocatedBy)
     {
         ArgumentNullException.ThrowIfNull(orderLine);
         ArgumentNullException.ThrowIfNull(skuReceipts);
@@ -25,7 +26,7 @@ internal sealed class AllocationService : IAllocationService
 
         foreach (var skuReceipt in receipts.OrderBy(o => o.ReceivedOn))
         {
-            if (orderLine.CanAllocateReceipt(skuReceipt)) orderLine.AllocateReceipt(skuReceipt, AppDateTime.Now);
+            if (orderLine.CanAllocateReceipt(skuReceipt)) orderLine.AllocateReceipt(skuReceipt, AppDateTime.Now, allocatedBy);
 
             if (orderLine.AllocationStatus == AllocationStatuses.Allocated)
                 break;

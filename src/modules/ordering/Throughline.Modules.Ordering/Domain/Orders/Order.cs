@@ -5,11 +5,13 @@ namespace Throughline.Modules.Ordering.Domain.Orders;
 internal sealed class Order
 {
     /// <param name="createdOn">When Throughline accepted the order</param>
+    /// <param name="createdBy">Who submitted the order; null only for orders accepted before it was recorded</param>
     public Order(
         OrderId id,
         OwnerReferenceNumber ownerReferenceNumber,
         OrderContent content,
-        NonFutureDateTime createdOn)
+        NonFutureDateTime createdOn,
+        Guid? createdBy)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(ownerReferenceNumber);
@@ -20,6 +22,7 @@ internal sealed class Order
         OwnerReferenceNumber = ownerReferenceNumber;
         Content = content;
         CreatedOn = createdOn;
+        CreatedBy = createdBy;
     }
 
     public OrderId Id { get; }
@@ -31,4 +34,10 @@ internal sealed class Order
     ///     resend still matches the original order.
     /// </summary>
     public NonFutureDateTime CreatedOn { get; }
+
+    /// <summary>
+    ///     The Entra object ID (<c>oid</c>) of the caller who submitted the order. Like <see cref="CreatedOn" />, not
+    ///     part of <see cref="Content" />.
+    /// </summary>
+    public Guid? CreatedBy { get; }
 }

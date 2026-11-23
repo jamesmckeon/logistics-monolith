@@ -13,6 +13,8 @@ namespace Throughline.Modules.Inventory.Tests.Application.Queries;
 [Category("Unit")]
 internal sealed class GetAllocationWorklistQueryTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     private const int OwnerId = 1;
 
     private static readonly CancellationTokenSource TokenSource = new();
@@ -193,16 +195,16 @@ internal sealed class GetAllocationWorklistQueryTests
 
     private static OrderAllocation CreateOrder(NonFutureDateTime createdOn, params OrderLineAllocation[] lines)
     {
-        return OrderAllocation.Create(OwnerId, Guid.CreateVersion7(), createdOn, lines).Value
+        return OrderAllocation.Create(OwnerId, Guid.CreateVersion7(), createdOn, lines, CallerId).Value
                ?? throw new InvalidOperationException("test order could not be created");
     }
 
     private static void Allocate(OrderLineAllocation line, int quantity)
     {
-        var receipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, quantity, AppDateTime.Now).Value
+        var receipt = SkuReceipt.Create(EntityId.Create(), line.SkuId, quantity, AppDateTime.Now, CallerId).Value
                       ?? throw new InvalidOperationException("test receipt could not be created");
 
-        line.AllocateReceipt(receipt, AppDateTime.Now);
+        line.AllocateReceipt(receipt, AppDateTime.Now, CallerId);
     }
 
     #endregion

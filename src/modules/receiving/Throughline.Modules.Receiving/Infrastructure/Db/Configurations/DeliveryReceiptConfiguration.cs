@@ -31,6 +31,7 @@ internal sealed class DeliveryReceiptConfiguration : IEntityTypeConfiguration<De
         builder.Property(r => r.OperatorId).HasColumnName("operator_id").HasColumnType("uuid");
         builder.Property(r => r.ReceivedOn).HasColumnName("received_on");
         builder.Property(r => r.CreatedOn).HasColumnName("created_on");
+        builder.Property(r => r.CreatedBy).HasColumnName("created_by").HasColumnType("uuid");
 
         // Receipt numbers are sequential within an owner, not globally.
         builder.HasIndex(r => new { r.OwnerId, r.ReceiptNumber })

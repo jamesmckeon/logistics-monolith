@@ -9,15 +9,17 @@ namespace Throughline.Modules.Inventory.Tests.Domain.Inventory;
 [Category("Unit")]
 internal sealed class SkuReceiptTests
 {
+    private static readonly Guid CallerId = new("0b4f2c1e-6a3d-4e8f-9c71-2d5a8b3e7f10");
+
     #region Allocate
 
     [Test]
     public void Allocate_QuantityAvailableExceeded_ThrowsExpected()
     {
         var recept = CreateReceipt(1);
-        recept.Allocate(1, AppDateTime.Now);
+        recept.Allocate(1, AppDateTime.Now, CallerId);
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => recept.Allocate(1, AppDateTime.Now));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => recept.Allocate(1, AppDateTime.Now, CallerId));
         Assert.Multiple(() =>
         {
             Assert.That(ex.ParamName, Is.EqualTo("quantity"));
@@ -29,7 +31,7 @@ internal sealed class SkuReceiptTests
     public void Allocate_NegativeQuantity_ThrowsExpected()
     {
         var recept = CreateReceipt(1);
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => recept.Allocate(-1, AppDateTime.Now));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => recept.Allocate(-1, AppDateTime.Now, CallerId));
         Assert.That(ex.ParamName, Is.EqualTo("quantity"));
     }
 
@@ -39,7 +41,7 @@ internal sealed class SkuReceiptTests
         var recept = CreateReceipt(1);
         var allocatedOn = AppDateTime.Now.Add(new(0, 0, 0, 1));
 
-        var ex = Assert.Throws<ArgumentException>(() => recept.Allocate(1, allocatedOn));
+        var ex = Assert.Throws<ArgumentException>(() => recept.Allocate(1, allocatedOn, CallerId));
 
         Assert.Multiple(() =>
         {
@@ -54,12 +56,13 @@ internal sealed class SkuReceiptTests
         var recept = CreateReceipt(1);
         var allocatedOn = AppDateTime.Now;
 
-        recept.Allocate(1, allocatedOn);
+        recept.Allocate(1, allocatedOn, CallerId);
 
         Assert.Multiple(() =>
         {
             Assert.That(recept.QuantityAvailable, Is.Zero);
             Assert.That(recept.LastUpdated, Is.EqualTo(allocatedOn));
+            Assert.That(recept.UpdatedBy, Is.EqualTo(CallerId));
             Assert.That(recept.QuantityAllocated, Is.EqualTo(1));
         });
     }
@@ -69,7 +72,7 @@ internal sealed class SkuReceiptTests
     {
         var recept = CreateReceipt(1);
 
-        recept.Allocate(0, AppDateTime.Now);
+        recept.Allocate(0, AppDateTime.Now, CallerId);
 
         Assert.Multiple(() =>
         {
@@ -88,7 +91,7 @@ internal sealed class SkuReceiptTests
     public void Create_QuantityReceivedNotPositive_ReturnsValidationFailure(int quantityReceived)
     {
         var actual = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
-            AppDateTime.Now.Subtract(new(1, 0, 0)));
+            AppDateTime.Now.Subtract(new(1, 0, 0)), CallerId);
 
         Assert.Multiple(() =>
         {
@@ -103,7 +106,7 @@ internal sealed class SkuReceiptTests
     public void Create_ReceivedOnInFuture_ReturnsValidationFailure()
     {
         var actual = SkuReceipt.Create(EntityId.Create(), EntityId.Create(), 1,
-            AppDateTime.Now.Add(new(1, 0, 0)));
+            AppDateTime.Now.Add(new(1, 0, 0)), CallerId);
 
         Assert.Multiple(() =>
         {
@@ -121,7 +124,7 @@ internal sealed class SkuReceiptTests
         var skuId = EntityId.Create();
         var receivedOn = AppDateTime.Now.Subtract(new(1, 0, 0));
 
-        var actual = SkuReceipt.Create(id, skuId, 5, receivedOn);
+        var actual = SkuReceipt.Create(id, skuId, 5, receivedOn, CallerId);
 
         var receipt = actual.Value ?? throw new AssertionException("Create returned no value");
 
@@ -134,6 +137,8 @@ internal sealed class SkuReceiptTests
             Assert.That(receipt.ReceivedOn, Is.EqualTo(receivedOn));
             Assert.That(receipt.QuantityAllocated, Is.Zero);
             Assert.That(receipt.QuantityAvailable, Is.EqualTo(5));
+            Assert.That(receipt.CreatedBy, Is.EqualTo(CallerId));
+            Assert.That(receipt.UpdatedBy, Is.Null);
         });
     }
 
@@ -144,7 +149,7 @@ internal sealed class SkuReceiptTests
     private static SkuReceipt CreateReceipt(int quantityReceived)
     {
         return SkuReceipt.Create(EntityId.Create(), EntityId.Create(), quantityReceived,
-                       AppDateTime.Now.Subtract(new(1, 0, 0)))
+                       AppDateTime.Now.Subtract(new(1, 0, 0)), CallerId)
                    .Value
                ?? throw new InvalidOperationException("test receipt could not be created");
     }
@@ -154,7 +159,7 @@ internal sealed class SkuReceiptTests
         var line = OrderLineAllocation.Create(EntityId.Create(), skuId, 2).Value
                    ?? throw new InvalidOperationException("test line could not be created");
 
-        return OrderAllocation.Create(1, Guid.CreateVersion7(), AppDateTime.Now, [line]).Value
+        return OrderAllocation.Create(1, Guid.CreateVersion7(), AppDateTime.Now, [line], CallerId).Value
                ?? throw new InvalidOperationException("test order could not be created");
     }
 
