@@ -85,7 +85,7 @@ and sign in with the client credentials flow. You need a client secret for one o
 
 **5. Send requests.** [testing/bruno](testing/bruno) is a [Bruno](https://www.usebruno.com)
 collection with a request for every endpoint. Open that folder as a collection, select the
-`Local` environment, and set its `omsClientSecret` secret. Bruno fetches a token from Entra as
+`Local` environment, and set its `serviceAccountClientSecret` secret. Bruno fetches a token from Entra as
 that client and sends it, with the `owner_id` header, on every request. Requests that need a role
 the client doesn't hold, such as the Inventory and Receiving ones for an OMS client, return 403.
 

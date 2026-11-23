@@ -10,8 +10,8 @@ auth:oauth2 {
   grant_type: client_credentials
   access_token_url: https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token
   refresh_token_url: 
-  client_id: {{omsClientId}}
-  client_secret: {{omsClientSecret}}
+  client_id: {{serviceAccountClientId}}
+  client_secret: {{serviceAccountClientSecret}}
   scope: api://{{apiClientId}}/.default
   credentials_placement: body
   credentials_id: credentials
@@ -30,12 +30,13 @@ vars:pre-request {
 docs {
   # Throughline API
   
-  Three values are set once here and used by every request.
-  
+  These values are set once and used by every request.
+
   | Variable | Where to change it | What it does |
   |---|---|---|
   | `baseUrl` | The selected environment (Local, QA, Prod) | Root URL of the API. Switch environments to switch targets. With no environment selected, the local URL in Collection settings, Vars tab is used. |
-  | `authToken` | The selected environment, Secrets tab | Bearer token sent on every request. Paste a different token to act as a different caller. The value is kept on this machine and is never written to the collection files. |
+  | `serviceAccountClientId` | The selected environment, Vars | The service account Bruno signs in as to get a token for every request. |
+  | `serviceAccountClientSecret` | The selected environment, Secrets tab | That service account's client secret. The value is kept on this machine and is never written to the collection files. |
   | `ownerId` | Collection settings, Vars tab | Sent as the `owner_id` header on every request. |
   
   ## Roles each request needs

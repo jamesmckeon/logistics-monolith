@@ -19,7 +19,7 @@ auth:oauth2 {
   state: 
   pkce: true
   credentials_placement: body
-  credentials_id: credentials
+  credentials_id: user-{{toolsClientId}}
   token_source: access_token
   token_placement: header
   token_header_prefix: Bearer
