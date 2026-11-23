@@ -14,8 +14,7 @@
   "dependencies": {
     "@azure/msal-browser": "^5.30.0",
     "@azure/msal-react": "^5.8.3",
-    "@mantine/core": "^9.8.2",
-    "@mantine/hooks": "^9.8.2",
+    "@fluentui/react-components": "^9.75.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-error-boundary": "^6.1.6"

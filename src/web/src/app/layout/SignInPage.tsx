@@ -1,16 +1,15 @@
 import { useMsal } from '@azure/msal-react'
-import { Button, Center, Stack, Text, Title } from '@mantine/core'
+import { Button } from '@fluentui/react-components'
+import { CenteredMessage } from './CenteredMessage'
 
 export function SignInPage() {
   const { instance } = useMsal()
 
   return (
-    <Center mih="100vh">
-      <Stack align="center" gap="md">
-        <Title order={1}>Throughline</Title>
-        <Text>Sign in with your Throughline account to continue.</Text>
-        <Button onClick={() => void instance.loginRedirect()}>Sign in</Button>
-      </Stack>
-    </Center>
+    <CenteredMessage
+      title="Throughline"
+      message="Sign in with your Throughline account to continue."
+      action={<Button appearance="primary" onClick={() => void instance.loginRedirect()}>Sign in</Button>}
+    />
   )
 }

@@ -1,10 +1,11 @@
 import type { IPublicClientApplication } from '@azure/msal-browser'
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react'
-import { MantineProvider } from '@mantine/core'
+import { FluentProvider } from '@fluentui/react-components'
 import { ErrorBoundary } from 'react-error-boundary'
 import { CrashPage } from './layout/CrashPage'
 import { SignedInLayout } from './layout/SignedInLayout'
 import { SignInPage } from './layout/SignInPage'
+import { theme } from './theme'
 
 type AppProps = {
   authClient: IPublicClientApplication
@@ -12,7 +13,7 @@ type AppProps = {
 
 export function App({ authClient }: AppProps) {
   return (
-    <MantineProvider>
+    <FluentProvider theme={theme}>
       <ErrorBoundary fallback={<CrashPage />}>
         <MsalProvider instance={authClient}>
           <AuthenticatedTemplate>
@@ -23,6 +24,6 @@ export function App({ authClient }: AppProps) {
           </UnauthenticatedTemplate>
         </MsalProvider>
       </ErrorBoundary>
-    </MantineProvider>
+    </FluentProvider>
   )
 }
