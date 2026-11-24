@@ -89,6 +89,20 @@ collection with a request for every endpoint. Open that folder as a collection, 
 that client and sends it, with the `owner_id` header, on every request. Requests that need a role
 the client doesn't hold, such as the Inventory and Receiving ones for an OMS client, return 403.
 
+**6. Run the web app.** Needs Node 24. From `src/web`:
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+It listens on <http://localhost:5173>. Sign in with an account in the Entra tenant; sign-in goes
+through the `throughline-qa-user` app registration, which lists the local address as a redirect URI.
+The local API accepts the web app's calls from that address.
+
 ### Tests
 
 ```bash
@@ -97,3 +111,5 @@ dotnet test
 
 The integration tests start their own Postgres through Testcontainers, so Docker has to be
 running. `dotnet test --filter "Category=Unit"` runs the unit tests alone.
+
+The web app's tests run from `src/web` with `npm test`.

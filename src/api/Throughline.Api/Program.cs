@@ -5,6 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Throughline.Api;
 using Throughline.Api.Auth;
+using Throughline.Api.Cors;
 using Throughline.Api.Health;
 using Throughline.Common.Events;
 using Throughline.Common.Presentation.Http;
@@ -22,6 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+builder.Services.AddThroughlineCors(builder.Configuration);
 builder.Services.AddAuthentication().AddJwtBearer();
 builder.Services.AddThroughlineAuthorization();
 
@@ -111,6 +113,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseExceptionHandler();
+
+// CORS runs before authentication so a 401 or 403 still carries the CORS headers the browser
+// needs to show the web app the status.
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapOrdering();
 app.MapInventory();

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Signing in to Throughline</title>
+  </head>
+  <body>
+    <script type="module">
+      import { broadcastResponseToMainFrame } from '@azure/msal-browser/redirect-bridge'
+
+      broadcastResponseToMainFrame().catch((error) => {
+        console.error('Could not hand the sign-in response to Throughline.', error)
+      })
+    </script>
+  </body>
+</html>
