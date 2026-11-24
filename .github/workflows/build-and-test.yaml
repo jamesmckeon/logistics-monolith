@@ -1,7 +1,7 @@
 name: Validate Merge
 
-# The pull request gate: branch protection on main requires the Unit tests and Integration tests
-# checks. Schema changes are proven by deploying them to QA (Deploy DB (QA)); the integration tests
+# The pull request gate: branch protection on main requires the Unit tests, Integration tests and
+# Web app checks. Schema changes are proven by deploying them to QA (Deploy DB (QA)); the integration tests
 # apply the changelogs only as setup.
 
 on:
@@ -80,3 +80,33 @@ jobs:
           name: test-results-${{ matrix.category }}
           path: ./test-results/*.trx
           if-no-files-found: warn
+
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Type-checks, then builds with .env.production
+      - name: Build
+        run: npm run build
