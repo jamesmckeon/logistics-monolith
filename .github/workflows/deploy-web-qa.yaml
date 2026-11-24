@@ -1,0 +1,116 @@
+name: Deploy Web (QA)
+
+# Manual trigger only. Pick the branch to deploy in "Use workflow from"; any branch can go to QA.
+on:
+  workflow_dispatch:
+
+# One QA web deploy at a time, and never cancel one halfway through. The web app touches neither
+# the QA API nor its database, so it doesn't wait on their deploys.
+concurrency:
+  group: deploy-web-qa
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  STATIC_WEB_APP: swa-throughline-web-qa
+  RESOURCE_GROUP: rg-throughline
+  SITE_URL: https://purple-tree-0566b1b10.6.azurestaticapps.net
+
+defaults:
+  run:
+    working-directory: src/web
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  deploy:
+    name: Build and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    # The qa environment holds AZURE_API_CLIENT_ID for the QA deploy identity. Its federated
+    # credential accepts only tokens from this environment, and it has no rights on prod resources.
+    environment: qa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Type-checks, then builds with .env.qa, which points sign-in at throughline-qa-user
+      - name: Build
+        run: npm run build:qa
+
+      # Served at /version.txt, so anyone can see which commit is live
+      - name: Stamp the version
+        run: echo "${{ github.sha }}" > dist/version.txt
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The deployment token is read at run time with the deploy identity's Contributor role on
+      # the Static Web App, so no token is stored in GitHub. It's masked before anything can log it.
+      - name: Read the deployment token
+        run: |
+          TOKEN=$(az staticwebapp secrets list \
+            --name "$STATIC_WEB_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.apiKey \
+            --output tsv)
+          echo "::add-mask::$TOKEN"
+          echo "SWA_CLI_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      # Uploads the built files as they are; staticwebapp.config.json is copied into dist from
+      # public/. --env production replaces the live site rather than creating a preview one.
+      - name: Deploy
+        run: npx --yes @azure/static-web-apps-cli@2.1.0 deploy ./dist --env production
+
+      # Polls every 10 s for up to 2 minutes, until the site serves this run's commit
+      - name: Check the live version
+        run: |
+          for i in $(seq 1 12); do
+            LIVE=$(curl -sf "$SITE_URL/version.txt" || echo "unreachable")
+            echo "Attempt $i: $LIVE"
+            if [ "$LIVE" = "${{ github.sha }}" ]; then
+              echo "The site serves ${{ github.sha }}."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL did not serve ${{ github.sha }} within 2 minutes."
+          exit 1
