@@ -1,0 +1,124 @@
+name: Deploy Web (prod)
+
+# Manual trigger only, from main only. QA web deploys are in deploy-web-qa.yaml.
+on:
+  workflow_dispatch:
+
+# One prod web deploy at a time, and never cancel one halfway through. The web app touches neither
+# the prod API nor its database, so it doesn't wait on their deploys.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # lets the job request an OIDC token from GitHub
+  contents: read
+
+env:
+  STATIC_WEB_APP: swa-throughline-web
+  RESOURCE_GROUP: rg-throughline
+  SITE_URL: https://throughline.mckeonlabs.com
+
+defaults:
+  run:
+    working-directory: src/web
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      # Azure refuses a run from any other branch anyway; this fails earlier with a clearer message.
+      - name: Require main
+        working-directory: .
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Deploys must run from main. Got: $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  deploy:
+    name: Build and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    # No GitHub environment: the prod deploy identity's federated credential is scoped to
+    # refs/heads/main, and an environment would change the token's subject so Azure refused it.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Type-checks, then builds with .env.production, which points sign-in at throughline-prod-user
+      - name: Build
+        run: npm run build
+
+      # Served at /version.txt, so anyone can see which commit is live
+      - name: Stamp the version
+        run: echo "${{ github.sha }}" > dist/version.txt
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The deployment token is read at run time with the deploy identity's Contributor role on
+      # the Static Web App, so no token is stored in GitHub. It's masked before anything can log it.
+      - name: Read the deployment token
+        run: |
+          TOKEN=$(az staticwebapp secrets list \
+            --name "$STATIC_WEB_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.apiKey \
+            --output tsv)
+          echo "::add-mask::$TOKEN"
+          echo "SWA_CLI_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      # Uploads the built files as they are; staticwebapp.config.json is copied into dist from
+      # public/. --env production replaces the live site rather than creating a preview one.
+      - name: Deploy
+        run: npx --yes @azure/static-web-apps-cli@2.1.0 deploy ./dist --env production
+
+      # Polls every 10 s for up to 2 minutes, until the site serves this run's commit
+      - name: Check the live version
+        run: |
+          for i in $(seq 1 12); do
+            LIVE=$(curl -sf "$SITE_URL/version.txt" || echo "unreachable")
+            echo "Attempt $i: $LIVE"
+            if [ "$LIVE" = "${{ github.sha }}" ]; then
+              echo "The site serves ${{ github.sha }}."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL did not serve ${{ github.sha }} within 2 minutes."
+          exit 1
