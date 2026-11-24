@@ -34,6 +34,13 @@ SHA. The QA API accepts the web app's calls because its container app lists that
    changesets, then applies them.
 2. Run **Actions → Deploy API (prod) → Run workflow** on `main`. The run passes both jobs
    (Test → Publish and deploy) and ends with the health check reporting `Revision is healthy.`
+3. If the change touches the web app, run **Actions → Deploy Web (prod) → Run workflow** on
+   `main`.
+
+The web run lints and tests the web app, builds it for prod, uploads it to `swa-throughline-web`
+and waits until <https://throughline.mckeonlabs.com/version.txt> shows the commit SHA. The prod
+API accepts the web app's calls because its container app lists that address in
+`Cors__AllowedOrigins__0`.
 
 ---
 
@@ -49,8 +56,9 @@ az containerapp show \
 
 The tag should match the commit SHA from the run. For QA, use `ca-throughline-api-qa`.
 
-For the QA web app, open <https://purple-tree-0566b1b10.6.azurestaticapps.net/version.txt>. It
-shows the commit SHA of the last deploy.
+For the prod web app, open <https://throughline.mckeonlabs.com/version.txt>. It shows the commit
+SHA of the last deploy. For the QA web app, open
+<https://purple-tree-0566b1b10.6.azurestaticapps.net/version.txt>.
 
 ---
 
@@ -73,6 +81,10 @@ deployed like any other (ADR-0004).
 
 For QA, run the same command against `ca-throughline-api-qa`, or deploy another branch to QA. To
 undo schema changes on QA, run **Reset QA data**.
+
+To roll back the prod web app, revert the change on `main`, then run **Deploy Web (prod)**. It
+runs only from `main` and keeps no earlier builds, so the revert is how an older version goes
+back out.
 
 To roll back the QA web app, run **Deploy Web (QA)** on the branch to go back to, such as
 `main`. It rebuilds that branch and replaces the site.
