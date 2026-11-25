@@ -58,30 +58,14 @@ internal sealed class SkuCatalog
     public IReadOnlyList<double> Shares => _shares;
 
     /// <summary>
-    ///     The customer's catalog from its item master. Every SKU needs both a carton and a pallet quantity, since the
-    ///     simulator buys in cartons and ships on pallets.
+    ///     The customer's catalog from its item master
     /// </summary>
-    /// <exception cref="InvalidOperationException">A SKU is missing its carton or pallet quantity</exception>
-    public static SkuCatalog From(string customer, IReadOnlyList<ItemMasterSku> itemMaster, CatalogProfile profile)
+    public static SkuCatalog From(IReadOnlyList<ItemMasterSku> itemMaster, CatalogProfile profile)
     {
         ArgumentNullException.ThrowIfNull(itemMaster);
         ArgumentNullException.ThrowIfNull(profile);
 
-        var skus = new List<CatalogSku>(itemMaster.Count);
-        var incomplete = new List<string>();
-
-        foreach (var sku in itemMaster)
-        {
-            if (sku is { CartonQuantity: { } carton, PalletQuantity: { } pallet })
-                skus.Add(new CatalogSku(sku.Code, carton, pallet));
-            else
-                incomplete.Add(sku.Code);
-        }
-
-        if (incomplete.Count > 0)
-            throw new InvalidOperationException(
-                $"{incomplete.Count} of {customer}'s SKUs have no carton quantity or no pallet quantity in the item " +
-                $"master, and the simulator handles only SKUs with both: {string.Join(", ", incomplete)}");
+        var skus = itemMaster.Select(s => new CatalogSku(s.Code, s.CartonQuantity, s.PalletQuantity)).ToList();
 
         return new SkuCatalog(skus, profile.ZipfExponent);
     }

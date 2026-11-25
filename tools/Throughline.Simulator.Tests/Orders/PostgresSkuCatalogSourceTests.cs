@@ -17,12 +17,12 @@ public sealed class PostgresSkuCatalogSourceTests
                                       sku_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                                       owner_id        integer NOT NULL,
                                       code            character varying(50) NOT NULL,
-                                      carton_quantity integer,
-                                      pallet_quantity integer);
+                                      carton_quantity integer NOT NULL,
+                                      pallet_quantity integer NOT NULL);
                                   INSERT INTO master_data.skus (owner_id, code, carton_quantity, pallet_quantity) VALUES
                                       (1, 'HFO-000001', 24, 720), (1, 'HFO-000002', 12, 360),
-                                      (1, 'HFO-JKT-ALPINE-BLK-M', 6, NULL),
-                                      (2, 'BWN-000001', NULL, NULL), (2, 'BWN-WHEY-VAN-2LB', NULL, NULL);
+                                      (1, 'HFO-JKT-ALPINE-BLK-M', 6, 180),
+                                      (2, 'BWN-000001', 12, 480), (2, 'BWN-WHEY-VAN-2LB', 6, 240);
                                   """;
 
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:15-alpine").Build();
@@ -71,7 +71,7 @@ public sealed class PostgresSkuCatalogSourceTests
         {
             new ItemMasterSku("HFO-000001", 24, 720),
             new ItemMasterSku("HFO-000002", 12, 360),
-            new ItemMasterSku("HFO-JKT-ALPINE-BLK-M", 6, null)
+            new ItemMasterSku("HFO-JKT-ALPINE-BLK-M", 6, 180)
         }));
     }
 
