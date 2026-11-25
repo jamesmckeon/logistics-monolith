@@ -7,29 +7,23 @@ namespace Throughline.Simulator.Tests.Orders;
 public sealed class SkuCatalogTests
 {
     [Test]
-    public void From_CompleteItemMaster_KeepsSkusInPopularityOrder()
-    {
-        var itemMaster = Enumerable.Range(1, 50).Select(n => new ItemMasterSku($"SKU-{n:D3}", 12, 360)).ToList();
-
-        var actual = SkuCatalog.From("HarrowFinch", itemMaster, new CatalogProfile { ZipfExponent = 1 });
-
-        Assert.That(actual.Skus.Select(s => s.Code), Is.EqualTo(itemMaster.Select(s => s.Code)));
-    }
-
-    [Test]
-    public void From_SkusMissingQuantities_ThrowsNamingCustomerAndSkus()
+    public void From_ItemMasterSkus_KeepsQuantitiesInPopularityOrder()
     {
         ItemMasterSku[] itemMaster =
         [
             new("SKU-001", 12, 360),
-            new("SKU-002", 12, null),
-            new("SKU-003", null, null)
+            new("SKU-002", 6, 180),
+            new("SKU-003", 24, 720)
         ];
 
-        var actual = Assert.Throws<InvalidOperationException>(() =>
-            SkuCatalog.From("HarrowFinch", itemMaster, new CatalogProfile { ZipfExponent = 1 }));
+        var actual = SkuCatalog.From(itemMaster, new CatalogProfile { ZipfExponent = 1 });
 
-        Assert.That(actual.Message, Does.Contain("HarrowFinch").And.Contain("SKU-002, SKU-003"));
+        Assert.That(actual.Skus, Is.EqualTo(new[]
+        {
+            new CatalogSku("SKU-001", 12, 360),
+            new CatalogSku("SKU-002", 6, 180),
+            new CatalogSku("SKU-003", 24, 720)
+        }));
     }
 
     [Test]

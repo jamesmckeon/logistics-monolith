@@ -95,7 +95,7 @@ internal sealed class BuyerWorker : BackgroundService
     private async Task PlaceOpeningOrderAsync(
         string customer, CustomerProfile profile, ShipmentPlanner planner, CancellationToken stoppingToken)
     {
-        var catalog = await LoadCatalogAsync(customer, profile, stoppingToken);
+        var catalog = await LoadCatalogAsync(profile, stoppingToken);
         var lines = PurchasePlanner.Opening(catalog, profile);
 
         await SaveAsync(customer, profile, planner, PurchaseOrderKind.Opening, lines, stoppingToken);
@@ -106,7 +106,7 @@ internal sealed class BuyerWorker : BackgroundService
         CancellationToken stoppingToken)
     {
         var unitsSold = await _ledger.GetUnitsSoldAsync(profile.OwnerId, since, _time.GetUtcNow(), stoppingToken);
-        var catalog = await LoadCatalogAsync(customer, profile, stoppingToken);
+        var catalog = await LoadCatalogAsync(profile, stoppingToken);
         var lines = PurchasePlanner.Weekly(unitsSold, catalog, profile.Buying);
 
         var notInCatalog = unitsSold.Keys.Where(code => !catalog.Contains(code)).ToList();
@@ -120,12 +120,11 @@ internal sealed class BuyerWorker : BackgroundService
         await SaveAsync(customer, profile, planner, PurchaseOrderKind.Weekly, lines, stoppingToken);
     }
 
-    private async Task<SkuCatalog> LoadCatalogAsync(
-        string customer, CustomerProfile profile, CancellationToken stoppingToken)
+    private async Task<SkuCatalog> LoadCatalogAsync(CustomerProfile profile, CancellationToken stoppingToken)
     {
         var skus = await _catalogSource.GetSkusAsync(profile.OwnerId, stoppingToken);
 
-        return SkuCatalog.From(customer, skus, profile.Catalog);
+        return SkuCatalog.From(skus, profile.Catalog);
     }
 
     private async Task SaveAsync(
