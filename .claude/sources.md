@@ -3,8 +3,9 @@
 Governs how Claude vets responses on **Throughline**. Read this before any design,
 architecture, or DDD answer, and ground claims against it.
 
-This file holds **seven source registers**: the **design / architecture / DDD** set (the
-table below), an **Observability & Logging** set, a **Testing — Messaging & Error
+This file holds **eight source registers**: the **design / architecture / DDD** set (the
+table below), an **Observability & Logging** set, an **Observability — Browser Logging** set,
+a **Testing — Messaging & Error
 Handling** set, a **Testing — Performance & Load** set, an **Operations — Dead-Letter
 Handling** set, and a **Security — Authentication & Authorization** set, all under the
 Confirmed/Pending status legend; and a **WMS Functional / Vendor Reference** register (at the
@@ -17,6 +18,7 @@ register before designing, building, or reviewing authentication, authorization 
 owner scoping of a caller. Read the observability register before designing, building, or reviewing
 any logging, tracing, metrics, or correlation — the logging subsystem is not yet implemented,
 so these are the sources that govern both how it gets built and how it gets reviewed. Read the
+browser logging register too before adding or reviewing logging in the web app. Read the
 **WMS Functional / Vendor Reference** register before writing any story or requirement, and
 before answering **any warehouse business-logic question** — including when the user asks you
 to act as a **business analyst / SME** fielding domain questions. It governs which vendor docs
@@ -147,6 +149,48 @@ measure).
 6. **One OTel-shaped pipeline.** Traces, metrics, and logs all flow through the OTel SDK with
    OTLP export and OTel semantic-convention attribute names, so a future collector/backend
    swap is config, not code. *(O-1, O-4, O-9)*
+
+---
+
+# Observability — Browser Logging (Project Canon)
+
+Same **status legend and operating rules** as the design/DDD register above. Scope: what the
+web app (`src/web`) records about failures in the browser, where the API's logs can't see
+them: a screen crashing while rendering, sign-in failing, and the app failing to start. The
+Observability & Logging register above still governs the shape of the telemetry (OpenTelemetry
+attribute names, W3C Trace Context, owner on every signal). Added 2026-11-25 from a web search;
+all sources are Pending until the user confirms them, and the pages were found through search
+summaries, not yet read in full.
+
+## Sources
+
+| # | Source | Use | Status |
+|---|--------|-----|--------|
+| BL-1 | **React — [`createRoot` reference](https://react.dev/reference/react-dom/client/createRoot)** | Framework docs. React logs uncaught errors to the console by default. For sending errors to a reporting service, React 19's root options are `onCaughtError` (errors an error boundary caught, such as the web app's crash page), `onUncaughtError` and `onRecoverableError`. | ⏳ Pending |
+| BL-2 | **Microsoft — [Logging in MSAL.js](https://learn.microsoft.com/entra/identity-platform/msal-logging-js)** | Docs for the sign-in library the web app uses. A logger set under `system.loggerOptions`, with Error, Warning, Info and Verbose levels; the callback is told whether a message contains personal data, and `piiLoggingEnabled` is off by default. | ⏳ Pending |
+| BL-3 | **Microsoft — [Events in MSAL.js](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/events)** | `addEventCallback` events. `LOGIN_FAILURE` (popup or redirect sign-in) and `ACQUIRE_TOKEN_FAILURE` (popup, redirect or silent) carry the error, typed `AuthError` or `Error`; check `instanceof AuthError` before reading its details. | ⏳ Pending |
+| BL-4 | **OWASP — [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)** · **[ASVS 4.0 V7 Error Handling and Logging](https://github.com/OWASP/ASVS/blob/master/4.0/en/0x15-V7-Error-Logging.md)** | What to leave out. ASVS 7.2.1: log authentication decisions without session tokens or passwords; session tokens appear in logs only hashed. The cheat sheet lists access tokens and session IDs among data not to log directly (seen through a secondary summary). ASVS 5.0 has since been released; check whether its numbering changed. | ⏳ Pending |
+| BL-5 | **Microsoft — [Application Insights JavaScript SDK configuration](https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk-configuration)** | The browser SDK for the Application Insights resource the API already uses. `enableUnhandledPromiseRejectionTracking` records unhandled promise rejections as errors (ignored when `disableExceptionTracking` is on); `distributedTracingMode` W3C or AI_AND_W3C adds `traceparent` to outgoing calls; `enableCorsCorrelation` adds correlation headers to cross-origin calls. | ⏳ Pending |
+| BL-6 | **Sentry — [Loader Script](https://docs.sentry.io/platforms/javascript/install/loader/)** | A different product, as a comparison only: before its SDK fully loads, its loader catches only unhandled errors and unhandled promise rejections. Shows the general pattern that an error reporter must start before the app's own code to see startup failures. | ⏳ Pending |
+
+## Notes from the 2026-11-25 search
+
+1. **A screen crashes:** report through `onCaughtError` (BL-1). Setting a root error option
+   replaces React's own console output, so log to the console too or lose it in dev tools
+   ([Sentry maintainer, GitHub](https://github.com/getsentry/sentry-javascript/issues/11798)).
+2. **Sign-in fails:** MSAL's logger and its failure events (BL-2, BL-3); never log the token MSAL
+   returns (BL-4). `src/web/src/lib/auth.ts` listens for `LOGIN_SUCCESS` only.
+3. **The app fails to start:** React and MSAL don't cover it, since `main.tsx` awaits
+   `createAuthClient()` before React exists. A failure there is an unhandled promise rejection
+   (BL-5's setting), but only if the reporter is already running.
+4. **Unverified:**
+   - whether Application Insights catches errors from before its own script loads;
+   - which headers `enableCorsCorrelation` sends, since the summaries disagreed (`Request-Id` and
+     `Request-Context`, or `traceparent`); the API's CORS settings must also allow them;
+   - that failures at Entra itself (wrong password, MFA) appear in Entra's sign-in logs, which
+     is from Claude's knowledge, not checked;
+   - the OpenTelemetry exception attribute names (`exception.type`, `exception.message`,
+     `exception.stacktrace`), cited from memory against the Observability register's O-1.
 
 ---
 
