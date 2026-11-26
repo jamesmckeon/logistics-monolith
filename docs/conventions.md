@@ -67,14 +67,22 @@ again.
 
 ### Business rules live in the API
 
-- **The API owns the rules.** A screen doesn't repeat them: it sends what the user entered and
-  shows the API's reasons when it's refused. One place holds each rule, so a screen can't
-  disagree with the API.
-- **A screen only shapes input.** It marks required fields and can limit what a field accepts,
-  such as whole numbers in a quantity box, so the API gets a value it can judge.
+- **The API owns the rules.** A screen doesn't repeat them, apart from checking that required
+  fields are filled in: it sends what the user entered and shows the API's reasons when it's
+  refused. One place holds each rule, so a screen can't disagree with the API.
+- **A screen doesn't send a request with a required field empty.** Each empty field shows
+  "<Field> is required." beneath it, all at once, and nothing the user entered is cleared.
+  Otherwise a screen only shapes input: it can limit what a field accepts, such as whole numbers
+  in a quantity box, so the API gets a value it can judge.
+- **The API checks required fields too,** at its boundary (usually the application layer), and
+  refuses a missing one with a 400 field error like any other rule. The screen's check saves a
+  round trip; the API's is the one that holds.
 - **Refusal reasons are the API's words.** Each reason goes under the field it names; a reason
   that names no field goes at the top of the form. Every reason is shown together (ADR-0001), and
   nothing the user entered is cleared.
+- **Adding something that already exists is refused as "already exists".** The API answers 409,
+  even when the add is an exact repeat of one that went through, and the screen shows its reason
+  like any other refusal. Every screen handles a 409 this way.
 
 ### Not signed in, or no access
 
@@ -105,7 +113,8 @@ error (5xx).
   button again. Reads may retry quietly a few times before showing the message.
 - **Every action is safe to retry.** After a timeout the user can't tell whether the action
   happened, so the API makes repeating it harmless: a repeat is refused as a duplicate or does
-  nothing more. That's what lets the message say "try again".
+  nothing more. A repeated add is always refused as "already exists" (409). That's what lets the
+  message say "try again".
 - **A reference the user can quote to support.** When the server answered with an error, the
   message shows its trace ID as "Reference: …", so support can find it in the logs. When the
   request never reached the server, there's no reference to show.
@@ -123,7 +132,9 @@ entries are kept; try again." plus "Reference: …" when there is one.
 - [ ] Schema changes are expand changesets, with no `--rollback`; a contraction has its own issue
 - [ ] A fault in prod's schema is fixed by a new changeset, never by rolling prod back
 - [ ] Applied changesets are never edited; a fix is a new changeset
-- [ ] Screens don't repeat business rules; they show the API's reasons under each field
+- [ ] Screens don't repeat business rules, apart from required fields; they show the API's reasons under each field
+- [ ] Screens don't send with a required field empty and say "<Field> is required."; the API checks required fields too
+- [ ] Adding something that already exists gets a 409, shown as "already exists" like any refusal
 - [ ] 401 and 403 go to the app-wide pages, not per-screen messages
 - [ ] Unexpected failures show one message, keep what was entered, and show a reference when there is one
 - [ ] Actions that change data are never retried automatically, and the API makes them safe to retry
