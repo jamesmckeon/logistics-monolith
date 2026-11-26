@@ -5,12 +5,11 @@ using Throughline.Simulator.Configuration;
 namespace Throughline.Simulator.Orders;
 
 /// <summary>
-///     A SKU as the item master records it. Either quantity may be missing: some SKUs only ever arrive as cartons,
-///     and a few aren't packed in cartons.
+///     A SKU as the item master records it
 /// </summary>
 /// <param name="CartonQuantity">Units (eaches) in one carton</param>
 /// <param name="PalletQuantity">Units (eaches) on one full pallet; a whole number of cartons</param>
-internal sealed record ItemMasterSku(string Code, int? CartonQuantity, int? PalletQuantity);
+internal sealed record ItemMasterSku(string Code, int CartonQuantity, int PalletQuantity);
 
 /// <summary>
 ///     Where a customer's SKUs come from
@@ -66,8 +65,8 @@ internal sealed class PostgresSkuCatalogSource : ISkuCatalogSource, IAsyncDispos
         while (await reader.ReadAsync(cancellationToken))
             skus.Add(new ItemMasterSku(
                 reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetInt32(1),
-                reader.IsDBNull(2) ? null : reader.GetInt32(2)));
+                reader.GetInt32(1),
+                reader.GetInt32(2)));
 
         return skus;
     }

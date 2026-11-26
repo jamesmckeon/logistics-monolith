@@ -110,7 +110,7 @@ internal sealed class OmsWorker : BackgroundService
                 $"The item master has {skus.Count} SKUs for owner {profile.OwnerId} ({customer}); " +
                 $"the simulator needs at least {profile.LinesPerOrder.P95}");
 
-        var catalog = SkuCatalog.From(customer, skus, profile.Catalog);
+        var catalog = SkuCatalog.From(skus, profile.Catalog);
         _logger.LogInformation("Loaded {SkuCount} SKUs for {Customer} from the item master", skus.Count, customer);
 
         return catalog;
