@@ -1,8 +1,8 @@
 # Code Conventions
 
-Conventions for **C# production code** and **schema changes** in this repo. These are binding when
-Claude writes, edits, reviews, or proposes code. Test conventions are separate, in
-[testing.md](testing.md).
+Conventions for **C# production code**, **schema changes** and **web app screens** in this repo.
+These are binding when Claude writes, edits, reviews, proposes or designs code or screens. Test
+conventions are separate, in [testing.md](testing.md).
 
 ---
 
@@ -60,6 +60,61 @@ ALTER TABLE orders.orders ADD COLUMN priority integer;
 
 ---
 
+## Web app screens
+
+How every screen in the web app (`src/web`) behaves, so each screen's design doesn't decide it
+again.
+
+### Business rules live in the API
+
+- **The API owns the rules.** A screen doesn't repeat them: it sends what the user entered and
+  shows the API's reasons when it's refused. One place holds each rule, so a screen can't
+  disagree with the API.
+- **A screen only shapes input.** It marks required fields and can limit what a field accepts,
+  such as whole numbers in a quantity box, so the API gets a value it can judge.
+- **Refusal reasons are the API's words.** Each reason goes under the field it names; a reason
+  that names no field goes at the top of the form. Every reason is shown together (ADR-0001), and
+  nothing the user entered is cleared.
+
+### Not signed in, or no access
+
+These are app-wide pages, not designed per screen:
+
+- **401 (sign-in expired or missing):** a page saying "Your sign-in has expired. Sign in again to
+  continue." with a **Sign in** button.
+- **403 (no access):** a page saying "You don't have access to this. Ask your administrator if
+  you need it."
+
+A screen that knows before calling the API that the user has no access, for example because a
+lookup came back empty, says so in its own words instead.
+
+### When Throughline doesn't answer as expected
+
+This covers anything that isn't an answer or a refusal: no connection, a timeout, or a server
+error (5xx).
+
+- **One message for every unexpected failure.** A screen doesn't explain technical causes.
+- **Where it appears depends on what failed:**
+  - **An action**, such as adding a SKU: the user stays on the screen, the message sits at the top
+    of the form until their next try, and nothing they entered is cleared.
+  - **Something the screen needs before it can be used**, such as a list to choose from: a
+    message with a **Try again** button takes the place of the form.
+  - **The screen failing while it draws:** the app's "Something went wrong" page, with
+    **Reload**.
+- **Actions that change data are never retried automatically.** The user retries by pressing the
+  button again. Reads may retry quietly a few times before showing the message.
+- **Every action is safe to retry.** After a timeout the user can't tell whether the action
+  happened, so the API makes repeating it harmless: a repeat is refused as a duplicate or does
+  nothing more. That's what lets the message say "try again".
+- **A reference the user can quote to support.** When the server answered with an error, the
+  message shows its trace ID as "Reference: …", so support can find it in the logs. When the
+  request never reached the server, there's no reference to show.
+
+Wording for an action: "Throughline didn't respond, so the SKU may not have been added. Your
+entries are kept; try again." plus "Reference: …" when there is one.
+
+---
+
 ## Quick checklist
 
 - [ ] Domain dates are `AppDateTime` or `NonFutureDateTime`
@@ -68,3 +123,7 @@ ALTER TABLE orders.orders ADD COLUMN priority integer;
 - [ ] Schema changes are expand changesets, with no `--rollback`; a contraction has its own issue
 - [ ] A fault in prod's schema is fixed by a new changeset, never by rolling prod back
 - [ ] Applied changesets are never edited; a fix is a new changeset
+- [ ] Screens don't repeat business rules; they show the API's reasons under each field
+- [ ] 401 and 403 go to the app-wide pages, not per-screen messages
+- [ ] Unexpected failures show one message, keep what was entered, and show a reference when there is one
+- [ ] Actions that change data are never retried automatically, and the API makes them safe to retry
