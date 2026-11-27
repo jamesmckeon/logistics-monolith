@@ -60,6 +60,209 @@ ALTER TABLE orders.orders ADD COLUMN priority integer;
 
 ---
 
+## API modules and endpoints
+
+How a module and its HTTP endpoints are built, so a new module, or a new endpoint in an existing
+one, doesn't decide it again. ADR-0001 (validation failures), ADR-0002 (module extractability) and
+ADR-0003 (authorization) apply alongside these.
+
+### Projects and folders
+
+- **A module is `Throughline.Modules.{Module}`, tested by `Throughline.Modules.{Module}.Tests`.**
+  It has a `Throughline.Modules.{Module}.Contracts` project only when it publishes integration
+  events.
+- **A module references the shared projects and other modules' `.Contracts` only**, never another
+  module's main project. A `.Contracts` project references only `Throughline.Common` and has
+  `Events/` and `Models/` folders.
+- **`InternalsVisibleTo`** names the module's tests, `Throughline.Api.Tests` and
+  `DynamicProxyGenAssembly2`.
+- **Types are `sealed` and `internal`**, commands and models included, unless something outside the
+  module needs them. One type per file.
+- **Folders:**
+  - `Application/{Action}/` holds `{Action}Command`, `{Action}Handler` and `{Action}Result`, with no
+    subfolder.
+  - `Application/Queries/` holds `{Get…}Query` classes; `Application/Models/` holds the
+    `{Thing}Model` types they return.
+  - `Auth/{Module}Policies.cs` holds the policy names.
+  - `Domain/` holds the domain, including repository interfaces. A module with no domain of its
+    own, such as Platform, has no `Domain/`.
+  - `Infrastructure/Db/` holds the DbContext, with `Configurations/`, `Converters/` and `Models/`.
+  - `Infrastructure/Common/` holds `InfrastructureSettings` and, where there is one, the unit of
+    work.
+  - `Infrastructure/Events/` holds the module's integration event handlers.
+  - `Presentation/{Module}Extensions.cs` registers the module and maps every one of its endpoints.
+
+### Domain and persistence
+
+- **Repository interfaces live in `Domain/`**, unless there's a good reason not to.
+- **The domain stays as pure as possible.** Domain classes are mapped by configurations in
+  `Infrastructure/Db/Configurations/`. When mapping a domain class directly would push a
+  persistence concern into it, such as a public setter, a constructor only EF needs or a property
+  only the database needs, map a separate class in `Infrastructure/Db/Models/` and convert between
+  the two.
+- **The DbContext implements the module's repository interfaces**, and each interface is
+  registered against the same scoped instance, so they all share one change tracker. Don't
+  register a separate repository class per interface.
+- **Repositories may save.** Add an `IUnitOfWork`, interface and implementation both in
+  `Infrastructure/Common/`, only when a handler needs to control when changes are saved, such as
+  saving more than once in a request.
+- **Queries read straight from the DbContext.** A `{Get…}Query` projects rows into `{Thing}Model`
+  types with `AsNoTracking`, without loading domain classes. Commands go through the domain and its
+  repositories. A separate read store, projections, eventual consistency and event sourcing haven't
+  been needed yet; add them when a story does.
+- **Concurrency is handled case by case**, with a comment saying why the case needs it: an
+  optimistic concurrency check, a row lock, a unique index or a single atomic statement.
+- **A unique-key violation is caught by `SqlState` and a constraint-name constant**:
+  `PostgresErrorCodes.UniqueViolation` and a constant such as
+  `OrderRecordConfiguration.OwnerReferenceIndexName`, never a string written at the catch.
+- **The schema name is `InfrastructureSettings.SchemaName`.** The module registers its context with
+  `AddModuleDbContext<TContext>(configuration, InfrastructureSettings.SchemaName)`, and the context
+  calls `HasDefaultSchema(InfrastructureSettings.SchemaName)` and `ApplyConfigurationsFromAssembly`.
+  Its changesets go in the folder named after the schema, such as `db/changelog/orders/` for
+  Ordering.
+- **Value converters** for the module's value types live in `Infrastructure/Db/Converters/` and are
+  registered in the DbContext's `ConfigureConventions`.
+
+### Registering a module
+
+- **`Presentation/{Module}Extensions.cs`** has `public const string {Module}Route`,
+  `Add{Module}(IServiceCollection, IConfiguration)` and `Map{Module}(IEndpointRouteBuilder)`.
+  `Program.cs` calls `Add{Module}` with the other modules' and `Map{Module}` after the app is built.
+- **`Add{Module}` registers the DbContext, then handlers, queries and services, then policies.**
+  Handlers and queries are registered as their own scoped classes, without an interface.
+- **Settings are bound with `AddOptions<T>().Bind(…).Validate(…).ValidateOnStart()`**, so a missing
+  or malformed setting stops the app at startup instead of failing the first request.
+- **A module that handles integration events adds its assembly to Wolverine's discovery** in
+  `Program.cs` (`opts.Discovery.IncludeAssembly(…)`). Wolverine finds handlers only in the
+  assemblies it's given.
+
+### Routes
+
+- **One route group per module, at the module's name** (`/inventory`, `/receiving`), with
+  `.WithTags("{Module}")`.
+- **Resources are plural, kebab-case nouns:** `/platform/dead-letters`.
+- **An action is a verb after its collection:** `POST /inventory/orders/allocate`. **A named list is
+  a fixed segment:** `GET /inventory/orders/unreleased`.
+- **Route ids carry a type constraint:** `{orderId:guid}`.
+- **The owner is never in the path.** It comes from the `owner_id` header, through
+  `RequestContext.OwnerId` (ADR-0003).
+
+### Requests and responses
+
+- **The request body binds straight to the `{Action}Command`.** There's no separate request class.
+- **Endpoints return the Application types:** `{Action}Result` and `{Thing}Model`. A
+  `{Action}Response` in `Presentation/` is added only when the HTTP shape has to differ from the
+  Application type.
+- **A list is wrapped in an object** (`{ "deadLetters": [ … ] }`), so paging can be added later
+  without changing the response's shape.
+- **JSON uses the framework defaults**: camelCase property names. Dates are `DateTimeOffset`.
+  Responses carry `OwnerId`.
+- **Status, outcome and error-code strings are UPPER_SNAKE:** `FULLY_ALLOCATED`, `ORDER_NOT_FOUND`.
+  An enum's `ToString()` never goes into a response.
+- **Success codes:** a read answers 200. A create answers 201, with a `Location` header when the
+  resource it created has a GET.
+- **Every endpoint declares its responses** for OpenAPI: typed results (`Results<Ok<T>,
+  NotFound<ProblemDetails>>`) when the lambda builds every response itself, or `.Produces<T>()`,
+  `.ProducesValidationProblem()` and `.ProducesProblem(statusCode)` when it returns
+  `ToFailureResponse()`, whose `IResult` OpenAPI can't see into.
+
+### Errors
+
+- **Every error response is problem details:** 400, 404 and 409 included, and errors particular to
+  one endpoint too. Never a bare list or an empty body.
+- **A failed `Result<T>` becomes its response through `.ToFailureResponse()`:** validation is 400,
+  conflict is 409 and not found is 404.
+- **Another owner's item is not found (404), never 403**, so a caller can't probe for ids it
+  doesn't own.
+- **A field error names the field as its JSON property** (`purchaseOrderNumber`), so a screen can
+  put the reason under that field. A required field's reason is "<field> is required.". A bad
+  query-string value names its parameter (`batchSize`).
+- **Every error response carries the request's trace ID**, which screens show as "Reference: …".
+- **Unhandled exceptions become a 500 in `GlobalExceptionHandler`.** Endpoints don't catch
+  exceptions to turn them into responses.
+
+### Endpoints and handlers
+
+- **An endpoint is a lambda in `Map{Module}` that calls one handler or query and turns its result
+  into a response.** It holds no logic of its own. It takes the request's values, the handler or
+  query, `RequestContext`, `ILoggerFactory` and a `CancellationToken`. There's no mediator.
+- **A command handler is `{Action}Handler.{Action}Async(int ownerId, Guid callerId, {Action}Command
+  command, CancellationToken token)`**, returning `Task<Result<{Action}Result>>`. **A query is
+  `{Get…}Query.Get…Async(int ownerId, …, CancellationToken token)`**, returning `Task<Result<T>>`.
+  A missing item is `Result<T>.NotFound`.
+- **`ownerId` comes first** in every handler, query and repository method that takes one. **The
+  token comes last**, as `CancellationToken token`, with no default.
+- **Responses are built with `TypedResults`**, not `Results`.
+- **The `CancellationToken` is passed all the way down to EF.** Clean-up after a failure uses
+  `CancellationToken.None`, because the request's token may be the thing that was cancelled.
+
+```csharp
+group.MapGet("/orders/{orderId:guid}", async (
+        Guid orderId,
+        RequestContext requestContext,
+        ILoggerFactory loggerFactory,
+        GetOrderQuery query,
+        CancellationToken token) =>
+    {
+        using var _ = LoggerScopeFactory.OwnerScope(
+            loggerFactory.CreateLogger("Inventory"), requestContext.OwnerId);
+
+        var result = await query.GetOrderByIdAsync(requestContext.OwnerId, orderId, token);
+
+        return result.Succeeded ? TypedResults.Ok(result.Value) : result.ToFailureResponse();
+    })
+    .RequireAuthorization(InventoryPolicies.ReadAllocatedOrder)
+    .Produces<OrderAllocationModel>()
+    .ProducesProblem(StatusCodes.Status404NotFound);
+```
+
+### Validation
+
+- **Validation collects every failure it finds** (ADR-0001), cheapest checks first: the command's
+  `Validate()` returns a `Result`, then domain factories (`X.Create(…)`) return `Result<X>`, then
+  checks that need the database run.
+- **Required fields are checked first**, in `Validate()`, so a missing field is a 400 and never
+  reaches code that would fail on a null.
+
+### Authorization and owner scoping
+
+- **Each permission is a policy** (ADR-0003): a constant in `internal static class
+  {Module}Policies`, named for the permission (`ReceiveDelivery`), registered in `Add{Module}`
+  with `RequireRole(ThroughlineRoles.X)`. Each endpoint calls
+  `.RequireAuthorization({Module}Policies.X)`.
+- **The host adds the owner-role check to every policy.** A policy over every owner's data, such as
+  Platform's, adds `NotOwnerScopedRequirement` instead, and its endpoints take the owner as an
+  optional filter.
+- **The owner is `RequestContext.OwnerId` and the caller is `RequestContext.CallerId`.** Every query
+  and every write filters by owner.
+
+### Integration events
+
+- **An event is a `{Thing}IntegrationEvent` sealed record** in `{Module}.Contracts/Events/`,
+  deriving from `IntegrationEventBase(CreatedBy)`. It carries `int OwnerId` first, `DateTimeOffset`
+  dates and `IReadOnlyCollection<T>` lists. Data nested in it is a `{Thing}Model` in
+  `Contracts/Models/`.
+- **An event is published through `IDbContextOutbox`**, in the same save as the change that caused
+  it.
+- **A consumer is a `{Thing}Handler`** in its module's `Infrastructure/Events/`, marked
+  `[Transactional(typeof(TDbContext))]`, with `Handle(message, TDbContext db, ILogger<T> logger,
+  CancellationToken token)`. Missing master data throws `MissingDependencyException`, which is
+  retried later; data that can never succeed throws `UnrecoverableMessageException`, which is
+  dead-lettered.
+- **Modules talk to each other only through integration events and `.Contracts`.**
+
+### Logging
+
+- **An owner-scoped endpoint opens
+  `LoggerScopeFactory.OwnerScope(loggerFactory.CreateLogger("{Module}"), requestContext.OwnerId)`**,
+  which tags the request's span with `owner_id` and puts `OwnerId` on every log record. An event
+  handler opens `logger.BeginScope("Owner {OwnerId}", message.OwnerId)`.
+- **Handlers log their decisions at Information**, with placeholders: `{OwnerId}`, no `@` for plain
+  values. Unexpected exceptions are logged at Error by `GlobalExceptionHandler` or Wolverine; code
+  doesn't catch them only to log them.
+
+---
+
 ## Web app screens
 
 How every screen in the web app (`src/web`) behaves, so each screen's design doesn't decide it
@@ -132,6 +335,16 @@ entries are kept; try again." plus "Reference: …" when there is one.
 - [ ] Schema changes are expand changesets, with no `--rollback`; a contraction has its own issue
 - [ ] A fault in prod's schema is fixed by a new changeset, never by rolling prod back
 - [ ] Applied changesets are never edited; a fix is a new changeset
+- [ ] A module references only the shared projects and other modules' `.Contracts`; its types are `sealed` and `internal`
+- [ ] Repository interfaces live in `Domain/`; persistence concerns stay out of domain classes
+- [ ] Queries project straight from the DbContext with `AsNoTracking`; commands go through the domain
+- [ ] Routes sit under the module's name, with plural kebab-case nouns and typed route ids
+- [ ] Endpoints return Application types, declare their responses, and build them with `TypedResults`
+- [ ] Every error response is problem details, names fields as their JSON properties and carries the trace ID
+- [ ] Handlers return `Result<T>`, take `ownerId` first and `CancellationToken token` last, and collect every validation failure
+- [ ] Every endpoint requires a `{Module}Policies` permission, and every query and write filters by owner
+- [ ] Status, outcome and error-code strings are UPPER_SNAKE
+- [ ] Owner-scoped endpoints open `LoggerScopeFactory.OwnerScope`
 - [ ] Screens don't repeat business rules, apart from required fields; they show the API's reasons under each field
 - [ ] Screens don't send with a required field empty and say "<Field> is required."; the API checks required fields too
 - [ ] Adding something that already exists gets a 409, shown as "already exists" like any refusal
