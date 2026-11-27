@@ -129,6 +129,13 @@ Splitting rules:
   issue.
 - Split further only when a piece can be verified on its own and either ships separately or
   has a different dependency. Never split by layer or by technique.
+- Consider a child for each module that consumes an event the issue publishes, apart from the
+  publisher's child. This is a split by module, not by layer. Propose it in the work plan when
+  the consumer is a different module from the publisher, already exists, and the issue gives it
+  an outcome someone can check in that module's own work, such as a delivery being received or
+  an order line being allocated. Each consumer child depends on the event contract being
+  agreed, not built. When any of those doesn't hold, ask under Scope instead, with a suggested
+  answer.
 - The UI child depends on the backend child's **contract being agreed**, not on the backend
   being built, so both can start at once.
 - A schema change belongs to the child whose code needs it. If it leaves a contraction for
