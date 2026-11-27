@@ -1,6 +1,6 @@
 ---
 name: design-issue
-description: Functional design for a UI GitHub issue - use cases, a clickable mockup of every screen state, validation and traceability to its acceptance criteria, plus the API contract the screen needs if the backend issue lacks one. Analysis and design only; never changes code or repo files.
+description: Functional design for a GitHub issue. For a UI issue - use cases, a clickable mockup of every screen state, validation and traceability to its acceptance criteria, plus the API contract the screen needs if the backend issue lacks one. For a backend issue - the contract callers and other modules build against - routes, announcements to other modules, permissions and what callers can count on. Analysis and design only; never changes code or repo files.
 argument-hint: "[issue-number]"
 arguments: [issue]
 disable-model-invocation: true
@@ -9,9 +9,10 @@ allowed-tools: Bash(gh issue view *) Bash(gh issue list *)
 
 # design-issue
 
-Produce the functional design for GitHub issue **#$issue**: its use cases, and what the user
-sees and does, in enough detail for a UI developer to build it. You act as the business analyst and functional
-designer; the person running this skill is the subject matter expert.
+Produce the functional design for GitHub issue **#$issue**: for a UI issue, its use cases and
+what the user sees and does, in enough detail for a UI developer to build it; for a backend
+issue, the contract its callers and other modules build against. You act as the business
+analyst and functional designer; the person running this skill is the subject matter expert.
 
 If the issue number above is missing or isn't a number, ask for it and stop.
 
@@ -24,9 +25,11 @@ These hold for the whole time this skill runs, whatever is asked mid-way:
   run tests; read them instead. The mockup page (step 4) is written in the session's
   scratchpad and published as an Artifact, never saved in the repo.
 - **No implementation and no technical design.** No component names, state management,
-  styling, libraries or file layout. The one technical artifact is the HTTP contract (step 4),
-  and only when it's missing. If asked to implement, say that's outside this skill. The
-  mockup's look is illustration, not design (see "Mockup").
+  styling, libraries or file layout. The one technical artifact is the contract: in UI design,
+  the routes the screen needs and only when they're missing (step 4); in API design, the
+  issue's contract (step 4), limited to what callers and other modules see. No classes,
+  tables, locking or other internals. If asked to implement, say that's outside this skill.
+  The mockup's look is illustration, not design (see "Mockup").
 - **GitHub changes only after explicit approval** (see "Approve"). Reading issues needs no
   approval. Never create, close or delete issues.
 - **The issue is the agreed scope.** The design implements its acceptance criteria. Anything
@@ -42,11 +45,15 @@ Read, don't ask:
 - The parent and its other sub-issues, especially the **backend sibling** (`Developer:
   Backend`) the screen is built against.
 - The code behind the screen: domain types and their validation rules, existing endpoints in
-  the module the backend sibling touches, authorization (ADR-0003), how `OwnerId` is scoped.
+  the module the backend sibling touches, authorization, how `OwnerId` is scoped.
 - Any existing UI code and its conventions. There may be none yet; don't invent a design
   system or component library.
-- The project rules: `.claude/CLAUDE.md`, the ADRs in `docs/decisions/`, and
-  `docs/conventions.md`, especially **Web app screens**. That section settles how every screen
+- For a backend issue: the UI sibling's `## Design`, if it has one; the integration events
+  the module publishes or handles, and the modules on the other side of them
+  (`*.Contracts/Events/`, `Infrastructure/Events/`); and **API modules and endpoints** in
+  `docs/conventions.md`, which settles routes, requests and responses, errors, permissions and
+  integration events. Apply it; don't ask about it or design it again.
+- The project rules: `.claude/CLAUDE.md` and `docs/conventions.md`, especially **Web app screens**. That section settles how every screen
   handles business rules, 401 and 403, and failures to reach the API. Apply it; don't ask about
   it or design it again.
 
@@ -56,7 +63,8 @@ answer, cite it inline (the issue, comment, `file:line` or doc).
 
 ### Contract status
 
-Work out, for each lookup and action the screen will need, whether its contract exists:
+For a UI issue, work out, for each lookup and action the screen will need, whether its
+contract exists (API design has its own, in its step 2):
 
 - **Exists**: the endpoint is in the code, or the backend sibling's `## Contract` section
   describes it (not just the placeholder saying it will be posted). Design against it as is.
@@ -73,9 +81,10 @@ Decide what kind of issue this is before any analysis:
 | The issue | Do |
 |---|---|
 | Says `Developer: UI`, or its criteria describe what a user sees or does on a screen | Continue with **UI design** |
-| Is a parent with a UI sub-issue | Name the sub-issue, suggest `/design-issue <n>`, stop |
+| Says `Developer: Backend`, or its criteria describe what a caller can read or do through the API, or what other modules are told | Continue with **API design** |
+| Is a parent with UI or backend sub-issues | Name the sub-issues, suggest `/design-issue <n>` for each, stop |
 | Has no acceptance criteria | Suggest `/intake-issue $issue` first, stop |
-| Is only backend, data, infrastructure or tooling work | Say in one line that this skill only designs UI issues for now, stop |
+| Is only data, infrastructure or tooling work, with nothing a caller or another module sees | Say in one line that this skill designs UI and API issues only, stop |
 
 Stopping makes no changes. Further kinds of design are added later as their own sections
 alongside **UI design**, with a row here routing to each.
@@ -234,8 +243,8 @@ Wording rules:
 
 Replaces the backend sibling's `## Contract` section, or adds to it when part of it exists.
 Draft only the routes the screens call, and follow the API as it is today: the route style of
-the existing endpoints in that module, a `400` problem-details response listing every failing
-field (ADR-0001, `ResultProblemMapper.cs`), and the authorization responses from ADR-0003.
+the existing endpoints in that module, and the errors and authorization responses in **API
+modules and endpoints** in `docs/conventions.md`.
 For each route:
 
 ```
@@ -280,10 +289,184 @@ left (or one line saying none are):
   written design. The mockup carries its illustration note.
 - Every assumption is labelled, and cites its source where it has one.
 
+## API design
+
+### 2. Draft the operations and ask
+
+#### Contract status
+
+Work out, for each route and announcement the issue's criteria call for, whether its contract
+exists:
+
+- **Built**: it's in the code. Design against it as is; changing it is a proposed scope change.
+- **Drafted**: this issue's `## Contract` section describes it (not just the placeholder
+  saying it will be posted), for example drafted by the UI sibling's design. Keep it; it may
+  change under "Sharing the contract with a UI design".
+- **Missing**: drafted in step 4.
+
+An announcement belongs to the issue whose module sends it. An issue that handles another
+module's announcement designs against the sender's contract. If the sender's `## Contract`
+doesn't describe it yet, say so, suggest `/design-issue <sender>` first, and continue; never
+draft in the sender's issue.
+
+If the issue has a UI sibling with no approved design yet, say once that designing the screen
+first keeps the contract to what the screen reads, and continue.
+
+#### Round 1
+
+Send one message:
+
+```
+## #<n> <title>: API design, round 1
+
+Contract: <for each route: built, drafted or missing>
+Announcements: <sends … | handles … from #<n> | none>
+
+Callers and listeners
+- <who calls or listens, as the issue names them: a screen (#<n>), a module (#<n>), a service or person>
+
+Operations
+| Operation | Serves |
+
+<a scenario for each operation, see "Scenarios" below>
+
+Questions
+- Q1 <question> Suggested: <answer>, because <one line>
+```
+
+The operations and their scenarios are the first question: a draft contract the expert can
+react to beats abstract questions. Keep it rough; it's there to be corrected.
+
+#### Scenarios
+
+One per route and per announcement, only as formal as it needs to be.
+
+- **A route:** numbered steps, each what the caller does or what Throughline does in response,
+  in business terms ("refuses the SKU", not "throws"). The last step is the response.
+- **An announcement sent:** when it's sent, and when it's never sent; then, for each module
+  that listens, what it does with it.
+- **An announcement handled:** what this module records or does when told; what it does when
+  told more than once; and what it does when master data it needs isn't there yet (set aside
+  and retried, not refused).
+- **Extensions** are keyed to the step where they happen (`2a`, `2b`), and give the condition
+  and the response or outcome: "2b. The owner already has the code → 409; nothing is added."
+  Refusals, missing access, another owner's item, a repeat after a timeout and two requests at
+  the same moment are extensions where they apply.
+- **Decide the contract yourself** where `docs/conventions.md` doesn't settle it: what each
+  response carries (only what a caller or listener reads), sort order, field names. Mark each
+  choice `[A<n>]` where it appears, citing its source where it has one, and go ahead on it
+  unless the expert says no.
+- **Say what callers can count on, never how.** "Two identical adds at the same moment: one is
+  added, the other refused as already exists", not "a unique index". Use the scale baseline in
+  `.claude/CLAUDE.md` unless the issue says otherwise.
+
+Questions follow the UI design's rules (step 2): business knowledge only, at most 5 a round,
+numbered across rounds, each with a suggested answer.
+
+### 3. Iterate
+
+After each reply, fold the answers into the design and re-show only what changed. Ask again
+only about what's still open.
+
+Stop asking when:
+
+- every acceptance criterion maps to an operation, a response or an announcement,
+- every response and extension has a stated condition,
+- where the UI sibling has an approved design, every screen action that reads or changes data
+  has a route, and every response a route can give has a place on that screen, and
+- what's still unknown doesn't change the contract.
+
+Don't chase completeness past that point; leftovers go under the issue's `## Not settled`.
+
+### 4. Draft
+
+Send everything in one message: the contract, any proposed scope changes and the validation
+result.
+
+#### Contract
+
+Replaces the issue's `## Contract` section, or adds one when the issue has none. Include a
+subsection only if it adds something:
+
+```
+## Contract
+
+Follows the API as it is today: <the module's route group, the owner_id header, problem details
+keyed by field (docs/conventions.md)>. <A missing owner_id header, or one naming an owner the
+caller doesn't hold, gets 403.>
+
+### <what it does>
+`<METHOD> <route>`, header `owner_id` (or: no `owner_id` header)
+
+Request:   <fields, types, required>
+Responses:
+- <code>: <body>
+- 400: field errors: <field>: <each rule it can break>
+- 401 / 403 / 404 / 409: <when>
+
+### Integration event: <what happened>
+When: <when it's sent, and when it's never sent>
+Carries: <fields>
+Handled by:
+- <module (#n)>: <what it does with it>
+
+<Either module may be told about the same <thing> more than once.>
+
+### Integration event handled: <what happened>, from #<sender>
+<what this module records or does; told more than once; master data not there yet>
+```
+
+- **Routes use the same format whichever design drafts them**, so the UI design's routes and
+  the API design's read the same.
+- **A 400 lists each rule a field can break.** Its wording is set when it's built, except
+  where `docs/conventions.md` sets it ("<field> is required.").
+- **An announcement carries only what a module that handles it reads.**
+
+#### Sharing the contract with a UI design
+
+Whichever design runs first drafts the routes; the second finishes them:
+
+1. **A built route is fixed.** Changing it is a proposed scope change.
+2. **A drafted route can change.** When the change affects what the UI sibling's approved
+   design shows or handles, list the sibling under "Proposed scope changes" for
+   `/design-issue <sibling>`. Never edit it.
+3. **The API design's additions are their own subsections** (the integration event sections),
+   so the routes a screen relies on stay recognisable.
+
+#### Proposed scope changes
+
+Show each as an edit to the issue's acceptance criteria, with a one-line reason. Changes to
+this issue's criteria are applied on approval. Changes the parent or a sibling would need,
+including a UI sibling's re-design, are listed only, never applied.
+
+#### Validation
+
+Check the drafts before sending them, and fix what you can. Report only the problems that are
+left (or one line saying none are):
+
+- Every acceptance criterion is covered by a route, a response or an integration event, and
+  nothing in the contract falls outside the criteria except a proposed scope change.
+- The contract follows **API modules and endpoints** in `docs/conventions.md`. A route that
+  needs to depart from it is a proposed scope change, not a quiet exception.
+- Every route reads and changes only the named owner's data, another owner's item is not found,
+  and access matches the issue.
+- Every announcement carries only what a module that handles it reads, and every module that
+  handles it is named with its issue.
+- The contract says what a caller or listener sees, not how it's achieved: no classes,
+  tables, locking or other internals.
+- Where the UI sibling has an approved design, every screen action that reads or changes data
+  has a route, every response has a place on screen, and every change that affects it is
+  listed.
+- The contract uses the same names for the same things as the issue, the UI design and the
+  code.
+- Every assumption is labelled, and cites its source where it has one.
+
 ## 5. Approve
 
 End the draft message by asking for approval of everything shown, listing each GitHub change
-it would make (the design on #$issue, the contract on #<backend>, criteria edits on #$issue).
+it would make: for UI design, the design on #$issue, the contract on #<backend> and criteria
+edits on #$issue; for API design, the contract and criteria edits on #$issue, and any sibling
+listed for re-design (listed only).
 
 - Approval covers exactly the drafts shown, the mockup included. If anything changes
   afterwards, republish or show the changed draft and ask again.
@@ -296,9 +479,12 @@ Edit only the approved sections; keep the rest of each body exactly as it is.
 
 1. Re-read each body (`gh issue view <n> --json body`). If it changed since you drafted, stop,
    show what changed, and ask how to continue.
-2. If there's a contract, update the backend issue first: `gh issue edit <backend> --body-file -`.
-3. Update #$issue: its `## Design` section, with the mockup link in place of any placeholder
-   or earlier wireframes, and any approved criteria edits. Don't post the mockup as a comment.
+2. UI design: if there's a contract, update the backend issue first:
+   `gh issue edit <backend> --body-file -`. Then update #$issue: its `## Design` section, with
+   the mockup link in place of any placeholder or earlier wireframes, and any approved criteria
+   edits. Don't post the mockup as a comment.
+3. API design: update #$issue: its `## Contract` section, added after `## Depends on` when the
+   issue has none, and any approved criteria edits.
 4. Report each updated issue as a link.
 
 If a step fails, stop. Say what was done and what wasn't, and ask how to continue. Don't retry
