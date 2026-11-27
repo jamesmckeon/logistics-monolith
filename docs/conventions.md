@@ -32,8 +32,9 @@ order.StartAllocating(DateTimeOffset.UtcNow);
 
 ## Schema changes
 
-Schema changes are Liquibase changesets, written in SQL, in `db/changelog/<module>/changes/`: one
-file per change, named `yyyyMMddHHmm-description.sql`. EF Core maps and queries; it doesn't migrate.
+Schema changes are Liquibase changesets, written in SQL, in `db/changelog/<schema>/changes/`, the
+folder named after the schema (Ordering's is `orders`): one file per change, named
+`yyyyMMddHHmm-description.sql`. EF Core maps and queries; it doesn't migrate.
 
 - **Expand, then contract.** Every change leaves the schema working for the code running now.
   Drops and renames wait until no code on any environment uses the old structure; track each one
